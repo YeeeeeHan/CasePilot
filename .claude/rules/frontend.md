@@ -1,4 +1,31 @@
-# Frontend Rules (React + TipTap)
+# Frontend Rules (React + TipTap + shadcn/ui)
+
+## UI Bedrock: shadcn/ui
+
+We strictly enforce **shadcn/ui** as the foundational design system. All UI components must originate from or align with this library.
+
+### Workflow for Adding UI
+
+1. **Check Existing**: First, look in `src/components/ui/`. If the component exists (e.g., `Button`, `Input`), USE IT.
+2. **Check Available**: If not present, check if a shadcn equivalent exists (e.g., `resizable`, `sonner`, `table`, `dialog`).
+3. **Install via CLI**: Use the CLI to add it. **DO NOT** install raw libraries manually.
+   - **Good**: `npx shadcn@latest add resizable`
+   - **Bad**: `npm install react-resizable-panels`
+4. **Custom Fallback**: Only build custom components or install raw libraries if NO shadcn wrapper exists.
+
+### Class Merging
+
+ALWAYS use the `cn()` utility from `@/lib/utils` for merging Tailwind classes. This ensures `tailwind-merge` handles conflicts correctly.
+
+```typescript
+import { cn } from "@/lib/utils";
+
+// Good
+<div className={cn("p-4 bg-white", className)} />
+
+// Bad
+<div className={`p-4 bg-white ${className}`} />
+```
 
 ## Component Patterns
 
