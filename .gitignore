@@ -46,3 +46,8 @@ next-env.d.ts
 
 # AI Models (downloaded separately)
 *.gguf
+
+# production
+/build
+/dist
+/dist-ssr

@@ -13,8 +13,8 @@
     "deny": [
       "Read(./.env*)",
       "Read(./secrets/**)",
-      "Bash(rm -rf*)",
-      "Bash(*--force*)"
+      "Bash(rm -rf:*)",
+      "Bash(:*--force:*)"
     ]
   },
   "hooks": {
