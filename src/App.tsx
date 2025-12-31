@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { AppLayout } from "./components/layout/AppLayout";
 import {
   ProjectSwitcher,
@@ -14,6 +15,12 @@ import {
   type Case as DbCase,
   type Document as DbDocument,
 } from "./hooks/useInvoke";
+import {
+  reorderArray,
+  recalculatePageRanges,
+  recalculateTabNumbers,
+} from "./lib/pagination";
+import { Toaster } from "./components/ui/sonner";
 
 export interface Document {
   id: string;
@@ -47,6 +54,9 @@ function App() {
 
   // Zone D: Preview state
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Store previous index entries for undo functionality
+  const previousIndexEntriesRef = useRef<IndexEntry[]>([]);
 
   // Load cases on mount
   useEffect(() => {
@@ -107,13 +117,17 @@ function App() {
   }, []);
 
   // Handle file drop in staging area
-  const handleFileDrop = useCallback((files: FileList) => {
-    const newFiles: StagedFile[] = Array.from(files).map((file, index) => ({
-      id: `staged-${Date.now()}-${index}`,
-      name: file.name,
-      status: "unprocessed" as const,
-      pageCount: undefined, // Would be determined after PDF parsing
-    }));
+  const handleFileDrop = useCallback((filePaths: string[]) => {
+    const newFiles: StagedFile[] = filePaths.map((path, index) => {
+      // Extract filename from full path
+      const name = path.split(/[\\/]/).pop() || path;
+      return {
+        id: `staged-${Date.now()}-${index}`,
+        name,
+        status: "unprocessed" as const,
+        pageCount: undefined, // Would be determined after PDF parsing
+      };
+    });
     setStagedFiles((prev) => [...prev, ...newFiles]);
   }, []);
 
@@ -182,6 +196,43 @@ function App() {
     );
   }, []);
 
+  // Handle drag-to-reorder in Master Index
+  const handleReorderEntries = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      // Store current state for potential undo
+      previousIndexEntriesRef.current = indexEntries;
+
+      // Reorder the array
+      let reordered = reorderArray(indexEntries, fromIndex, toIndex);
+
+      // Recalculate tab numbers (1, 2, 3...)
+      reordered = recalculateTabNumbers(reordered);
+
+      // Recalculate page ranges based on new order
+      reordered = recalculatePageRanges(reordered);
+
+      // Update state
+      setIndexEntries(reordered);
+
+      // Show toast with undo option
+      toast.success(`Moved to position ${toIndex + 1}`, {
+        description: "All page numbers recalculated automatically.",
+        action: {
+          label: "Undo",
+          onClick: () => {
+            if (previousIndexEntriesRef.current.length > 0) {
+              setIndexEntries(previousIndexEntriesRef.current);
+              previousIndexEntriesRef.current = [];
+              toast.info("Reorder undone");
+            }
+          },
+        },
+        duration: 5000,
+      });
+    },
+    [indexEntries],
+  );
+
   // Handle export
   const handleExport = useCallback(() => {
     // TODO: Implement bundle compilation via Tauri command
@@ -208,48 +259,52 @@ function App() {
   }
 
   return (
-    <AppLayout
-      sidebar={
-        <ProjectSwitcher
-          cases={projectCases}
-          activeCaseId={activeCaseId}
-          onSelectCase={handleSelectCase}
-          onCreateCase={handleCreateCase}
-        />
-      }
-      staging={
-        <StagingArea
-          files={stagedFiles}
-          onFileDrop={handleFileDrop}
-          onFileSelect={(fileId) => {
-            setSelectedStagedFileId(fileId);
-            // Double-click could add to index (for now, single click selects)
-            const file = stagedFiles.find((f) => f.id === fileId);
-            if (file && file.status !== "bundled") {
-              handleAddToIndex(fileId);
-            }
-          }}
-          selectedFileId={selectedStagedFileId}
-        />
-      }
-      masterIndex={
-        <MasterIndex
-          entries={indexEntries}
-          selectedEntryId={selectedEntryId}
-          onSelectEntry={handleSelectEntry}
-          onDescriptionChange={handleDescriptionChange}
-          onStatusToggle={handleStatusToggle}
-        />
-      }
-      preview={
-        <BundlePreview
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          onExport={handleExport}
-        />
-      }
-    />
+    <>
+      <AppLayout
+        sidebar={
+          <ProjectSwitcher
+            cases={projectCases}
+            activeCaseId={activeCaseId}
+            onSelectCase={handleSelectCase}
+            onCreateCase={handleCreateCase}
+          />
+        }
+        staging={
+          <StagingArea
+            files={stagedFiles}
+            onFileDrop={handleFileDrop}
+            onFileSelect={(fileId) => {
+              setSelectedStagedFileId(fileId);
+              // Double-click could add to index (for now, single click selects)
+              const file = stagedFiles.find((f) => f.id === fileId);
+              if (file && file.status !== "bundled") {
+                handleAddToIndex(fileId);
+              }
+            }}
+            selectedFileId={selectedStagedFileId}
+          />
+        }
+        masterIndex={
+          <MasterIndex
+            entries={indexEntries}
+            selectedEntryId={selectedEntryId}
+            onSelectEntry={handleSelectEntry}
+            onDescriptionChange={handleDescriptionChange}
+            onStatusToggle={handleStatusToggle}
+            onReorder={handleReorderEntries}
+          />
+        }
+        preview={
+          <BundlePreview
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            onExport={handleExport}
+          />
+        }
+      />
+      <Toaster />
+    </>
   );
 }
 

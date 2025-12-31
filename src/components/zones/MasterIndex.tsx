@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -35,12 +36,57 @@ export function MasterIndex({
   entries,
   selectedEntryId,
   onSelectEntry,
+  onReorder,
   onDescriptionChange,
   onStatusToggle,
 }: MasterIndexProps) {
+  // Drag state
+  const [draggedEntryId, setDraggedEntryId] = useState<string | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   const formatPageRange = (start: number, end: number) => {
     if (start === end) return `p. ${start}`;
     return `pp. ${start}-${end}`;
+  };
+
+  // Drag handlers
+  const handleDragStart = (
+    e: React.DragEvent,
+    entryId: string,
+    index: number,
+  ) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("entryId", entryId);
+    e.dataTransfer.setData("fromIndex", String(index));
+    setDraggedEntryId(entryId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, toIndex: number) => {
+    e.preventDefault();
+    const fromIndex = parseInt(e.dataTransfer.getData("fromIndex"));
+
+    if (fromIndex !== toIndex && !isNaN(fromIndex)) {
+      onReorder?.(fromIndex, toIndex);
+    }
+
+    // Clear drag state
+    setDraggedEntryId(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedEntryId(null);
+    setDragOverIndex(null);
   };
 
   return (
@@ -73,22 +119,31 @@ export function MasterIndex({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries.map((entry) => (
+              {entries.map((entry, index) => (
                 <TableRow
                   key={entry.id}
                   data-state={
                     selectedEntryId === entry.id ? "selected" : undefined
                   }
                   className={cn(
-                    "cursor-pointer",
+                    "cursor-pointer transition-opacity",
                     selectedEntryId === entry.id && "bg-accent",
+                    draggedEntryId === entry.id && "opacity-50",
+                    dragOverIndex === index && "border-t-2 border-t-blue-500",
                   )}
                   onClick={() => onSelectEntry?.(entry.id)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
                 >
                   <TableCell className="px-1">
                     <button
+                      draggable
                       className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+                      onDragStart={(e) => handleDragStart(e, entry.id, index)}
+                      onDragEnd={handleDragEnd}
                       onMouseDown={(e) => e.stopPropagation()}
+                      aria-label={`Reorder document ${entry.tabNumber}`}
                     >
                       <GripVertical className="h-3 w-3 text-muted-foreground" />
                     </button>

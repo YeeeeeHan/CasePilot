@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { Upload, Circle, CircleDot, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -23,7 +25,7 @@ export interface StagedFile {
 
 interface StagingAreaProps {
   files: StagedFile[];
-  onFileDrop?: (files: FileList) => void;
+  onFileDrop?: (filePaths: string[]) => void;
   onFileSelect?: (fileId: string) => void;
   selectedFileId?: string | null;
 }
@@ -55,18 +57,26 @@ export function StagingArea({
   onFileSelect,
   selectedFileId,
 }: StagingAreaProps) {
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  // Listen for Tauri file drop events
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onFileDrop && e.dataTransfer.files.length > 0) {
-      onFileDrop(e.dataTransfer.files);
-    }
-  };
+    const setupListener = async () => {
+      unlisten = await listen<string[]>("tauri://file-drop", (event) => {
+        if (onFileDrop && event.payload.length > 0) {
+          onFileDrop(event.payload);
+        }
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [onFileDrop]);
 
   return (
     <TooltipProvider>
@@ -81,22 +91,14 @@ export function StagingArea({
         </div>
 
         {files.length === 0 ? (
-          <div
-            className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:border-muted-foreground/50 transition-colors"
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-          >
+          <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:border-muted-foreground/50 transition-colors">
             <Upload className="h-8 w-8 text-muted-foreground/50 mb-2" />
             <p className="text-xs text-muted-foreground">
               Drop files here to stage
             </p>
           </div>
         ) : (
-          <div
-            className="flex-1 overflow-y-auto space-y-1"
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-          >
+          <div className="flex-1 overflow-y-auto space-y-1">
             {files.map((file) => {
               const config = statusConfig[file.status];
               const StatusIcon = config.icon;
