@@ -34,3 +34,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code local overrides
+.claude/settings.local.json
+.claude/CLAUDE.local.md
+
+# Tauri
+/src-tauri/target/
+/src-tauri/WixTools/
+/src-tauri/Cargo.lock
+
+# AI Models (downloaded separately)
+*.gguf
