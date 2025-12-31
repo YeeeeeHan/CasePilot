@@ -1,5 +1,26 @@
 # Singapore Legal Formatting Rules
 
+## Authoritative Source: ePD 2021
+
+The Supreme Court Practice Directions 2021 (ePD 2021) is the authoritative source for all formatting requirements.
+
+**Link**: https://epd2021-supremecourt.judiciary.gov.sg
+
+### Critical Sections
+
+| Section              | Paragraphs | Content                            |
+| -------------------- | ---------- | ---------------------------------- |
+| Part 10 (Affidavits) | Para 78-80 | Pagination requirements, exhibits  |
+| Part 11 (Trial Docs) | Para 102   | Bundle structure, TOC requirements |
+
+### The Sacred Rule (Para 78)
+
+> **Index Page # == PDF Footer Page # == PDF Metadata Page #**
+
+If the Table of Contents says a document starts on Page 15, the PDF page counter MUST also show Page 15. This is the #1 cause of bundle rejection and re-work.
+
+---
+
 ## Exhibit Naming Conventions
 
 ### Styles (user-configurable)
@@ -70,8 +91,27 @@ bundle.pdf
 
 Run before generating final PDF:
 
+### Pagination Checks (CRITICAL - ePD Para 78)
+
+- [ ] **TOC page numbers match PDF positions** (the #1 check)
+- [ ] All pages have pagination stamps (Page X of Y)
+- [ ] No pagination gaps (e.g., pages jump from 44 to 46)
+- [ ] Pagination stamps are in correct position (top-right corner)
+- [ ] Page count in TOC matches actual page count
+
+### Exhibit Checks
+
 - [ ] All referenced exhibits are attached
 - [ ] No orphan exhibits (attached but never referenced)
-- [ ] Page references match actual pages
+- [ ] Exhibit labels are sequential (no gaps in A, B, C...)
+
+### Content Checks
+
 - [ ] Date formats consistent (e.g., "12 October 2023")
 - [ ] Party names spelled consistently throughout
+
+### Format Checks (ePD Compliance)
+
+- [ ] Font is Times New Roman, 12pt
+- [ ] Line spacing is 1.5
+- [ ] Margins are 1 inch (2.54cm) all sides

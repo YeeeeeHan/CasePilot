@@ -9,6 +9,23 @@
 
 ---
 
+## Strategic Pivot (Dec 2024)
+
+> **"It's not about Multimedia; it's about Pagination."** — Jun Hao, Singapore Litigator
+
+User research revealed the core pain point is **Bundle Compliance**, not AI writing:
+
+- Ensuring PDF page numbers match Table of Contents exactly
+- The "shag" factor: 200+ hours of manual pagination work per case
+- Tool to replace: **Adobe Acrobat** (not Word)
+
+**Result**: Full pivot from "AI-Native IDE" to "Bundle Compliance Automator"
+
+- AI features (Cmd+K, RAG) moved to Phase 3+
+- Bundle compilation features promoted to Phase 1-2
+
+---
+
 ## Phase 0: Foundation ✓
 
 **Goal**: Define architecture, skills, and development patterns
@@ -18,7 +35,7 @@
 - [x] Project structure initialized
 - [x] CLAUDE.md documentation
 - [x] Tech stack decisions (Tauri, React, Rust, TipTap)
-- [x] 10 skills defined:
+- [x] 11 skills defined:
   - [x] tauri-command (invoke pattern)
   - [x] exhibit-registry (auto-renumbering)
   - [x] pdf-unbundling (RAG pipeline)
@@ -29,18 +46,19 @@
   - [x] compiler-errors (validation)
   - [x] smart-unbundler (PDF splitting)
   - [x] product-roadmap (prioritization)
+  - [x] **bundle-compiler** (THE killer feature)
 - [x] Agent personas defined (5 specialists)
 
 ---
 
-## Phase 1: Editor Foundation
+## Phase 1: Editor + Basic Bundle
 
 **Target**: TBD
-**Goal**: Replace Word for basic legal drafting
+**Goal**: Basic editing AND bundle assembly (the core value)
 
 ### Status: Not Started
 
-**Priority**: Start TipTap editor setup
+**Priority**: TipTap setup + PDF import + TOC generation
 
 ### Tasks
 
@@ -52,27 +70,72 @@
   - [ ] Cases table
   - [ ] Documents table
   - [ ] Exhibits table
+  - [ ] **Bundle table** (compilation metadata)
   - [ ] Migrations setup (sqlx)
-- [ ] **P0**: File save/load (Tauri commands)
+- [ ] **P0**: PDF import and display
+  - [ ] Import PDF files into case
+  - [ ] PDF thumbnail generation
+  - [ ] Page count extraction
+- [ ] **P0**: Dynamic Table of Contents
+  - [ ] TOC component that lists documents
+  - [ ] Auto-calculate page numbers based on document order
+  - [ ] **TOC page # must match PDF position**
+- [ ] **P1**: File save/load (Tauri commands)
   - [ ] `save_document` command
   - [ ] `load_document` command
   - [ ] `list_cases` command
 - [ ] **P1**: Case sidebar
   - [ ] File tree component
-  - [ ] Case navigation
+  - [ ] Drag-and-drop reordering
   - [ ] New file/folder actions
-- [ ] **P1**: Manual exhibit linking
-  - [ ] Insert exhibit reference UI
-  - [ ] ExhibitRegistry basic implementation
 
-**Success Metric**: Draft a 10-page affidavit without switching to Word
+**Success Metric**: Assemble a 50-document bundle with correct TOC page numbers
 
 ---
 
-## Phase 2: Intelligence Layer
+## Phase 2: Smart Bundle Compilation
 
 **Target**: TBD
-**Goal**: AI that understands the case
+**Goal**: The "Perfect Compiler" - automated pagination and compliance
+
+### Status: Planned
+
+### Tasks
+
+- [ ] **P0**: Auto-pagination (page stamps)
+  - [ ] Inject "Page X of Y" into PDF headers/footers
+  - [ ] Configurable position (top-right per ePD 2021)
+  - [ ] Stamps must not break existing layout
+- [ ] **P0**: Bundle PDF export
+  - [ ] Merge all documents into single PDF
+  - [ ] Apply pagination stamps
+  - [ ] Generate bookmarks per document
+  - [ ] Include TOC as first pages
+- [ ] **P0**: "Late Insert" handling
+  - [ ] Re-Pagination mode: Full renumber all pages
+  - [ ] Sub-Numbering mode: Insert as Page 45A, 45B
+  - [ ] Auto-update TOC after insert
+- [ ] **P1**: Pagination validation (Compiler Errors)
+  - [ ] TOC page # matches PDF position
+  - [ ] No pagination gaps
+  - [ ] ePD Para 78 compliance check
+- [ ] **P1**: Auto exhibit renumbering
+  - [ ] Detect exhibit insertion
+  - [ ] Recalculate sequence
+  - [ ] Update all references
+- [ ] **P1**: PDF text extraction (for metadata)
+  - [ ] pdfium integration (Rust)
+  - [ ] Extract Date, Sender, Recipient, Subject from emails
+  - [ ] Auto-fill TOC descriptions
+
+**Success Metric**: Compile 500-page bundle with correct pagination in < 60 seconds
+
+---
+
+## Phase 3: Intelligence Layer (AI Features)
+
+**Target**: TBD
+**Goal**: AI that understands the case (deprioritized per user research)
 
 ### Status: Planned
 
@@ -87,45 +150,14 @@
   - [ ] Model download on first launch
   - [ ] Inference command (Rust)
   - [ ] Streaming UI with "thinking" indicators
-  - [ ] Token-by-token response display
-- [ ] **P1**: PDF text extraction
-  - [ ] pdfium integration (Rust)
-  - [ ] Extract text command
 - [ ] **P1**: Vector search (LanceDB)
   - [ ] Embedding generation
   - [ ] Vector storage
   - [ ] Semantic search command
-- [ ] **P1**: Auto exhibit renumbering
-  - [ ] Detect exhibit insertion
-  - [ ] Recalculate sequence
-  - [ ] Update all references
+- [ ] **P1**: Source-to-Cite hover cards
+- [ ] **P1**: Diff preview for AI changes
 
 **Success Metric**: 10+ Cmd+K invocations per document
-
----
-
-## Phase 3: Trust & Polish
-
-**Target**: TBD
-**Goal**: Lawyers trust output enough to file
-
-### Status: Planned
-
-### Tasks
-
-- [ ] **P0**: Source-to-Cite hover cards
-- [ ] **P0**: Compiler errors (validation)
-- [ ] **P1**: Document version history
-  - [ ] Auto-save snapshots every 5 minutes
-  - [ ] "Versions" sidebar with timestamps
-  - [ ] One-click restore to previous version
-  - [ ] Visual diff view (side-by-side comparison)
-  - [ ] Version metadata (date, changes summary)
-- [ ] **P1**: Split-view evidence viewer
-- [ ] **P1**: Diff preview for AI changes
-- [ ] **P1**: Undo/redo for AI actions
-
-**Success Metric**: Zero filing rejections due to exhibit errors
 
 ---
 
@@ -139,6 +171,9 @@
 ### Tasks
 
 - [ ] **P0**: Smart Unbundler
+  - [ ] Drop 500-page PDF → split into individual documents
+  - [ ] Extract TOC from existing bundles
+  - [ ] Preserve page numbers from source
 - [ ] **P1**: Timeline view
 - [ ] **P1**: Word import (.docx)
 - [ ] **P2**: Auto-link existing refs
@@ -147,22 +182,25 @@
 
 ---
 
-## Phase 5: Singapore Compliance
+## Phase 5: Trust & Polish
 
 **Target**: TBD
-**Goal**: eLitigation-ready exports
+**Goal**: Lawyers trust output enough to file
 
 ### Status: Planned
 
 ### Tasks
 
-- [ ] **P0**: PDF export with bookmarks
-- [ ] **P0**: Auto-pagination
-- [ ] **P1**: Certificate of Exhibits
-- [ ] **P1**: Margin/font validation
+- [ ] **P0**: Document version history
+  - [ ] Auto-save snapshots every 5 minutes
+  - [ ] "Versions" sidebar with timestamps
+  - [ ] One-click restore to previous version
+- [ ] **P1**: Split-view evidence viewer
+- [ ] **P1**: Certificate of Exhibits (auto-generated)
+- [ ] **P1**: Margin/font validation (Practice Directions)
 - [ ] **P2**: Bundle cover page
 
-**Success Metric**: 100% eLitigation acceptance rate
+**Success Metric**: 100% eLitigation acceptance rate, zero filing rejections
 
 ---
 
@@ -177,13 +215,17 @@
 
 ## Notes & Decisions
 
-| Date       | Decision                        | Rationale                                                     |
-| ---------- | ------------------------------- | ------------------------------------------------------------- |
-| 2024-12-31 | Use TipTap over Slate           | Better docs, ProseMirror foundation                           |
-| 2024-12-31 | Start with Windows target       | 90% of SG law firms use Windows                               |
-| 2024-12-31 | Local-first architecture        | Lawyer privacy concerns, court compliance                     |
-| 2024-12-31 | Use llama.cpp for local AI      | Privacy-first, streaming via Tauri events, no API costs       |
-| 2024-12-31 | Hybrid editor (prose + slash/K) | Matches lawyer expectations (Word-like), supports AI features |
+| Date       | Decision                                 | Rationale                                                                              |
+| ---------- | ---------------------------------------- | -------------------------------------------------------------------------------------- |
+| 2024-12-31 | Use TipTap over Slate                    | Better docs, ProseMirror foundation                                                    |
+| 2024-12-31 | Start with Windows target                | 90% of SG law firms use Windows                                                        |
+| 2024-12-31 | Local-first architecture                 | Lawyer privacy concerns, court compliance                                              |
+| 2024-12-31 | Use llama.cpp for local AI               | Privacy-first, streaming via Tauri events, no API costs                                |
+| 2024-12-31 | Hybrid editor (prose + slash/K)          | Matches lawyer expectations (Word-like), supports AI features                          |
+| 2024-12-31 | **Full pivot to Bundle Compilation**     | User research: "It's about pagination, not multimedia." Replace Acrobat, not Word.     |
+| 2024-12-31 | AI features deprioritized to Phase 3+    | Core value is bundle compliance; AI is enhancement, not MVP                            |
+| 2024-12-31 | Paralegal as secondary user persona      | They do 200+ hours of bundle work; design UX for bulk operations                       |
+| 2024-12-31 | ePD 2021 as authoritative compliance src | Supreme Court Practice Directions Part 10 (Para 78-80), Part 11 (Para 102) are the law |
 
 ---
 

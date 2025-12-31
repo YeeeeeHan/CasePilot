@@ -25,16 +25,16 @@
 ### Required Extensions
 
 ```typescript
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
 // Custom extensions
-import { ExhibitNode } from './nodes/ExhibitNode';
-import { CommandMenu } from './extensions/CommandMenu';
+import { ExhibitNode } from "./nodes/ExhibitNode";
+import { CommandMenu } from "./extensions/CommandMenu";
 
 const extensions = [
   StarterKit,
   Placeholder.configure({
-    placeholder: 'Type / for commands or start writing...',
+    placeholder: "Type / for commands or start writing...",
   }),
   ExhibitNode,
   CommandMenu, // Handles both / and Cmd+K
@@ -49,11 +49,11 @@ All custom TipTap nodes live in `src/components/editor/nodes/`
 
 ```typescript
 // src/components/editor/nodes/ExhibitNode.tsx
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes } from "@tiptap/core";
 
 export const ExhibitNode = Node.create({
-  name: 'exhibit',
-  group: 'inline',
+  name: "exhibit",
+  group: "inline",
   inline: true,
   atom: true,
 
@@ -64,7 +64,7 @@ export const ExhibitNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['span', mergeAttributes(HTMLAttributes), 0];
+    return ["span", mergeAttributes(HTMLAttributes), 0];
   },
 });
 ```
@@ -77,20 +77,20 @@ Store `exhibitId` (UUID), not the label text. The label ("Exhibit A") is compute
 
 ```typescript
 // src/components/editor/extensions/CommandMenu.ts
-import { Extension } from '@tiptap/core';
-import { PluginKey } from '@tiptap/pm/state';
+import { Extension } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
 
 export const CommandMenu = Extension.create({
-  name: 'commandMenu',
+  name: "commandMenu",
 
   addKeyboardShortcuts() {
     return {
-      '/': () => {
+      "/": () => {
         // Open floating menu at cursor position
         this.editor.commands.openCommandMenu();
         return true;
       },
-      'Mod-k': () => {
+      "Mod-k": () => {
         // Open Cmd+K menu with selected text context
         const selection = this.editor.state.selection;
         this.editor.commands.openCmdKMenu({ selection });
@@ -109,7 +109,7 @@ Keep menu state local to the editor component. Don't pollute global state.
 // src/components/editor/Editor.tsx
 const [menuState, setMenuState] = useState<{
   isOpen: boolean;
-  type: 'slash' | 'cmdk' | null;
+  type: "slash" | "cmdk" | null;
   position: { x: number; y: number };
 }>({
   isOpen: false,

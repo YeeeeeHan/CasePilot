@@ -10,6 +10,8 @@ allowed-tools: Read, Edit, Grep, Glob
 
 The "Unbundler" is CasePilot's onboarding magic trick. Drop a 500-page litigation bundle → get 32 individually indexed, searchable documents. This is the "Time-to-Value" accelerator.
 
+**Critical Output**: The unbundler must output **accurate page numbers** that will be used for the Bundle Compiler's TOC. If the unbundler says "Document A starts on page 15", the eventual compiled bundle must have Document A starting on page 15.
+
 ## The Problem
 
 Lawyers receive discovery as massive concatenated PDFs:
@@ -108,6 +110,7 @@ interface ExtractedDocument {
   id: string;
   type: DocumentType;
   pageRange: { start: number; end: number };
+  pageCount: number; // Critical for TOC calculation
   extractedText: string;
   metadata: {
     title: string;
@@ -121,6 +124,8 @@ interface ExtractedDocument {
       | "report"
       | "photo"
       | "unknown";
+    // TOC auto-fill fields (per user research)
+    tocDescription?: string; // Auto-generated description for TOC
   };
   thumbnail: string; // Base64 of first page
 }
@@ -344,9 +349,30 @@ const unbundleErrors = {
 };
 ```
 
+## Integration with Bundle Compiler
+
+The Smart Unbundler feeds directly into the Bundle Compiler:
+
+```typescript
+// Unbundler outputs documents with page ranges
+const unbundled = await unbundle("discovery_bundle.pdf");
+// unbundled.documents[0] = { pageRange: { start: 1, end: 10 }, pageCount: 10, ... }
+
+// Bundle Compiler uses these to calculate TOC
+const tocEntries = unbundled.documents.map((doc, idx) => ({
+  label: `Tab ${idx + 1}`,
+  description: doc.metadata.tocDescription || doc.metadata.title,
+  startPage: calculateStartPage(unbundled.documents, idx),
+  pageCount: doc.pageCount,
+}));
+
+// The Sacred Rule: TOC page numbers MUST match final PDF positions
+```
+
 ## Future Enhancements
 
 - [ ] OCR for scanned PDFs (Tesseract integration)
 - [ ] Learn from user corrections (ML boundary detection)
 - [ ] Batch unbundling (multiple files)
 - [ ] Cloud processing option for very large bundles
+- [ ] Existing TOC extraction and validation

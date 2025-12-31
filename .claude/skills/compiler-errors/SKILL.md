@@ -20,6 +20,30 @@ The "Problems" panel is CasePilot's equivalent of IDE build errors. It catches m
 
 ## Error Categories
 
+### 0. Pagination Integrity (THE #1 Priority)
+
+```typescript
+interface PaginationError {
+  type: "pagination";
+  subtype:
+    | "toc_page_mismatch" // 🔴 TOC says Page 15, PDF is actually Page 16
+    | "missing_page_stamp" // 🔴 Document lacks pagination headers
+    | "pagination_gap" // 🔴 Pages jump from 44 to 46
+    | "stamp_position_wrong" // 🟡 Stamp not in top-right corner (ePD requirement)
+    | "page_count_mismatch" // 🔴 TOC says 10 pages, document has 12
+    | "epd_para_78_violation"; // 🔴 General ePD Para 78 compliance failure
+}
+```
+
+**Example Messages**:
+
+- 🔴 `TOC shows "Exhibit A" on Page 15, but PDF position is Page 16 (ePD Para 78 violation)`
+- 🔴 `Pages 44-46 missing - bundle has pagination gap`
+- 🔴 `Document "Contract.pdf" has no pagination stamps`
+- 🟡 `Page stamp on page 23 is bottom-center; ePD requires top-right`
+
+**Why This Is #1**: Per user research, pagination mismatches are THE primary cause of bundle rejection and re-work. "Shag" factor = 200+ hours.
+
 ### 1. Exhibit Integrity
 
 ```typescript
@@ -210,13 +234,16 @@ const quickFixes = {
 ```typescript
 async function validateDocument(doc: Document): Promise<ValidationResult> {
   // Run all validators in parallel for speed
+  // PAGINATION FIRST - it's the #1 cause of rejection
   const [
+    paginationResults,
     exhibitResults,
     citationResults,
     referenceResults,
     consistencyResults,
     formattingResults,
   ] = await Promise.all([
+    validatePagination(doc), // THE critical check
     validateExhibits(doc),
     validateCitations(doc),
     validateReferences(doc),
@@ -225,6 +252,7 @@ async function validateDocument(doc: Document): Promise<ValidationResult> {
   ]);
 
   const allProblems = [
+    ...paginationResults, // Show pagination errors first
     ...exhibitResults,
     ...citationResults,
     ...referenceResults,
