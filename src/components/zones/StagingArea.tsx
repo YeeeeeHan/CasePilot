@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { useEffect, useRef } from "react";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Upload, Circle, CircleDot, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -30,6 +30,10 @@ interface StagingAreaProps {
   selectedFileId?: string | null;
 }
 
+// Module-level flag shared across all component instances
+// This prevents duplicate processing when React StrictMode creates multiple listeners
+let isProcessingDrop = false;
+
 const statusConfig: Record<
   TriageStatus,
   { icon: typeof Circle; label: string; className: string }
@@ -57,26 +61,56 @@ export function StagingArea({
   onFileSelect,
   selectedFileId,
 }: StagingAreaProps) {
-  // Listen for Tauri file drop events
+  // Use ref to avoid re-running effect when callback changes
+  const onFileDropRef = useRef(onFileDrop);
+  onFileDropRef.current = onFileDrop;
+
+  // Listen for Tauri file drop events (Tauri v2 API)
   useEffect(() => {
     let unlisten: (() => void) | undefined;
 
     const setupListener = async () => {
-      unlisten = await listen<string[]>("tauri://file-drop", (event) => {
-        if (onFileDrop && event.payload.length > 0) {
-          onFileDrop(event.payload);
+      console.log("[StagingArea] Setting up drag-drop listener (Tauri v2)...");
+      const appWindow = getCurrentWebviewWindow();
+      unlisten = await appWindow.onDragDropEvent((event) => {
+        if (event.payload.type === "drop") {
+          // Guard: prevent concurrent processing (module-level flag shared across all instances)
+          if (isProcessingDrop) {
+            console.log("[StagingArea] Already processing a drop, ignoring");
+            return;
+          }
+          isProcessingDrop = true;
+
+          const paths = event.payload.paths;
+          console.log("[StagingArea] Drop event received:", paths);
+          if (onFileDropRef.current && paths.length > 0) {
+            console.log(
+              "[StagingArea] Calling onFileDrop with",
+              paths.length,
+              "files",
+            );
+            onFileDropRef.current(paths);
+          }
+
+          // Reset flag after a short delay to allow next drop
+          setTimeout(() => {
+            isProcessingDrop = false;
+            console.log("[StagingArea] Ready for next drop");
+          }, 1000);
         }
       });
+      console.log("[StagingArea] Drag-drop listener setup complete");
     };
 
     setupListener();
 
     return () => {
       if (unlisten) {
+        console.log("[StagingArea] Cleaning up drag-drop listener");
         unlisten();
       }
     };
-  }, [onFileDrop]);
+  }, []); // Empty deps - only run once on mount
 
   return (
     <TooltipProvider>

@@ -35,7 +35,8 @@ export interface Case {
 }
 
 function App() {
-  const { listCases, createCase, listDocuments } = useInvoke();
+  const { listCases, createCase, listDocuments, extractPdfMetadata } =
+    useInvoke();
 
   // Case/document state
   const [cases, setCases] = useState<Case[]>([]);
@@ -117,19 +118,60 @@ function App() {
   }, []);
 
   // Handle file drop in staging area
-  const handleFileDrop = useCallback((filePaths: string[]) => {
-    const newFiles: StagedFile[] = filePaths.map((path, index) => {
-      // Extract filename from full path
-      const name = path.split(/[\\/]/).pop() || path;
-      return {
+  const handleFileDrop = useCallback(
+    async (filePaths: string[]) => {
+      console.log(
+        "[App] handleFileDrop called with",
+        filePaths.length,
+        "files:",
+        filePaths,
+      );
+
+      // Create unprocessed files immediately (instant feedback)
+      const placeholderFiles: StagedFile[] = filePaths.map((path, index) => ({
         id: `staged-${Date.now()}-${index}`,
-        name,
+        name: path.split(/[\\/]/).pop() || path,
         status: "unprocessed" as const,
-        pageCount: undefined, // Would be determined after PDF parsing
-      };
-    });
-    setStagedFiles((prev) => [...prev, ...newFiles]);
-  }, []);
+        pageCount: undefined,
+      }));
+      console.log("[App] Created placeholder files:", placeholderFiles);
+      setStagedFiles((prev) => [...prev, ...placeholderFiles]);
+
+      // Extract metadata asynchronously
+      console.log(
+        "[App] Starting metadata extraction for",
+        placeholderFiles.length,
+        "files",
+      );
+      const processedFiles = await Promise.all(
+        placeholderFiles.map(async (file, index) => {
+          console.log("[App] Extracting metadata for:", filePaths[index]);
+          const metadata = await extractPdfMetadata(filePaths[index]);
+          console.log("[App] Metadata result for", file.name, ":", metadata);
+          return {
+            ...file,
+            status: metadata
+              ? ("processed" as const)
+              : ("unprocessed" as const),
+            pageCount: metadata?.page_count,
+          };
+        }),
+      );
+
+      console.log("[App] All metadata extracted:", processedFiles);
+
+      // Update with page counts
+      setStagedFiles((prev) =>
+        prev.map((f) => {
+          const updated = processedFiles.find((pf) => pf.id === f.id);
+          return updated || f;
+        }),
+      );
+
+      console.log("[App] handleFileDrop complete");
+    },
+    [extractPdfMetadata],
+  );
 
   // Handle moving file from staging to index
   const handleAddToIndex = useCallback(

@@ -17,6 +17,12 @@ export interface Document {
   updated_at: string;
 }
 
+export interface PdfMetadata {
+  page_count: number;
+  title?: string;
+  file_size: number;
+}
+
 export function useInvoke() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +167,23 @@ export function useInvoke() {
     }
   }, []);
 
+  const extractPdfMetadata = useCallback(
+    async (filePath: string): Promise<PdfMetadata | null> => {
+      console.log("[useInvoke] extractPdfMetadata called for:", filePath);
+      try {
+        const metadata = await invoke<PdfMetadata>("extract_pdf_metadata", {
+          filePath,
+        });
+        console.log("[useInvoke] Metadata received from backend:", metadata);
+        return metadata;
+      } catch (e) {
+        console.error("[useInvoke] Failed to extract PDF metadata:", e);
+        return null;
+      }
+    },
+    [],
+  );
+
   return {
     loading,
     error,
@@ -172,5 +195,6 @@ export function useInvoke() {
     saveDocument,
     deleteCase,
     deleteDocument,
+    extractPdfMetadata,
   };
 }

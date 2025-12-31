@@ -5,6 +5,7 @@ use tauri::Manager;
 use tokio::sync::Mutex;
 
 mod db;
+mod pdf;
 
 pub struct AppState {
     pub db: Arc<Mutex<Option<Pool<Sqlite>>>>,
@@ -43,6 +44,13 @@ pub struct CreateDocumentRequest {
 pub struct SaveDocumentRequest {
     pub id: String,
     pub content: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PdfMetadata {
+    pub page_count: usize,
+    pub title: Option<String>,
+    pub file_size: u64,
 }
 
 // Tauri Commands
@@ -115,6 +123,18 @@ async fn delete_document(id: String, state: tauri::State<'_, AppState>) -> Resul
     db::delete_document(pool, &id).await
 }
 
+#[tauri::command]
+async fn extract_pdf_metadata(file_path: String) -> Result<PdfMetadata, String> {
+    println!("[lib.rs] extract_pdf_metadata Tauri command called for: {}", file_path);
+    let metadata = pdf::extract_pdf_metadata(&file_path)?;
+    println!("[lib.rs] Returning metadata: {:?}", metadata);
+    Ok(PdfMetadata {
+        page_count: metadata.page_count,
+        title: metadata.title,
+        file_size: metadata.file_size,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -167,6 +187,7 @@ pub fn run() {
             save_document,
             delete_case,
             delete_document,
+            extract_pdf_metadata,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
