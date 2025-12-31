@@ -62,6 +62,65 @@ CasePilot is a desktop application that automates the tedious, error-prone proce
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## UI Architecture: Split-Screen Layout
+
+**Core Principle**: The Split-View is mandatory. The #1 user anxiety is "Does the Index match the Page Number?" Separating them into tabs prevents instant verification.
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Zone A (Case Area)                                                        │
+│ [📁] [📁] [📁]  ← Project switcher (VS Code-style icons, minimal)        │
+├────────────────────┬────────────────────┬────────────────────────────────┤
+│ Zone B             │ Zone C             │ Zone D                          │
+│ Staging Area       │ Master Index       │ Compiler Preview                │
+│                    │ (Scaffold)         │ (Bundle)                        │
+│ ┌────────────────┐ │ ┌────────────────┐ │ ┌────────────────────────────┐ │
+│ │ Raw files dump │ │ │ Tab │ Desc │ Pg │ │ │                            │ │
+│ │                │ │ │ ─── │ ──── │ ── │ │ │     PDF Preview            │ │
+│ │ ○ Unprocessed  │ │ │  1  │ Email│ 1-3│ │ │                            │ │
+│ │ ◐ Processed    │ │ │  2  │ Photo│ 4  │ │ │   [Page 15 of 347]         │ │
+│ │ ● Bundled      │ │ │  3  │ Cont.│5-12│ │ │      ↑ stamp               │ │
+│ └────────────────┘ │ └────────────────┘ │ └────────────────────────────┘ │
+│ Drag files here    │ Click row → jumps  │ Shows pagination stamp         │
+└────────────────────┴────────────────────┴────────────────────────────────┘
+```
+
+### Zone Definitions
+
+| Zone | Name             | Purpose                                              |
+| ---- | ---------------- | ---------------------------------------------------- |
+| A    | Case Area        | Project switcher (minimal, users work 4+ hours/case) |
+| B    | Staging Area     | Inbox for raw files with triage status               |
+| C    | Master Index     | High-density TOC table (THE main editing surface)    |
+| D    | Compiler Preview | Live PDF preview with pagination stamps              |
+
+### Zone C: Master Index Columns
+
+| Column      | Type        | Description                              |
+| ----------- | ----------- | ---------------------------------------- |
+| Tab         | Drag handle | Reorder documents by dragging            |
+| Description | Editable    | Auto-filled from metadata, user-editable |
+| Status      | Toggle      | "Agreed" or "Disputed"                   |
+| Page Range  | Read-only   | Auto-calculated (e.g., "pp. 15-18")      |
+
+### Zone B: Triage Status
+
+- **Unprocessed**: Raw file just dropped in
+- **Processed**: Metadata extracted (Date, Sender, etc.)
+- **Bundled**: Already moved into the scaffold
+
+### Key Interaction
+
+Click a row in Zone C (Index) → Zone D (Preview) immediately jumps to that page. This enables rapid "spot-checking" to verify descriptions match documents.
+
+### A4 Canvas Logic
+
+| Input Type                    | Action                                         |
+| ----------------------------- | ---------------------------------------------- |
+| Standard A4 PDF               | Keep as-is, apply 35mm margin check            |
+| Image (PNG/JPG) or screenshot | Center on blank A4 canvas, leave header/footer |
+| Non-standard PDF              | Scale to fit A4 with margin preservation       |
+
 ## File Structure
 
 ```
@@ -92,6 +151,10 @@ CasePilot/
 ```bash
 npm run tauri dev       # Start dev server (HMR + Rust recompile)
 npm run tauri build     # Create installers (.dmg / .msi)
+npm run test            # Run frontend tests (watch mode)
+npm run test:run        # Run frontend tests once
+npm run test:coverage   # Run with coverage report
+cargo test              # Run Rust backend tests
 sqlx migrate run        # Apply database migrations
 cargo check             # Type-check Rust code
 ```
@@ -114,6 +177,7 @@ See detailed rules:
 - @.claude/rules/backend.md - Rust/Tauri patterns
 - @.claude/rules/ai-rag.md - LLM integration
 - @.claude/rules/singapore-legal.md - Court formatting
+- @.claude/rules/testing.md - Testing requirements and patterns
 
 ## Quick Reference
 
@@ -218,6 +282,7 @@ User: Highlight + Cmd+K + "Add car photo"
 | Metadata extraction       | ai-rag-engineer     |
 | User flow design          | legal-ux-strategist |
 | CI/CD setup               | release-commander   |
+| Test infrastructure       | test-engineer       |
 
 ## Skills Reference
 
@@ -234,6 +299,7 @@ See `.claude/skills/` for implementation patterns:
 
 - **Tauri Command** (`tauri-command`): Pattern for bridging React frontend to Rust backend via `invoke()`.
 - **Product Roadmap** (`product-roadmap`): MVP phases, prioritization criteria, and feature scoping framework.
+- **Testing Patterns** (`testing-patterns`): Vitest, cargo test, Playwright patterns for full-stack Tauri testing.
 
 ### Domain Knowledge
 

@@ -51,6 +51,47 @@ User research revealed the core pain point is **Bundle Compliance**, not AI writ
 
 ---
 
+## Phase 0.5: Core Layout Architecture
+
+**Target**: TBD
+**Goal**: Implement the Split-Screen layout foundation (the "killer UX")
+
+### Status: Not Started
+
+**Priority**: The mandatory split-view that solves "Does the Index match the Page Number?" anxiety.
+
+### Tasks
+
+- [ ] **P0**: Split-view layout shell
+  - [ ] Left pane (Scaffold) + Right pane (Bundle Preview)
+  - [ ] Resizable divider between panes
+  - [ ] Responsive layout (minimum widths)
+- [ ] **P0**: Zone A - Case switcher
+  - [ ] Minimal sidebar (VS Code-style icons)
+  - [ ] Case list with active case indicator
+- [ ] **P0**: Zone B - Staging Area
+  - [ ] Drop zone for raw files
+  - [ ] Triage status indicators (Unprocessed/Processed/Bundled)
+  - [ ] Visual distinction between states
+- [ ] **P0**: Zone C - Master Index table
+  - [ ] High-density table component
+  - [ ] Columns: Tab (drag handle), Description (editable), Status (toggle), Page Range (read-only)
+  - [ ] Row selection state
+- [ ] **P0**: Zone D - PDF Preview pane
+  - [ ] Placeholder component for PDF viewer
+  - [ ] Pagination stamp display area (top-right)
+- [ ] **P1**: Click-to-navigate interaction
+  - [ ] Click row in Zone C → Zone D jumps to page
+  - [ ] Visual feedback on selected row
+- [ ] **P1**: A4 Canvas logic
+  - [ ] Detect document dimensions
+  - [ ] Center non-A4 content on A4 canvas
+  - [ ] 35mm margin warning for edge-to-edge content
+
+**Success Metric**: Visual layout matches the 4-zone architecture diagram in CLAUDE.md
+
+---
+
 ## Phase 1: Editor + Basic Bundle
 
 **Target**: TBD
