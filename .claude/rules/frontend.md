@@ -9,6 +9,38 @@
 
 ## TipTap Editor
 
+### Editor Format: Hybrid (Prose + Slash/Cmd+K)
+
+**Decision**: Use traditional continuous prose editing (Word-like) with slash commands and Cmd+K for AI interactions.
+
+**Not using**: Notion-style block editor with drag handles. Legal documents are continuous prose, and Singapore courts expect traditional formatting.
+
+### Interaction Patterns
+
+1. **Continuous typing**: Standard rich text editing, no block transformations
+2. **Slash commands**: Type `/` to open floating menu for insertions (`/exhibit`, `/heading`, `/citation`)
+3. **Cmd+K menu**: Highlight text + Cmd+K for AI actions (rewrite, expand, summarize)
+4. **Inline nodes**: Exhibits render as inline nodes within prose flow
+
+### Required Extensions
+
+```typescript
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+// Custom extensions
+import { ExhibitNode } from './nodes/ExhibitNode';
+import { CommandMenu } from './extensions/CommandMenu';
+
+const extensions = [
+  StarterKit,
+  Placeholder.configure({
+    placeholder: 'Type / for commands or start writing...',
+  }),
+  ExhibitNode,
+  CommandMenu, // Handles both / and Cmd+K
+];
+```
+
 ### Custom Nodes Location
 
 All custom TipTap nodes live in `src/components/editor/nodes/`
@@ -17,11 +49,11 @@ All custom TipTap nodes live in `src/components/editor/nodes/`
 
 ```typescript
 // src/components/editor/nodes/ExhibitNode.tsx
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, mergeAttributes } from '@tiptap/core';
 
 export const ExhibitNode = Node.create({
-  name: "exhibit",
-  group: "inline",
+  name: 'exhibit',
+  group: 'inline',
   inline: true,
   atom: true,
 
@@ -32,7 +64,7 @@ export const ExhibitNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ["span", mergeAttributes(HTMLAttributes), 0];
+    return ['span', mergeAttributes(HTMLAttributes), 0];
   },
 });
 ```
@@ -40,6 +72,51 @@ export const ExhibitNode = Node.create({
 ### Key Principle
 
 Store `exhibitId` (UUID), not the label text. The label ("Exhibit A") is computed at render time from the ExhibitRegistry.
+
+### Slash Command Implementation Pattern
+
+```typescript
+// src/components/editor/extensions/CommandMenu.ts
+import { Extension } from '@tiptap/core';
+import { PluginKey } from '@tiptap/pm/state';
+
+export const CommandMenu = Extension.create({
+  name: 'commandMenu',
+
+  addKeyboardShortcuts() {
+    return {
+      '/': () => {
+        // Open floating menu at cursor position
+        this.editor.commands.openCommandMenu();
+        return true;
+      },
+      'Mod-k': () => {
+        // Open Cmd+K menu with selected text context
+        const selection = this.editor.state.selection;
+        this.editor.commands.openCmdKMenu({ selection });
+        return true;
+      },
+    };
+  },
+});
+```
+
+### Command Menu State
+
+Keep menu state local to the editor component. Don't pollute global state.
+
+```typescript
+// src/components/editor/Editor.tsx
+const [menuState, setMenuState] = useState<{
+  isOpen: boolean;
+  type: 'slash' | 'cmdk' | null;
+  position: { x: number; y: number };
+}>({
+  isOpen: false,
+  type: null,
+  position: { x: 0, y: 0 },
+});
+```
 
 ## State Management
 

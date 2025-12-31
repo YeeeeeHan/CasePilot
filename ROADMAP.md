@@ -177,12 +177,13 @@
 
 ## Notes & Decisions
 
-| Date       | Decision                   | Rationale                                               |
-| ---------- | -------------------------- | ------------------------------------------------------- |
-| 2024-12-31 | Use TipTap over Slate      | Better docs, ProseMirror foundation                     |
-| 2024-12-31 | Start with Windows target  | 90% of SG law firms use Windows                         |
-| 2024-12-31 | Local-first architecture   | Lawyer privacy concerns, court compliance               |
-| 2024-12-31 | Use llama.cpp for local AI | Privacy-first, streaming via Tauri events, no API costs |
+| Date       | Decision                        | Rationale                                                     |
+| ---------- | ------------------------------- | ------------------------------------------------------------- |
+| 2024-12-31 | Use TipTap over Slate           | Better docs, ProseMirror foundation                           |
+| 2024-12-31 | Start with Windows target       | 90% of SG law firms use Windows                               |
+| 2024-12-31 | Local-first architecture        | Lawyer privacy concerns, court compliance                     |
+| 2024-12-31 | Use llama.cpp for local AI      | Privacy-first, streaming via Tauri events, no API costs       |
+| 2024-12-31 | Hybrid editor (prose + slash/K) | Matches lawyer expectations (Word-like), supports AI features |
 
 ---
 
