@@ -1,5 +1,9 @@
 # Singapore Legal Formatting Rules
 
+> **For comprehensive domain knowledge** (Evidence Act, document types, court procedures, official links), see the `singapore-legal-domain` skill.
+>
+> This file focuses on **validation checklists** used by the compiler-errors system.
+
 ## Authoritative Source: ePD 2021
 
 The Supreme Court Practice Directions 2021 (ePD 2021) is the authoritative source for all formatting requirements.

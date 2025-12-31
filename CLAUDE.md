@@ -235,6 +235,10 @@ See `.claude/skills/` for implementation patterns:
 - **Tauri Command** (`tauri-command`): Pattern for bridging React frontend to Rust backend via `invoke()`.
 - **Product Roadmap** (`product-roadmap`): MVP phases, prioritization criteria, and feature scoping framework.
 
+### Domain Knowledge
+
+- **Singapore Legal Domain** (`singapore-legal-domain`): Comprehensive Singapore civil litigation reference - ROC 2021 Five Ideals, Evidence Act 1893, document types (AEIC, BOD, Exhibits), court-specific rules, eLitigation specs, and 27 official links.
+
 ### AI Skills (Phase 3+)
 
 - **Cmd+K Architect** (`cmd-k-architect`): Floating AI command palette with context-aware actions and diff previews.
