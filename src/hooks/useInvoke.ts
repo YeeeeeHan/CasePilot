@@ -70,7 +70,7 @@ export function useInvoke() {
         setLoading(false);
       }
     },
-    []
+    [],
   );
 
   const createDocument = useCallback(
@@ -90,7 +90,7 @@ export function useInvoke() {
         setLoading(false);
       }
     },
-    []
+    [],
   );
 
   const loadDocument = useCallback(
@@ -108,7 +108,7 @@ export function useInvoke() {
         setLoading(false);
       }
     },
-    []
+    [],
   );
 
   const saveDocument = useCallback(
@@ -128,7 +128,7 @@ export function useInvoke() {
         setLoading(false);
       }
     },
-    []
+    [],
   );
 
   const deleteCase = useCallback(async (id: string): Promise<boolean> => {

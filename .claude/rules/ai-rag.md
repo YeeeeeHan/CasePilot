@@ -10,6 +10,7 @@
 ## Development Mode
 
 ### Mock Mode
+
 Don't load the 4GB model for every dev restart:
 
 ```rust
@@ -29,23 +30,27 @@ Toggle real AI only when testing generation quality.
 ## RAG Pipeline
 
 ### 1. Document Ingestion
+
 ```
 PDF → Parse (pdfium) → Chunk → Embed → Store (LanceDB)
 ```
 
 ### 2. Chunking Strategy
+
 - Chunk size: ~500 tokens (legal documents are dense)
 - Overlap: 50 tokens between chunks
 - Preserve paragraph boundaries where possible
 - Store metadata: page number, document source, date extracted
 
 ### 3. Retrieval
+
 ```rust
 // Query flow
 user_query → embed(query) → LanceDB.search(top_k=5) → context
 ```
 
 ### 4. Generation
+
 ```
 system_prompt + retrieved_context + user_query → LLM → response
 ```
@@ -60,6 +65,7 @@ system_prompt + retrieved_context + user_query → LLM → response
 ## Prompt Patterns
 
 ### Cmd+K (Edit Request)
+
 ```
 You are a legal document editor. Given the surrounding text and user instruction, generate the appropriate content.
 
@@ -74,6 +80,7 @@ Generate only the text to insert at [CURSOR]. No explanations.
 ```
 
 ### Evidence Summary
+
 ```
 Summarize this legal document for an exhibit caption. Be factual and concise (1-2 sentences).
 

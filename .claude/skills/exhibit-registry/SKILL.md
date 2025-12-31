@@ -10,10 +10,10 @@ allowed-tools: Read, Edit, Grep
 
 ```typescript
 interface Exhibit {
-  id: string;              // UUID (stable reference)
-  filePath: string;        // Local file path
-  sequenceIndex: number;   // Position in document
-  currentLabel: string;    // "Exhibit A" (computed)
+  id: string; // UUID (stable reference)
+  filePath: string; // Local file path
+  sequenceIndex: number; // Position in document
+  currentLabel: string; // "Exhibit A" (computed)
   metadata: {
     date: string;
     description: string;
@@ -48,4 +48,5 @@ addAttributes() {
 ```
 
 ## Key Principle
+
 References are by ID (stable). Labels are computed (dynamic).

@@ -54,7 +54,7 @@ function App() {
               caseId: d.case_id,
             })),
           };
-        })
+        }),
       );
 
       setCases(casesWithDocs);
@@ -133,12 +133,12 @@ function App() {
               };
             }
             return c;
-          })
+          }),
         );
         setActiveDocId(doc.id);
       }
     },
-    [createDocument]
+    [createDocument],
   );
 
   const activeDoc = cases

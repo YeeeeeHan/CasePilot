@@ -24,7 +24,7 @@ export function CaseSidebar({
   onCreateDocument,
 }: CaseSidebarProps) {
   const [expandedCases, setExpandedCases] = useState<Set<string>>(
-    new Set(cases.map((c) => c.id))
+    new Set(cases.map((c) => c.id)),
   );
 
   const toggleCase = (caseId: string) => {

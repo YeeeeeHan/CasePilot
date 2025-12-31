@@ -40,15 +40,16 @@ interface SpeculativeEdit {
 **Problem**: Full file rewrites are expensive and error-prone.
 
 **Solution**: Use two-stage approach:
+
 1. Frontier model produces "semantic diff" (intent + anchors)
 2. Cheap local model applies the diff to actual content
 
 ```typescript
 interface SemanticDiff {
-  anchor: string;           // Text to locate
+  anchor: string; // Text to locate
   operation: "insert_after" | "insert_before" | "replace" | "delete";
-  content: string;          // New content (empty for delete)
-  confidence: number;       // 0-1, for review threshold
+  content: string; // New content (empty for delete)
+  confidence: number; // 0-1, for review threshold
 }
 
 // Example semantic diff from LLM:
@@ -90,10 +91,10 @@ User selected: "${dynamicSelection}"
 ```typescript
 // Zero-entropy actions in CasePilot:
 const zeroEntropyActions = [
-  "Renumber exhibits after insertion",      // Always needed
-  "Update page references after reflow",    // Always needed
-  "Fix spacing after paste",                // Always needed
-  "Capitalize party names consistently",    // User never wants inconsistency
+  "Renumber exhibits after insertion", // Always needed
+  "Update page references after reflow", // Always needed
+  "Fix spacing after paste", // Always needed
+  "Capitalize party names consistently", // User never wants inconsistency
 ];
 
 // Don't ask, just do (with undo available)
@@ -140,9 +141,9 @@ const modelStrategy = {
       "Tab completion",
       "Exhibit label generation",
       "Date extraction",
-      "Apply semantic diff"
+      "Apply semantic diff",
     ],
-    latencyTarget: "< 100ms"
+    latencyTarget: "< 100ms",
   },
 
   // Frontier model (when available)
@@ -150,22 +151,22 @@ const modelStrategy = {
     tasks: [
       "Complex legal reasoning",
       "Multi-document synthesis",
-      "Case strategy suggestions"
+      "Case strategy suggestions",
     ],
-    latencyTarget: "< 3s"
-  }
+    latencyTarget: "< 3s",
+  },
 };
 ```
 
 ## Performance Targets for CasePilot
 
-| Interaction | Target Latency | Technique |
-|-------------|---------------|-----------|
-| Tab completion | < 100ms | Local model, speculative edits |
-| Cmd+K response start | < 500ms | Streaming, pre-warmed context |
-| Exhibit hover preview | < 50ms | Pre-fetched thumbnails |
-| Auto-renumber | < 16ms | Pure frontend, no LLM |
-| Document validation | < 1s | Parallel checks, local only |
+| Interaction           | Target Latency | Technique                      |
+| --------------------- | -------------- | ------------------------------ |
+| Tab completion        | < 100ms        | Local model, speculative edits |
+| Cmd+K response start  | < 500ms        | Streaming, pre-warmed context  |
+| Exhibit hover preview | < 50ms         | Pre-fetched thumbnails         |
+| Auto-renumber         | < 16ms         | Pure frontend, no LLM          |
+| Document validation   | < 1s           | Parallel checks, local only    |
 
 ## Implementation Checklist
 

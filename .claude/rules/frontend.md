@@ -10,9 +10,11 @@
 ## TipTap Editor
 
 ### Custom Nodes Location
+
 All custom TipTap nodes live in `src/components/editor/nodes/`
 
 ### Node Structure
+
 ```typescript
 // src/components/editor/nodes/ExhibitNode.tsx
 import { Node, mergeAttributes } from "@tiptap/core";
@@ -25,7 +27,7 @@ export const ExhibitNode = Node.create({
 
   addAttributes() {
     return {
-      exhibitId: { default: null },  // Reference by ID, not label
+      exhibitId: { default: null }, // Reference by ID, not label
     };
   },
 
@@ -36,6 +38,7 @@ export const ExhibitNode = Node.create({
 ```
 
 ### Key Principle
+
 Store `exhibitId` (UUID), not the label text. The label ("Exhibit A") is computed at render time from the ExhibitRegistry.
 
 ## State Management

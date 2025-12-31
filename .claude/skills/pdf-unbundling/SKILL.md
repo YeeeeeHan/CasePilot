@@ -15,6 +15,7 @@ Large PDF → Parse → Detect Boundaries → Split → Chunk → Embed → Inde
 ## Boundary Detection
 
 Heuristics for legal bundles:
+
 - Blank pages between documents
 - "Tab X" or "Exhibit X" headers
 - Table of Contents references
@@ -38,7 +39,7 @@ interface Chunk {
   metadata: {
     sourceFile: string;
     pageNumber: number;
-    documentType: string;  // "email", "invoice", "report"
+    documentType: string; // "email", "invoice", "report"
     dateExtracted: string;
   };
 }
@@ -51,6 +52,7 @@ Query → Embed → LanceDB.search(top_k=5) → Ranked Chunks
 ```
 
 ## Key Files
+
 - PDF parsing: `src-tauri/src/pdf.rs`
 - Vector storage: LanceDB (embedded)
 - Embedding: Local model or sentence-transformers

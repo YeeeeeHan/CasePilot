@@ -12,11 +12,11 @@ The "Problems" panel is CasePilot's equivalent of IDE build errors. It catches m
 
 ## Problem Severity Levels
 
-| Level | Icon | Use Case | User Action |
-|-------|------|----------|-------------|
-| Error | 🔴 | Blocks filing, must fix | Required |
-| Warning | 🟡 | Should fix, but can proceed | Recommended |
-| Info | 🔵 | Suggestion, style improvement | Optional |
+| Level   | Icon | Use Case                      | User Action |
+| ------- | ---- | ----------------------------- | ----------- |
+| Error   | 🔴   | Blocks filing, must fix       | Required    |
+| Warning | 🟡   | Should fix, but can proceed   | Recommended |
+| Info    | 🔵   | Suggestion, style improvement | Optional    |
 
 ## Error Categories
 
@@ -26,15 +26,16 @@ The "Problems" panel is CasePilot's equivalent of IDE build errors. It catches m
 interface ExhibitError {
   type: "exhibit";
   subtype:
-    | "referenced_not_attached"    // 🔴 Exhibit D mentioned but not in bundle
-    | "attached_not_referenced"    // 🟡 Exhibit E in bundle but never cited
-    | "duplicate_label"            // 🔴 Two exhibits both labeled "A"
-    | "missing_file"               // 🔴 File path no longer exists
-    | "corrupted_file";            // 🔴 PDF/image won't open
+    | "referenced_not_attached" // 🔴 Exhibit D mentioned but not in bundle
+    | "attached_not_referenced" // 🟡 Exhibit E in bundle but never cited
+    | "duplicate_label" // 🔴 Two exhibits both labeled "A"
+    | "missing_file" // 🔴 File path no longer exists
+    | "corrupted_file"; // 🔴 PDF/image won't open
 }
 ```
 
 **Example Messages**:
+
 - 🔴 `Exhibit D is referenced in paragraph 40 but not attached to the bundle`
 - 🟡 `Exhibit E is attached but never referenced in the text`
 - 🔴 `Duplicate exhibit label "Exhibit A" found - exhibits must be unique`
@@ -45,14 +46,15 @@ interface ExhibitError {
 interface CitationError {
   type: "citation";
   subtype:
-    | "invalid_format"             // 🟡 "[2023] SGHC" missing case number
-    | "unknown_court"              // 🔵 "SGHCC" is not a valid court code
-    | "future_date"                // 🟡 Case dated 2025 (typo?)
-    | "inconsistent_style";        // 🔵 Mix of [Year] and (Year) formats
+    | "invalid_format" // 🟡 "[2023] SGHC" missing case number
+    | "unknown_court" // 🔵 "SGHCC" is not a valid court code
+    | "future_date" // 🟡 Case dated 2025 (typo?)
+    | "inconsistent_style"; // 🔵 Mix of [Year] and (Year) formats
 }
 ```
 
 **Example Messages**:
+
 - 🟡 `Citation "[2023] SGHC" is incomplete - missing case number`
 - 🔵 `Inconsistent citation style: paragraph 12 uses [Year], paragraph 15 uses (Year)`
 
@@ -62,13 +64,14 @@ interface CitationError {
 interface ReferenceError {
   type: "reference";
   subtype:
-    | "paragraph_deleted"          // 🔴 "See para 12" but para 12 was deleted
-    | "page_mismatch"              // 🟡 "Page 45" but exhibit only has 30 pages
-    | "circular_reference";        // 🔵 Para 5 refs Para 8 which refs Para 5
+    | "paragraph_deleted" // 🔴 "See para 12" but para 12 was deleted
+    | "page_mismatch" // 🟡 "Page 45" but exhibit only has 30 pages
+    | "circular_reference"; // 🔵 Para 5 refs Para 8 which refs Para 5
 }
 ```
 
 **Example Messages**:
+
 - 🔴 `Paragraph 12 is referenced but has been deleted`
 - 🟡 `Reference to "page 45 of Exhibit B" but Exhibit B only has 30 pages`
 
@@ -78,14 +81,15 @@ interface ReferenceError {
 interface ConsistencyError {
   type: "consistency";
   subtype:
-    | "party_name_spelling"        // 🔵 "Plantiff" vs "Plaintiff"
-    | "date_mismatch"              // 🟡 Text says "12 Oct" but exhibit dated "14 Oct"
-    | "amount_mismatch"            // 🟡 "$50,000" in text vs "$55,000" in invoice
-    | "undefined_term";            // 🔵 "Agreement" capitalized but not defined
+    | "party_name_spelling" // 🔵 "Plantiff" vs "Plaintiff"
+    | "date_mismatch" // 🟡 Text says "12 Oct" but exhibit dated "14 Oct"
+    | "amount_mismatch" // 🟡 "$50,000" in text vs "$55,000" in invoice
+    | "undefined_term"; // 🔵 "Agreement" capitalized but not defined
 }
 ```
 
 **Example Messages**:
+
 - 🔵 `Inconsistent spelling: "Plantiff" in para 3, "Plaintiff" elsewhere`
 - 🟡 `Date "12 October 2023" in text doesn't match exhibit metadata (14 October 2023)`
 - 🔵 `"Agreement" is capitalized but not defined - add definition or use lowercase`
@@ -96,15 +100,16 @@ interface ConsistencyError {
 interface FormattingError {
   type: "formatting";
   subtype:
-    | "wrong_margin"               // 🟡 Not 1 inch (2.54cm) margins
-    | "wrong_font"                 // 🟡 Not Times New Roman 12pt
-    | "wrong_spacing"              // 🟡 Not 1.5 line spacing
-    | "missing_pagination"         // 🔴 No page numbers
-    | "wrong_date_format";         // 🔵 "Oct 12" should be "12 October"
+    | "wrong_margin" // 🟡 Not 1 inch (2.54cm) margins
+    | "wrong_font" // 🟡 Not Times New Roman 12pt
+    | "wrong_spacing" // 🟡 Not 1.5 line spacing
+    | "missing_pagination" // 🔴 No page numbers
+    | "wrong_date_format"; // 🔵 "Oct 12" should be "12 October"
 }
 ```
 
 **Example Messages**:
+
 - 🟡 `Margins are 1.5 inches - Supreme Court requires 1 inch (2.54cm)`
 - 🔴 `Document has no page numbers - required for eLitigation submission`
 - 🔵 `Date "Oct 12, 2023" should be "12 October 2023" per court convention`
@@ -162,7 +167,7 @@ interface ValidationResult {
   errors: Problem[];
   warnings: Problem[];
   info: Problem[];
-  canExport: boolean;  // false if any errors
+  canExport: boolean; // false if any errors
 }
 
 interface Problem {
@@ -228,22 +233,22 @@ async function validateDocument(doc: Document): Promise<ValidationResult> {
   ];
 
   return {
-    errors: allProblems.filter(p => p.severity === "error"),
-    warnings: allProblems.filter(p => p.severity === "warning"),
-    info: allProblems.filter(p => p.severity === "info"),
-    canExport: !allProblems.some(p => p.severity === "error"),
+    errors: allProblems.filter((p) => p.severity === "error"),
+    warnings: allProblems.filter((p) => p.severity === "warning"),
+    info: allProblems.filter((p) => p.severity === "info"),
+    canExport: !allProblems.some((p) => p.severity === "error"),
   };
 }
 ```
 
 ## When to Run Validation
 
-| Trigger | Scope | Debounce |
-|---------|-------|----------|
-| On type | Current paragraph only | 500ms |
-| On save | Full document | None |
-| On export | Full document + strict | None |
-| Manual (Cmd+Shift+M) | Full document | None |
+| Trigger              | Scope                  | Debounce |
+| -------------------- | ---------------------- | -------- |
+| On type              | Current paragraph only | 500ms    |
+| On save              | Full document          | None     |
+| On export            | Full document + strict | None     |
+| Manual (Cmd+Shift+M) | Full document          | None     |
 
 ## Export Gate
 
@@ -281,8 +286,8 @@ async function onExportClick() {
 
 ## Performance Targets
 
-| Validation | Target Time |
-|------------|-------------|
-| Single paragraph | < 50ms |
-| Full document (50 pages) | < 1s |
-| Pre-export (strict) | < 3s |
+| Validation               | Target Time |
+| ------------------------ | ----------- |
+| Single paragraph         | < 50ms      |
+| Full document (50 pages) | < 1s        |
+| Pre-export (strict)      | < 3s        |

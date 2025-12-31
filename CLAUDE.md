@@ -125,8 +125,8 @@ async fn my_command(input: String) -> Result<String, String> {
 ### React Invoke Pattern
 
 ```typescript
-import { invoke } from '@tauri-apps/api/core';
-const result = await invoke<string>('my_command', { input: 'test' });
+import { invoke } from "@tauri-apps/api/core";
+const result = await invoke<string>("my_command", { input: "test" });
 ```
 
 ### Cross-Platform Paths
@@ -187,6 +187,7 @@ See `.claude/skills/` for implementation patterns:
 - **Tauri Command** (`tauri-command`): Pattern for bridging React frontend to Rust backend via `invoke()`.
 - **Exhibit Registry** (`exhibit-registry`): Auto-renumbering logic for exhibits (A, B, C...) and stable ID tracking.
 - **Cmd+K Architect** (`cmd-k-architect`): Floating AI command palette with context-aware actions and diff previews.
+- **AI Streaming UI** (`ai-streaming-ui`): Token-by-token LLM streaming with "thinking" indicators and ChatGPT-like UX.
 - **Source-to-Cite** (`source-to-cite`): "Go to Definition" for law - hover cards and split-view evidence viewers.
 - **Compiler Errors** (`compiler-errors`): Pre-export validation engine (linting) for missing exhibits and broken refs.
 - **Smart Unbundler** (`smart-unbundler`): Pipeline to split large PDF bundles into individually searchable assets.

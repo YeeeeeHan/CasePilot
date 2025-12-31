@@ -3,9 +3,11 @@
 ## Tauri Commands
 
 ### Location
+
 All commands defined in `src-tauri/src/lib.rs`
 
 ### Pattern
+
 ```rust
 #[tauri::command]
 async fn command_name(
@@ -20,7 +22,9 @@ async fn command_name(
 ```
 
 ### Registration
+
 Commands must be registered in the Tauri builder:
+
 ```rust
 tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
@@ -42,6 +46,7 @@ tauri::Builder::default()
 ## SQLite (sqlx)
 
 ### Migrations
+
 Located in `src-tauri/migrations/`
 
 ```bash
@@ -50,7 +55,9 @@ sqlx migrate run
 ```
 
 ### Queries
+
 Use compile-time checked queries:
+
 ```rust
 let exhibits = sqlx::query_as!(
     Exhibit,
@@ -64,6 +71,7 @@ let exhibits = sqlx::query_as!(
 ## File System
 
 ### Cross-Platform Paths
+
 ```rust
 use std::path::PathBuf;
 
@@ -76,7 +84,9 @@ let path = format!("{}/{}", base, file);  // Breaks on Windows
 ```
 
 ### Non-Blocking I/O
+
 Long operations must not block the main thread:
+
 ```rust
 // Use tokio::spawn for heavy work
 tokio::spawn(async move {
@@ -87,6 +97,7 @@ tokio::spawn(async move {
 ## State Management
 
 ### App State
+
 ```rust
 struct AppState {
     db: SqlitePool,

@@ -22,6 +22,7 @@ async fn command_name(
 ```
 
 Register in builder:
+
 ```rust
 .invoke_handler(tauri::generate_handler![command_name])
 ```
@@ -37,6 +38,7 @@ const result = await invoke<ResponseType>("command_name", {
 ```
 
 ## Checklist
+
 - [ ] Command returns `Result<T, String>`
 - [ ] Async for I/O operations
 - [ ] Registered in `generate_handler!`

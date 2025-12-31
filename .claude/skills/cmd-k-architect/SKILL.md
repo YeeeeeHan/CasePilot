@@ -22,8 +22,8 @@ interface CmdKTrigger {
   selectionText?: string;
   cursorPosition: number;
   surroundingParagraphs: {
-    before: string[];  // 2-3 paragraphs before
-    after: string[];   // 2-3 paragraphs after
+    before: string[]; // 2-3 paragraphs before
+    after: string[]; // 2-3 paragraphs after
   };
 }
 ```
@@ -31,6 +31,7 @@ interface CmdKTrigger {
 ## UI States
 
 ### State 1: Input Mode
+
 ```
 ┌─────────────────────────────────────────┐
 │ 🔍 Add the car accident photo here...   │
@@ -38,21 +39,25 @@ interface CmdKTrigger {
 │ [Recent: Insert exhibit | Rewrite...]   │
 └─────────────────────────────────────────┘
 ```
+
 - Floating above/below selection
 - Auto-suggest recent actions
 - Fuzzy search through action history
 
 ### State 2: Processing
+
 ```
 ┌─────────────────────────────────────────┐
 │ ⏳ Finding relevant evidence...          │
 │ ████████░░░░░░░░░░░░░░░░░░             │
 └─────────────────────────────────────────┘
 ```
+
 - Show progress with descriptive text
 - Cancel button available
 
 ### State 3: Preview (Diff Mode)
+
 ```
 ┌─────────────────────────────────────────┐
 │ Preview changes:                        │
@@ -65,6 +70,7 @@ interface CmdKTrigger {
 │ [Accept] [Edit] [Cancel]                │
 └─────────────────────────────────────────┘
 ```
+
 - Show diff before applying
 - Allow editing before acceptance
 - Keyboard shortcuts: Enter=Accept, Esc=Cancel
@@ -72,11 +78,12 @@ interface CmdKTrigger {
 ## Action Types
 
 ### 1. Insert Evidence
+
 ```typescript
 // User: "Add the car accident photo here"
 interface InsertEvidenceAction {
   type: "insert_evidence";
-  query: string;           // "car accident photo"
+  query: string; // "car accident photo"
   position: "inline" | "new_paragraph";
 
   // System retrieves from vector DB
@@ -85,16 +92,18 @@ interface InsertEvidenceAction {
 ```
 
 ### 2. Rewrite
+
 ```typescript
 // User: "Make this more formal"
 interface RewriteAction {
   type: "rewrite";
   instruction: string;
-  preserveExhibitRefs: boolean;  // Don't lose exhibit links!
+  preserveExhibitRefs: boolean; // Don't lose exhibit links!
 }
 ```
 
 ### 3. Expand
+
 ```typescript
 // User: "Add supporting case law"
 interface ExpandAction {
@@ -105,6 +114,7 @@ interface ExpandAction {
 ```
 
 ### 4. Summarize
+
 ```typescript
 // User: "Condense this to one sentence"
 interface SummarizeAction {
@@ -114,6 +124,7 @@ interface SummarizeAction {
 ```
 
 ### 5. Format
+
 ```typescript
 // User: "Convert to numbered list"
 interface FormatAction {
@@ -141,17 +152,17 @@ Document Type: ${documentType}
 Current Section: ${sectionHeading}
 
 ## Available Exhibits (for reference)
-${exhibitRegistry.map(e => `- ${e.currentLabel}: ${e.description}`).join('\n')}
+${exhibitRegistry.map((e) => `- ${e.currentLabel}: ${e.description}`).join("\n")}
 
 ## Surrounding Text
 BEFORE:
-${trigger.surroundingParagraphs.before.join('\n')}
+${trigger.surroundingParagraphs.before.join("\n")}
 
 SELECTED TEXT:
-${trigger.selectionText || '[CURSOR POSITION]'}
+${trigger.selectionText || "[CURSOR POSITION]"}
 
 AFTER:
-${trigger.surroundingParagraphs.after.join('\n')}
+${trigger.surroundingParagraphs.after.join("\n")}
 
 ## User Instruction
 ${userPrompt}
@@ -165,6 +176,7 @@ Generate the replacement text:
 ## Prompt Patterns
 
 ### Evidence Insertion
+
 ```
 Given the context, insert a reference to the most relevant exhibit.
 The exhibit should be introduced naturally in legal prose.
@@ -174,6 +186,7 @@ Example output:
 ```
 
 ### Formal Rewrite
+
 ```
 Rewrite the selected text in formal legal language suitable for
 Singapore High Court submissions. Maintain the same meaning.
@@ -181,6 +194,7 @@ Do not add new information. Preserve all exhibit references.
 ```
 
 ### Case Law Expansion
+
 ```
 Add a supporting case citation after the selected text.
 Use Singapore case law where possible.
@@ -219,13 +233,13 @@ async function handleCmdKResponse(stream: AsyncIterable<string>) {
 
 ## Keyboard Shortcuts in Cmd+K
 
-| Shortcut | Action |
-|----------|--------|
-| `Enter` | Execute / Accept preview |
-| `Esc` | Cancel |
-| `Tab` | Select suggestion |
-| `Cmd+Enter` | Execute without preview |
-| `Up/Down` | Navigate history |
+| Shortcut    | Action                   |
+| ----------- | ------------------------ |
+| `Enter`     | Execute / Accept preview |
+| `Esc`       | Cancel                   |
+| `Tab`       | Select suggestion        |
+| `Cmd+Enter` | Execute without preview  |
+| `Up/Down`   | Navigate history         |
 
 ## Performance Requirements
 

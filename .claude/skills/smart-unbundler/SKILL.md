@@ -13,6 +13,7 @@ The "Unbundler" is CasePilot's onboarding magic trick. Drop a 500-page litigatio
 ## The Problem
 
 Lawyers receive discovery as massive concatenated PDFs:
+
 - `Defendant_Discovery_Bundle_Vol1.pdf` (500 pages)
 - No internal structure visible
 - Searching requires knowing page numbers
@@ -31,16 +32,16 @@ Extract Metadata → Index → Display Timeline
 
 ```typescript
 interface TOCEntry {
-  label: string;      // "Tab 1", "Exhibit A"
+  label: string; // "Tab 1", "Exhibit A"
   pageNumber: number;
   description?: string;
 }
 
 // Pattern matching for Singapore bundle TOCs
 const tocPatterns = [
-  /Tab\s+(\d+)\s+[–-]\s+(.+?)\s+(\d+)/,           // Tab 1 - Email dated... 45
-  /Exhibit\s+([A-Z]+)\s+[–-]\s+(.+?)\s+(\d+)/,    // Exhibit A - Contract... 12
-  /(\d+)\.\s+(.+?)\s+\.+\s+(\d+)/,                 // 1. Invoice dated... ... 78
+  /Tab\s+(\d+)\s+[–-]\s+(.+?)\s+(\d+)/, // Tab 1 - Email dated... 45
+  /Exhibit\s+([A-Z]+)\s+[–-]\s+(.+?)\s+(\d+)/, // Exhibit A - Contract... 12
+  /(\d+)\.\s+(.+?)\s+\.+\s+(\d+)/, // 1. Invoice dated... ... 78
 ];
 
 async function extractTOC(pdf: PDFDocument): Promise<TOCEntry[]> {
@@ -55,7 +56,7 @@ async function extractTOC(pdf: PDFDocument): Promise<TOCEntry[]> {
 ```typescript
 interface BoundarySignal {
   type: string;
-  confidence: number;  // 0-1
+  confidence: number; // 0-1
   pageNumber: number;
 }
 
@@ -82,10 +83,10 @@ const boundarySignals: BoundarySignal[] = [
 ```typescript
 // Many law firms add consistent headers to each document
 const headerPatterns = [
-  /Page \d+ of \d+/,                    // Resets indicate new doc
-  /\[CONFIDENTIAL\]/,                   // Often at doc start
-  /From:.*To:.*Date:/s,                 // Email header
-  /INVOICE|RECEIPT|CONTRACT/i,          // Document type headers
+  /Page \d+ of \d+/, // Resets indicate new doc
+  /\[CONFIDENTIAL\]/, // Often at doc start
+  /From:.*To:.*Date:/s, // Email header
+  /INVOICE|RECEIPT|CONTRACT/i, // Document type headers
 ];
 ```
 
@@ -113,9 +114,15 @@ interface ExtractedDocument {
     date?: string;
     sender?: string;
     recipient?: string;
-    documentType: "email" | "invoice" | "contract" | "report" | "photo" | "unknown";
+    documentType:
+      | "email"
+      | "invoice"
+      | "contract"
+      | "report"
+      | "photo"
+      | "unknown";
   };
-  thumbnail: string;  // Base64 of first page
+  thumbnail: string; // Base64 of first page
 }
 
 async function unbundle(pdfPath: string): Promise<UnbundleResult> {
@@ -126,9 +133,8 @@ async function unbundle(pdfPath: string): Promise<UnbundleResult> {
   const toc = await extractTOC(pdf);
 
   // 3. If no TOC, use visual boundary detection
-  const boundaries = toc.length > 0
-    ? tocToBoundaries(toc)
-    : await detectBoundaries(pdf);
+  const boundaries =
+    toc.length > 0 ? tocToBoundaries(toc) : await detectBoundaries(pdf);
 
   // 4. Split at boundaries
   const documents = await splitAtBoundaries(pdf, boundaries);
@@ -195,7 +201,7 @@ The unbundler must **narrate** its progress - not just show a spinner.
 interface ProgressEvent {
   stage: "scanning" | "detecting" | "splitting" | "indexing";
   message: string;
-  progress: number;  // 0-100
+  progress: number; // 0-100
 }
 
 // Example progress messages
@@ -204,7 +210,10 @@ const progressMessages = [
   { stage: "detecting", message: "Found Table of Contents on page 2..." },
   { stage: "detecting", message: "Detecting document boundaries..." },
   { stage: "splitting", message: "Found 32 distinct documents" },
-  { stage: "splitting", message: "Extracting: Email from John dated 12 Oct..." },
+  {
+    stage: "splitting",
+    message: "Extracting: Email from John dated 12 Oct...",
+  },
   { stage: "indexing", message: "Indexing for semantic search..." },
   { stage: "indexing", message: "Building timeline view..." },
 ];
@@ -265,6 +274,7 @@ Oct 2023                                              Dec 2023
 **Key Parties**: John Tan, Mary Lee, ABC Corp Pte Ltd
 
 ### Document Types:
+
 - Emails: 18
 - Invoices: 4
 - Contracts: 2
@@ -272,6 +282,7 @@ Oct 2023                                              Dec 2023
 - Other: 3
 
 ### Timeline Highlights:
+
 - 12 Oct: Initial email exchange between parties
 - 25 Oct: Invoice dispute begins
 - 15 Dec: Police report filed
@@ -315,12 +326,12 @@ async fn unbundle_pdf(
 
 ## Performance Targets
 
-| Operation | Target | Notes |
-|-----------|--------|-------|
-| 100-page PDF | < 10s | Boundary detection + split |
-| 500-page PDF | < 45s | Full pipeline |
-| Per-document indexing | < 500ms | Vector embedding |
-| Timeline generation | < 100ms | Client-side |
+| Operation             | Target  | Notes                      |
+| --------------------- | ------- | -------------------------- |
+| 100-page PDF          | < 10s   | Boundary detection + split |
+| 500-page PDF          | < 45s   | Full pipeline              |
+| Per-document indexing | < 500ms | Vector embedding           |
+| Timeline generation   | < 100ms | Client-side                |
 
 ## Error Handling
 

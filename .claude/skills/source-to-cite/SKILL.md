@@ -13,11 +13,12 @@ Source-to-Cite is CasePilot's "Go to Definition" for legal documents. Citations 
 ## Visual Language
 
 ### Citation Markers
+
 ```css
 /* Inline citation styling */
 .citation-mark {
   text-decoration: underline;
-  text-decoration-color: #6366f1;  /* Indigo - distinct from spell-check */
+  text-decoration-color: #6366f1; /* Indigo - distinct from spell-check */
   text-decoration-style: solid;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -55,6 +56,7 @@ Source-to-Cite is CasePilot's "Go to Definition" for legal documents. Citations 
 ```
 
 **Content**:
+
 - Thumbnail: Cropped preview of first page / image
 - Filename: Original file name
 - Metadata: Date, status, description
@@ -63,7 +65,7 @@ Source-to-Cite is CasePilot's "Go to Definition" for legal documents. Citations 
 ```typescript
 interface HoverCard {
   exhibitId: string;
-  thumbnail: string;        // Base64 or blob URL
+  thumbnail: string; // Base64 or blob URL
   fileName: string;
   metadata: {
     sourceDate: string;
@@ -98,6 +100,7 @@ interface HoverCard {
 ```
 
 **Features**:
+
 - Auto-scroll: Viewer scrolls to relevant page/region
 - Cursor stays active in draft (no context switch)
 - Live crop: Adjust image bounds, thumbnail updates
@@ -110,8 +113,10 @@ interface SplitViewState {
   exhibitId: string;
   scrollToPage?: number;
   highlightRegion?: {
-    x: number; y: number;
-    width: number; height: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
   };
 }
 ```
@@ -132,9 +137,7 @@ function onExhibitModified(exhibitId: string, changes: ExhibitChanges) {
   const newThumb = await generateThumbnail(exhibitId);
 
   // 3. Notify all citation nodes
-  editor.chain()
-    .updateAttributes('citation', { exhibitId })
-    .run();
+  editor.chain().updateAttributes("citation", { exhibitId }).run();
 
   // 4. Show toast
   toast.success("Exhibit updated. All references refreshed.");
@@ -144,6 +147,7 @@ function onExhibitModified(exhibitId: string, changes: ExhibitChanges) {
 ## TipTap Implementation
 
 ### Citation Mark
+
 ```typescript
 import { Mark, mergeAttributes } from "@tiptap/core";
 
@@ -157,7 +161,7 @@ export const CitationMark = Mark.create({
   },
 
   parseHTML() {
-    return [{ tag: 'span[data-citation]' }];
+    return [{ tag: "span[data-citation]" }];
   },
 
   renderHTML({ HTMLAttributes }) {
@@ -167,7 +171,7 @@ export const CitationMark = Mark.create({
         "data-citation": true,
         class: "citation-mark",
       }),
-      0,  // Content slot
+      0, // Content slot
     ];
   },
 
@@ -196,6 +200,7 @@ export const CitationMark = Mark.create({
 ```
 
 ### Gutter Markers Extension
+
 ```typescript
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "prosemirror-state";
@@ -228,8 +233,8 @@ class CitationPreloader {
 
   // Called when document loads
   async warmCache(exhibitIds: string[]) {
-    const uncached = exhibitIds.filter(id => !this.cache.has(id));
-    await Promise.all(uncached.map(id => this.loadExhibit(id)));
+    const uncached = exhibitIds.filter((id) => !this.cache.has(id));
+    await Promise.all(uncached.map((id) => this.loadExhibit(id)));
   }
 
   // Called on cursor movement (debounced)
@@ -260,9 +265,9 @@ class CitationPreloader {
 
 ## Performance Targets
 
-| Interaction | Target |
-|-------------|--------|
-| Hover card appear | < 50ms |
-| Split view open | < 200ms |
-| Thumbnail load | < 100ms (cached) |
-| Live update propagation | < 16ms |
+| Interaction             | Target           |
+| ----------------------- | ---------------- |
+| Hover card appear       | < 50ms           |
+| Split view open         | < 200ms          |
+| Thumbnail load          | < 100ms (cached) |
+| Live update propagation | < 16ms           |

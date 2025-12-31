@@ -3,15 +3,18 @@
 **Last Updated**: 2024-12-31
 
 ## Current Phase: Phase 0 - Foundation
+
 **Status**: Planning Complete ✓
 **Next Milestone**: Phase 1 kickoff
 
 ---
 
 ## Phase 0: Foundation ✓
+
 **Goal**: Define architecture, skills, and development patterns
 
 ### Completed
+
 - [x] Project structure initialized
 - [x] CLAUDE.md documentation
 - [x] Tech stack decisions (Tauri, React, Rust, TipTap)
@@ -31,13 +34,16 @@
 ---
 
 ## Phase 1: Editor Foundation
+
 **Target**: TBD
 **Goal**: Replace Word for basic legal drafting
 
 ### Status: Not Started
+
 **Priority**: Start TipTap editor setup
 
 ### Tasks
+
 - [ ] **P0**: TipTap editor setup
   - [ ] Initialize TipTap in React
   - [ ] Basic extensions (bold, italic, headings)
@@ -64,12 +70,14 @@
 ---
 
 ## Phase 2: Intelligence Layer
+
 **Target**: TBD
 **Goal**: AI that understands the case
 
 ### Status: Planned
 
 ### Tasks
+
 - [ ] **P0**: Cmd+K floating menu
   - [ ] Keyboard shortcut listener
   - [ ] Floating UI component
@@ -78,6 +86,8 @@
   - [ ] llama.cpp sidecar setup
   - [ ] Model download on first launch
   - [ ] Inference command (Rust)
+  - [ ] Streaming UI with "thinking" indicators
+  - [ ] Token-by-token response display
 - [ ] **P1**: PDF text extraction
   - [ ] pdfium integration (Rust)
   - [ ] Extract text command
@@ -95,14 +105,22 @@
 ---
 
 ## Phase 3: Trust & Polish
+
 **Target**: TBD
 **Goal**: Lawyers trust output enough to file
 
 ### Status: Planned
 
 ### Tasks
+
 - [ ] **P0**: Source-to-Cite hover cards
 - [ ] **P0**: Compiler errors (validation)
+- [ ] **P1**: Document version history
+  - [ ] Auto-save snapshots every 5 minutes
+  - [ ] "Versions" sidebar with timestamps
+  - [ ] One-click restore to previous version
+  - [ ] Visual diff view (side-by-side comparison)
+  - [ ] Version metadata (date, changes summary)
 - [ ] **P1**: Split-view evidence viewer
 - [ ] **P1**: Diff preview for AI changes
 - [ ] **P1**: Undo/redo for AI actions
@@ -112,12 +130,14 @@
 ---
 
 ## Phase 4: Onboarding Magic
+
 **Target**: TBD
 **Goal**: 5-minute time-to-value
 
 ### Status: Planned
 
 ### Tasks
+
 - [ ] **P0**: Smart Unbundler
 - [ ] **P1**: Timeline view
 - [ ] **P1**: Word import (.docx)
@@ -128,12 +148,14 @@
 ---
 
 ## Phase 5: Singapore Compliance
+
 **Target**: TBD
 **Goal**: eLitigation-ready exports
 
 ### Status: Planned
 
 ### Tasks
+
 - [ ] **P0**: PDF export with bookmarks
 - [ ] **P0**: Auto-pagination
 - [ ] **P1**: Certificate of Exhibits
@@ -155,11 +177,12 @@
 
 ## Notes & Decisions
 
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2024-12-31 | Use TipTap over Slate | Better docs, ProseMirror foundation |
-| 2024-12-31 | Start with Windows target | 90% of SG law firms use Windows |
-| 2024-12-31 | Local-first architecture | Lawyer privacy concerns, court compliance |
+| Date       | Decision                   | Rationale                                               |
+| ---------- | -------------------------- | ------------------------------------------------------- |
+| 2024-12-31 | Use TipTap over Slate      | Better docs, ProseMirror foundation                     |
+| 2024-12-31 | Start with Windows target  | 90% of SG law firms use Windows                         |
+| 2024-12-31 | Local-first architecture   | Lawyer privacy concerns, court compliance               |
+| 2024-12-31 | Use llama.cpp for local AI | Privacy-first, streaming via Tauri events, no API costs |
 
 ---
 
