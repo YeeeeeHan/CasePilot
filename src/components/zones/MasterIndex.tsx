@@ -184,11 +184,7 @@ function DraggableRow({
 
       {/* Page Column */}
       <TableCell className="text-right text-muted-foreground w-[80px]">
-        {isSectionBreak ? (
-          <span>—</span>
-        ) : (
-          formatPageRange(entry.pageStart, entry.pageEnd)
-        )}
+        {formatPageRange(entry.pageStart, entry.pageEnd)}
       </TableCell>
 
       {/* Delete Button */}
@@ -274,19 +270,10 @@ export function MasterIndex({
     }
   }
 
-  // Calculate total pages from last entry with pages
+  // Calculate total pages from last entry (all entry types now have pages)
   const getTotalPages = (): number => {
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const rowType = entries[i].rowType;
-      if (
-        rowType === "document" ||
-        rowType === "cover-page" ||
-        rowType === "divider"
-      ) {
-        return entries[i].pageEnd;
-      }
-    }
-    return 0;
+    if (entries.length === 0) return 0;
+    return entries[entries.length - 1].pageEnd;
   };
 
   // Count all entries with page content (documents, cover pages, dividers)

@@ -1,28 +1,34 @@
 /**
  * EvidenceCanvas Component
  *
- * Renders imported PDF documents as immutable evidence.
- * Uses react-pdf to display PDF pages with page stamp overlays.
+ * Renders imported PDF documents as immutable evidence in a continuous vertical scroll.
+ * Uses react-pdf with virtualization for performance (only renders visible pages).
  *
  * Key features:
- * - PDF pages rendered on white A4 canvas
+ * - All PDF pages rendered vertically (like Adobe Acrobat)
+ * - Virtualized rendering via IntersectionObserver for performance
  * - Page stamp overlay that updates on reorder
- * - Page navigation controls
- * - "Locked" indicator (read-only)
+ * - Collapsible sticky header with "Locked" indicator
  */
 
-import { useState, useCallback } from "react";
-import { Document, Page } from "react-pdf";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { Lock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { ChevronDown, Loader2, Lock } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { useInView } from 'react-intersection-observer';
+import { Document, Page } from 'react-pdf';
 
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { A4Page, A4PageContainer } from "./A4Page";
-import { PageStampOverlay } from "./PageStampOverlay";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
+import { A4Page, A4PageContainer } from './A4Page';
+import { PageSkeleton } from './PageSkeleton';
+import { PageStampOverlay } from './PageStampOverlay';
 
 // Import PDF.js worker configuration
-import "@/lib/pdfWorker";
+import '@/lib/pdfWorker';
 // Note: CSS imports for AnnotationLayer and TextLayer are not needed
 // since we disable both with renderTextLayer={false} and renderAnnotationLayer={false}
 
@@ -33,26 +39,70 @@ interface EvidenceCanvasProps {
   globalPageStart: number;
   /** Total pages in the entire bundle */
   totalBundlePages: number;
-  /** Optional: specific page to display (1-indexed) */
-  currentPage?: number;
-  /** Callback when page changes */
-  onPageChange?: (page: number) => void;
   /** Additional CSS classes */
   className?: string;
+  /** Callback when header is clicked to scroll to top of PDF */
+  onScrollToTop?: () => void;
+  /** Whether to make the header sticky (for single-entry views like Inspector) */
+  stickyHeader?: boolean;
+}
+
+/**
+ * VirtualizedPage Component
+ *
+ * Renders a single PDF page with lazy loading.
+ * Only renders the heavy pdf.js <Page> when in viewport.
+ */
+interface VirtualizedPageProps {
+  pageNumber: number;
+  globalPageNumber: number;
+  totalBundlePages: number;
+}
+
+function VirtualizedPage({
+  pageNumber,
+  globalPageNumber,
+  totalBundlePages,
+}: VirtualizedPageProps) {
+  const { ref, inView } = useInView({
+    triggerOnce: false, // Re-render when scrolling back
+    rootMargin: '200px', // Pre-load pages 200px before visible
+  });
+
+  return (
+    <A4Page ref={ref}>
+      {inView ? (
+        <>
+          <Page
+            pageNumber={pageNumber}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+            className="mx-auto"
+          />
+          <PageStampOverlay
+            pageNumber={globalPageNumber}
+            totalPages={totalBundlePages}
+          />
+        </>
+      ) : (
+        <PageSkeleton />
+      )}
+    </A4Page>
+  );
 }
 
 export function EvidenceCanvas({
   filePath,
   globalPageStart,
   totalBundlePages,
-  currentPage = 1,
-  onPageChange,
   className,
+  onScrollToTop,
+  stickyHeader = false,
 }: EvidenceCanvasProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
-  const [pageNumber, setPageNumber] = useState(currentPage);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Convert file path to Tauri asset URL
   const pdfUrl = convertFileSrc(filePath);
@@ -63,114 +113,98 @@ export function EvidenceCanvas({
       setLoading(false);
       setError(null);
     },
-    [],
+    []
   );
 
   const onDocumentLoadError = useCallback(
     (error: Error) => {
-      console.error("PDF load error:", error);
-      console.error("Attempted URL:", pdfUrl);
-      console.error("Original file path:", filePath);
+      console.error('PDF load error:', error);
+      console.error('Attempted URL:', pdfUrl);
+      console.error('Original file path:', filePath);
       setError(`Failed to load PDF file.`);
       setLoading(false);
     },
-    [pdfUrl, filePath],
+    [pdfUrl, filePath]
   );
 
-  const goToPrevPage = () => {
-    if (pageNumber > 1) {
-      const newPage = pageNumber - 1;
-      setPageNumber(newPage);
-      onPageChange?.(newPage);
-    }
-  };
-
-  const goToNextPage = () => {
-    if (numPages && pageNumber < numPages) {
-      const newPage = pageNumber + 1;
-      setPageNumber(newPage);
-      onPageChange?.(newPage);
-    }
-  };
-
-  // Calculate global page number for the current page
-  const globalPageNumber = globalPageStart + pageNumber - 1;
-
   return (
-    <div className={cn("flex flex-col h-full", className)}>
-      {/* Header with locked indicator and navigation */}
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
-        {/* Locked indicator */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+    <Collapsible
+      open={!isCollapsed}
+      onOpenChange={(open) => setIsCollapsed(!open)}
+      className={cn('flex flex-col', className)}
+    >
+      {/* Header with locked indicator and collapse toggle */}
+      <div
+        className={cn(
+          'z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg',
+          stickyHeader && 'sticky top-[54px]'
+        )}
+      >
+        {/* Locked indicator - click to scroll to top */}
+        <div
+          className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => onScrollToTop?.()}
+        >
           <Lock className="h-4 w-4" />
           <span>Evidence (Read-only)</span>
+          {numPages && (
+            <span className="text-xs opacity-70">
+              - {numPages} page{numPages > 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
-        {/* Page navigation */}
-        {numPages && numPages > 1 && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={goToPrevPage}
-              disabled={pageNumber <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm">
-              {pageNumber} / {numPages}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={goToNextPage}
-              disabled={pageNumber >= numPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+        {/* Collapse toggle */}
+        <CollapsibleTrigger asChild>
+          <button
+            className="p-1 rounded hover:bg-muted transition-colors"
+            aria-label="Toggle collapse"
+          >
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 text-muted-foreground transition-transform duration-200',
+                isCollapsed && '-rotate-90'
+              )}
+            />
+          </button>
+        </CollapsibleTrigger>
       </div>
 
       {/* PDF Content */}
-      <A4PageContainer className="flex-1">
-        {loading && (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        )}
+      <CollapsibleContent>
+        <A4PageContainer>
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
 
-        {error && (
-          <div className="flex items-center justify-center h-full text-destructive">
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="flex items-center justify-center py-12 text-destructive">
+              {error}
+            </div>
+          )}
 
-        <Document
-          file={pdfUrl}
-          onLoadSuccess={onDocumentLoadSuccess}
-          onLoadError={onDocumentLoadError}
-          loading={null}
-          className={loading ? "hidden" : ""}
-        >
-          <A4Page>
-            {/* The PDF page */}
-            <Page
-              pageNumber={pageNumber}
-              renderTextLayer={false}
-              renderAnnotationLayer={false}
-              className="mx-auto"
-            />
-
-            {/* Page stamp overlay - updates on reorder */}
-            <PageStampOverlay
-              pageNumber={globalPageNumber}
-              totalPages={totalBundlePages}
-            />
-          </A4Page>
-        </Document>
-      </A4PageContainer>
-    </div>
+          <Document
+            file={pdfUrl}
+            onLoadSuccess={onDocumentLoadSuccess}
+            onLoadError={onDocumentLoadError}
+            loading={null}
+            className={cn('flex flex-col gap-6', loading && 'hidden')}
+          >
+            {numPages &&
+              Array.from({ length: numPages }, (_, i) => (
+                <VirtualizedPage
+                  key={i}
+                  pageNumber={i + 1}
+                  globalPageNumber={globalPageStart + i}
+                  totalBundlePages={totalBundlePages}
+                />
+              ))}
+          </Document>
+        </A4PageContainer>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

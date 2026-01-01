@@ -34,8 +34,8 @@ function makeSection(id: string, sectionLabel: string): IndexEntry {
     rowType: "section-break",
     sectionLabel,
     description: "",
-    pageStart: 0,
-    pageEnd: 0,
+    pageStart: 1,
+    pageEnd: 1,
     disputed: false,
   };
 }
@@ -146,7 +146,7 @@ describe("pagination utilities", () => {
       expect(result[99].pageEnd).toBe(500); // 100 docs × 5 pages = 500 total
     });
 
-    it("skips section breaks in page calculations", () => {
+    it("assigns pages to section breaks", () => {
       const entries: IndexEntry[] = [
         makeSection("sec-1", "TAB A"),
         makeDoc("1", "Email 1", 1, 5), // 5 pages
@@ -159,25 +159,25 @@ describe("pagination utilities", () => {
 
       expect(result).toHaveLength(5);
 
-      // Section break unchanged
+      // First section break gets page 1
       expect(result[0].rowType).toBe("section-break");
-      expect(result[0].pageStart).toBe(0);
-      expect(result[0].pageEnd).toBe(0);
+      expect(result[0].pageStart).toBe(1);
+      expect(result[0].pageEnd).toBe(1);
 
-      // Documents calculated correctly
-      expect(result[1].pageStart).toBe(1);
-      expect(result[1].pageEnd).toBe(5);
-      expect(result[2].pageStart).toBe(6);
-      expect(result[2].pageEnd).toBe(10);
+      // Documents calculated correctly (shifted by 1 for section break)
+      expect(result[1].pageStart).toBe(2);
+      expect(result[1].pageEnd).toBe(6);
+      expect(result[2].pageStart).toBe(7);
+      expect(result[2].pageEnd).toBe(11);
 
-      // Second section break unchanged
+      // Second section break gets page 12
       expect(result[3].rowType).toBe("section-break");
-      expect(result[3].pageStart).toBe(0);
-      expect(result[3].pageEnd).toBe(0);
+      expect(result[3].pageStart).toBe(12);
+      expect(result[3].pageEnd).toBe(12);
 
       // Continue page count after section break
-      expect(result[4].pageStart).toBe(11);
-      expect(result[4].pageEnd).toBe(20);
+      expect(result[4].pageStart).toBe(13);
+      expect(result[4].pageEnd).toBe(22);
     });
   });
 
@@ -272,8 +272,8 @@ describe("pagination utilities", () => {
       expect(entry.rowType).toBe("section-break");
       expect(entry.sectionLabel).toBe("TAB A - Pleadings");
       expect(entry.description).toBe("");
-      expect(entry.pageStart).toBe(0);
-      expect(entry.pageEnd).toBe(0);
+      expect(entry.pageStart).toBe(1);
+      expect(entry.pageEnd).toBe(1);
       expect(entry.disputed).toBe(false);
       expect(entry.id).toBeDefined();
     });
@@ -292,12 +292,16 @@ describe("pagination utilities", () => {
       expect(getTotalPages(entries)).toBe(25);
     });
 
-    it("ignores section breaks at the end", () => {
+    it("includes section breaks at the end", () => {
       const entries: IndexEntry[] = [
         makeDoc("1", "Doc 1", 1, 10),
-        makeSection("sec", "TAB A"),
+        makeSection("sec", "TAB A"), // Section break has pageEnd: 1 (from makeSection)
       ];
-      expect(getTotalPages(entries)).toBe(10);
+      // After recalculation, section break would be page 11
+      // But this test uses raw entries, so it returns makeSection's pageEnd which is 1
+      // Let's test with recalculated entries for accuracy
+      const recalculated = recalculatePageRanges(entries);
+      expect(getTotalPages(recalculated)).toBe(11); // Doc ends at 10, section break is page 11
     });
   });
 
@@ -355,14 +359,14 @@ describe("pagination utilities", () => {
       // Existing documents with a section break
       const existing: IndexEntry[] = [
         makeSection("sec-1", "TAB A"),
-        makeDoc("1", "Doc 1", 1, 10),
-        makeDoc("2", "Doc 2", 11, 20),
+        makeDoc("1", "Doc 1", 1, 10), // 10 pages
+        makeDoc("2", "Doc 2", 11, 20), // 10 pages
         makeSection("sec-2", "TAB B"),
-        makeDoc("3", "Doc 3", 21, 30),
+        makeDoc("3", "Doc 3", 21, 30), // 10 pages
       ];
 
       // New document to insert at position 2 (after Doc 1)
-      const newDoc = makeDoc("new", "Late Insert", 999, 1003);
+      const newDoc = makeDoc("new", "Late Insert", 999, 1003); // 5 pages
 
       // Insert at position 2 (after Doc 1, before Doc 2)
       const withInsert = [
@@ -377,32 +381,35 @@ describe("pagination utilities", () => {
       // Recalculate
       const result = recalculatePageRanges(withInsert);
 
-      // Section break unchanged
+      // Section break gets page 1
       expect(result[0].sectionLabel).toBe("TAB A");
-      expect(result[0].pageStart).toBe(0);
+      expect(result[0].pageStart).toBe(1);
+      expect(result[0].pageEnd).toBe(1);
 
-      // Doc 1 unchanged
+      // Doc 1 starts at page 2 (after section break)
       expect(result[1].id).toBe("1");
-      expect(result[1].pageStart).toBe(1);
-      expect(result[1].pageEnd).toBe(10);
+      expect(result[1].pageStart).toBe(2);
+      expect(result[1].pageEnd).toBe(11); // 10 pages
 
-      // New doc inserted
+      // New doc inserted after Doc 1
       expect(result[2].id).toBe("new");
-      expect(result[2].pageStart).toBe(11);
-      expect(result[2].pageEnd).toBe(15); // 5 pages
+      expect(result[2].pageStart).toBe(12);
+      expect(result[2].pageEnd).toBe(16); // 5 pages
 
       // Doc 2 pushed down
       expect(result[3].id).toBe("2");
-      expect(result[3].pageStart).toBe(16);
-      expect(result[3].pageEnd).toBe(25);
+      expect(result[3].pageStart).toBe(17);
+      expect(result[3].pageEnd).toBe(26); // 10 pages
 
-      // Second section break unchanged
+      // Second section break gets page 27
       expect(result[4].sectionLabel).toBe("TAB B");
+      expect(result[4].pageStart).toBe(27);
+      expect(result[4].pageEnd).toBe(27);
 
       // Doc 3 pushed down
       expect(result[5].id).toBe("3");
-      expect(result[5].pageStart).toBe(26);
-      expect(result[5].pageEnd).toBe(35);
+      expect(result[5].pageStart).toBe(28);
+      expect(result[5].pageEnd).toBe(37); // 10 pages
     });
   });
 });

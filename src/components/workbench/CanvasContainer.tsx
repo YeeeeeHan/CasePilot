@@ -4,7 +4,8 @@
  * Mode switcher that renders the appropriate canvas based on entry type:
  * - "document" → EvidenceCanvas (react-pdf, immutable)
  * - "cover-page" / "divider" → DraftingCanvas (TipTap, editable)
- * - "section-break" / null → Empty state
+ * - "section-break" → SectionBreakCanvas (1-page tab divider)
+ * - null → Empty state
  */
 
 import { useMemo } from "react";
@@ -15,6 +16,7 @@ import type { IndexEntry } from "@/lib/pagination";
 import { isEditableEntry, isEvidenceEntry } from "@/lib/pagination";
 import { EvidenceCanvas, EvidenceCanvasPlaceholder } from "./EvidenceCanvas";
 import { DraftingCanvas } from "./DraftingCanvas";
+import { SectionBreakCanvas } from "./SectionBreakCanvas";
 import { A4PageContainer, A4Page } from "./A4Page";
 
 interface CanvasContainerProps {
@@ -34,11 +36,11 @@ interface CanvasContainerProps {
   className?: string;
 }
 
-type CanvasMode = "evidence" | "drafting" | "empty";
+type CanvasMode = "evidence" | "drafting" | "section-break" | "empty";
 
 function getCanvasMode(entry: IndexEntry | null): CanvasMode {
   if (!entry) return "empty";
-  if (entry.rowType === "section-break") return "empty";
+  if (entry.rowType === "section-break") return "section-break";
   if (isEvidenceEntry(entry)) return "evidence";
   if (isEditableEntry(entry)) return "drafting";
   return "empty";
@@ -63,11 +65,21 @@ export function CanvasContainer({
     <div className={cn("h-full", className)}>
       {mode === "empty" && <EmptyCanvas entry={entry} />}
 
+      {mode === "section-break" && entry && (
+        <SectionBreakCanvas
+          sectionLabel={entry.sectionLabel || "Section Break"}
+          globalPageNumber={entry.pageStart}
+          totalBundlePages={totalBundlePages}
+          stickyHeader={true}
+        />
+      )}
+
       {mode === "evidence" && entry && filePath && (
         <EvidenceCanvas
           filePath={filePath}
           globalPageStart={entry.pageStart}
           totalBundlePages={totalBundlePages}
+          stickyHeader={true}
         />
       )}
 
@@ -89,30 +101,15 @@ export function CanvasContainer({
 /**
  * EmptyCanvas
  *
- * Shown when nothing is selected or a section break is selected.
+ * Shown when nothing is selected.
  */
-interface EmptyCanvasProps {
-  entry: IndexEntry | null;
-}
-
-function EmptyCanvas({ entry }: EmptyCanvasProps) {
-  const isSectionBreak = entry?.rowType === "section-break";
-
+function EmptyCanvas({ entry: _entry }: { entry: IndexEntry | null }) {
   return (
     <A4PageContainer className="h-full">
       <A4Page className="flex items-center justify-center">
         <div className="text-center text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          {isSectionBreak ? (
-            <>
-              <p className="text-sm font-medium">{entry?.sectionLabel}</p>
-              <p className="text-xs mt-1">
-                Section breaks don't have page content
-              </p>
-            </>
-          ) : (
-            <p className="text-sm">Select a document to preview</p>
-          )}
+          <p className="text-sm">Select a document to preview</p>
         </div>
       </A4Page>
     </A4PageContainer>

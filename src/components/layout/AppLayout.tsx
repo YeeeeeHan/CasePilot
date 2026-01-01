@@ -57,7 +57,7 @@ export function AppLayout({
               <ResizableHandle />
 
               {/* Right Column: Inspector */}
-              <ResizablePanel defaultSize={30} minSize={20}>
+              <ResizablePanel defaultSize={15} minSize={20}>
                 <div className="h-full border-l border-border bg-background">
                   {inspector}
                 </div>

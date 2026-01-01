@@ -34,6 +34,7 @@
     "radix-ui": "^1.4.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-intersection-observer": "^10.0.0",
     "react-pdf": "^10.3.0",
     "react-resizable-panels": "^4.1.1",
     "shadcn": "^3.6.2",

@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect } from "react";
-import { FileText, Layers } from "lucide-react";
+import { FileText } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { IndexEntry } from "@/lib/pagination";
@@ -14,6 +14,7 @@ import { isEvidenceEntry, isEditableEntry } from "@/lib/pagination";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EvidenceCanvas } from "./EvidenceCanvas";
 import { DraftingCanvas } from "./DraftingCanvas";
+import { SectionBreakCanvas } from "./SectionBreakCanvas";
 import { A4Page, A4PageContainer } from "./A4Page";
 
 interface PreviewPaneProps {
@@ -50,6 +51,14 @@ export function PreviewPane({
       element?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [selectedEntryId]);
+
+  // Handler for scrolling to an entry
+  const scrollToEntry = (entryId: string) => {
+    const element = entryRefs.current.get(entryId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   if (entries.length === 0) {
     return (
@@ -88,6 +97,7 @@ export function PreviewPane({
                 entry={entry}
                 totalBundlePages={totalBundlePages}
                 onContentChange={onContentChange}
+                onScrollToEntry={scrollToEntry}
               />
             </div>
           ))}
@@ -105,39 +115,42 @@ interface EntryPreviewProps {
     content: string,
     pageCount: number,
   ) => void;
+  onScrollToEntry: (entryId: string) => void;
 }
 
 function EntryPreview({
   entry,
   totalBundlePages,
   onContentChange,
+  onScrollToEntry,
 }: EntryPreviewProps) {
   const handleContentChange = (content: string, pageCount: number) => {
     onContentChange?.(entry.id, content, pageCount);
   };
 
-  // Section break - render as a divider
+  // Section break - render as full page with sticky header
   if (entry.rowType === "section-break") {
     return (
-      <div className="flex items-center gap-3 py-4 px-6 bg-muted/50 rounded-lg border border-dashed">
-        <Layers className="h-5 w-5 text-muted-foreground" />
-        <span className="font-semibold text-sm">
-          {entry.sectionLabel || "Section Break"}
-        </span>
-      </div>
+      <SectionBreakCanvas
+        sectionLabel={entry.sectionLabel || "Section Break"}
+        globalPageNumber={entry.pageStart}
+        totalBundlePages={totalBundlePages}
+        className="border rounded-lg bg-white"
+      />
     );
   }
 
   // Document (PDF) - render embedded preview
+  // Note: No overflow-hidden here - it breaks sticky positioning on the header
   if (isEvidenceEntry(entry) && entry.fileId) {
     return (
-      <div className="border rounded-lg overflow-hidden bg-white">
-        <EvidenceCanvas
-          filePath={entry.fileId}
-          globalPageStart={entry.pageStart}
-          totalBundlePages={totalBundlePages}
-        />
-      </div>
+      <EvidenceCanvas
+        filePath={entry.fileId}
+        globalPageStart={entry.pageStart}
+        totalBundlePages={totalBundlePages}
+        className="border rounded-lg bg-white"
+        onScrollToTop={() => onScrollToEntry(entry.id)}
+      />
     );
   }
 

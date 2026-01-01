@@ -5,7 +5,7 @@
  * These utilities handle the core logic for auto-renumbering when documents
  * are reordered or inserted.
  *
- * Key design: Section breaks do NOT count towards page numbers.
+ * Key design: Section breaks (tabs) count as 1 page each.
  */
 
 export type RowType = "document" | "section-break" | "cover-page" | "divider";
@@ -29,10 +29,10 @@ export interface IndexEntry {
 }
 
 /**
- * Recalculates page ranges for all document entries based on their current order.
- * Section breaks are skipped in the page calculation.
+ * Recalculates page ranges for all entries based on their current order.
+ * Section breaks (tabs) occupy exactly 1 page each.
  *
- * Each document's pageStart is determined by the previous document's pageEnd + 1.
+ * Each entry's pageStart is determined by the previous entry's pageEnd + 1.
  * The page count (pageEnd - pageStart) is preserved from the original entry.
  *
  * @param entries - Array of index entries in desired order
@@ -45,9 +45,9 @@ export interface IndexEntry {
  *   { id: "3", rowType: "document", pageStart: 10, pageEnd: 12, ... }  // 3 pages (was wrong)
  * ];
  * const updated = recalculatePageRanges(entries);
- * // Section break is unchanged
- * // Document 2: pageStart=1, pageEnd=5
- * // Document 3: pageStart=6, pageEnd=8 (corrected!)
+ * // Section break: pageStart=1, pageEnd=1 (1 page)
+ * // Document 2: pageStart=2, pageEnd=6 (5 pages)
+ * // Document 3: pageStart=7, pageEnd=9 (corrected!)
  */
 export function recalculatePageRanges(entries: IndexEntry[]): IndexEntry[] {
   if (entries.length === 0) return [];
@@ -57,8 +57,17 @@ export function recalculatePageRanges(entries: IndexEntry[]): IndexEntry[] {
 
   for (const entry of entries) {
     if (entry.rowType === "section-break") {
-      // Section breaks don't have page numbers, pass through unchanged
-      result.push({ ...entry });
+      // Section breaks (tabs) occupy exactly 1 page
+      const pageStart = lastDocumentPageEnd === 0 ? 1 : lastDocumentPageEnd + 1;
+      const pageEnd = pageStart; // Always 1 page
+
+      result.push({
+        ...entry,
+        pageStart,
+        pageEnd,
+      });
+
+      lastDocumentPageEnd = pageEnd;
     } else if (entry.rowType === "cover-page" || entry.rowType === "divider") {
       // Generated content uses generatedPageCount (from TipTap page detection)
       const pageCount = entry.generatedPageCount || 1;
@@ -156,8 +165,8 @@ export function createSectionBreak(sectionLabel: string): IndexEntry {
     rowType: "section-break",
     sectionLabel,
     description: "",
-    pageStart: 0,
-    pageEnd: 0,
+    pageStart: 1,
+    pageEnd: 1,
     disputed: false,
   };
 }
@@ -166,17 +175,12 @@ export function createSectionBreak(sectionLabel: string): IndexEntry {
  * Calculates the total page count from all entries with pages.
  *
  * @param entries - Array of index entries
- * @returns Total number of pages across all documents
+ * @returns Total number of pages across all entries
  */
 export function getTotalPages(entries: IndexEntry[]): number {
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
-    // Any entry type except section-break has pages
-    if (entry.rowType !== "section-break") {
-      return entry.pageEnd;
-    }
-  }
-  return 0;
+  // All entry types now have pages, so just get the last entry's pageEnd
+  if (entries.length === 0) return 0;
+  return entries[entries.length - 1].pageEnd;
 }
 
 /**
