@@ -13,7 +13,7 @@
 
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ChevronDown, Loader2, Lock } from 'lucide-react';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Document, Page } from 'react-pdf';
 
@@ -68,17 +68,58 @@ const VirtualizedPage = memo(function VirtualizedPage({
   globalPageNumber,
   totalBundlePages,
 }: VirtualizedPageProps) {
-  const { ref, inView } = useInView({
+  const { ref: inViewRef, inView } = useInView({
     triggerOnce: false, // Re-render when scrolling back
     rootMargin: '200px', // Pre-load pages 200px before visible
   });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [pageWidth, setPageWidth] = useState<number | null>(null);
+
+  // Combined ref callback for intersection observer and width measurement
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      containerRef.current = node;
+      if (typeof inViewRef === 'function') {
+        inViewRef(node);
+      } else if (inViewRef) {
+        (inViewRef as React.MutableRefObject<HTMLDivElement | null>).current =
+          node;
+      }
+    },
+    [inViewRef]
+  );
+
+  // Measure container width and update when it changes
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateWidth = () => {
+      const width = container.offsetWidth;
+      if (width > 0) {
+        setPageWidth(width);
+      }
+    };
+
+    // Initial measurement
+    updateWidth();
+
+    // Observe resize
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   return (
-    <A4Page ref={ref}>
+    <A4Page ref={setRefs} className="w-full max-w-full">
       {inView ? (
         <>
           <Page
             pageNumber={pageNumber}
+            width={pageWidth || A4_DIMENSIONS.WIDTH_PX}
             renderTextLayer={false}
             renderAnnotationLayer={false}
             className="mx-auto"
@@ -114,10 +155,39 @@ const VirtualizedPageList = memo(function VirtualizedPageList({
   totalBundlePages,
 }: VirtualizedPageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [itemHeight, setItemHeight] = useState<number>(A4_DIMENSIONS.HEIGHT_PX);
+
+  // Read dynamic page height from CSS variable
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateItemHeight = () => {
+      const pageHeight =
+        getComputedStyle(container).getPropertyValue('--page-height');
+      if (pageHeight) {
+        const height = parseInt(pageHeight, 10);
+        if (!isNaN(height) && height > 0) {
+          setItemHeight(height);
+        }
+      }
+    };
+
+    // Initial measurement
+    updateItemHeight();
+
+    // Observe for CSS variable changes (when container resizes)
+    const resizeObserver = new ResizeObserver(updateItemHeight);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   const { startIndex, endIndex, topPadding, bottomPadding } = useVirtualWindow({
     totalItems: numPages,
-    itemHeight: A4_DIMENSIONS.HEIGHT_PX,
+    itemHeight,
     overscan: 3, // Render 3 pages above/below viewport
     containerRef: containerRef as React.RefObject<HTMLElement>,
   });
@@ -139,18 +209,20 @@ const VirtualizedPageList = memo(function VirtualizedPageList({
   }, [startIndex, endIndex, globalPageStart, totalBundlePages]);
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-6">
-      {/* Top padding for pages above viewport */}
-      {topPadding > 0 && <div style={{ height: topPadding }} aria-hidden />}
+    <A4Page>
+      <div ref={containerRef} className="flex flex-col gap-6">
+        {/* Top padding for pages above viewport */}
+        {topPadding > 0 && <div style={{ height: topPadding }} aria-hidden />}
 
-      {/* Only render visible pages */}
-      {visiblePages}
+        {/* Only render visible pages */}
+        {visiblePages}
 
-      {/* Bottom padding for pages below viewport */}
-      {bottomPadding > 0 && (
-        <div style={{ height: bottomPadding }} aria-hidden />
-      )}
-    </div>
+        {/* Bottom padding for pages below viewport */}
+        {bottomPadding > 0 && (
+          <div style={{ height: bottomPadding }} aria-hidden />
+        )}
+      </div>
+    </A4Page>
   );
 });
 

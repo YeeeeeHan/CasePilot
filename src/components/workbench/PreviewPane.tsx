@@ -5,17 +5,18 @@
  * Renders all entries from the master index in sequence.
  */
 
-import { useRef, useEffect } from "react";
-import { FileText } from "lucide-react";
+import { FileText } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
-import { cn } from "@/lib/utils";
-import type { IndexEntry } from "@/lib/pagination";
-import { isEvidenceEntry, isEditableEntry } from "@/lib/pagination";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { EvidenceCanvas } from "./EvidenceCanvas";
-import { DraftingCanvas } from "./DraftingCanvas";
-import { SectionBreakCanvas } from "./SectionBreakCanvas";
-import { A4Page, A4PageContainer } from "./A4Page";
+import { ScrollArea } from '@/components/ui/scroll-area';
+import type { IndexEntry } from '@/lib/pagination';
+import { isEditableEntry, isEvidenceEntry } from '@/lib/pagination';
+import { cn } from '@/lib/utils';
+import { A4_DIMENSIONS } from '@/types/canvas';
+import { A4Page, A4PageContainer } from './A4Page';
+import { DraftingCanvas } from './DraftingCanvas';
+import { EvidenceCanvas } from './EvidenceCanvas';
+import { SectionBreakCanvas } from './SectionBreakCanvas';
 
 interface PreviewPaneProps {
   /** All entries in the master index */
@@ -28,7 +29,7 @@ interface PreviewPaneProps {
   onContentChange?: (
     entryId: string,
     content: string,
-    pageCount: number,
+    pageCount: number
   ) => void;
   /** Additional CSS classes */
   className?: string;
@@ -43,12 +44,46 @@ export function PreviewPane({
 }: PreviewPaneProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const entryRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Update CSS variables for dynamic page scaling based on container width
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateDimensions = () => {
+      const containerWidth = container.offsetWidth;
+      // Account for padding from A4PageContainer (px-3 = 12px on each side = 24px total)
+      // and the space-y-2 gap (8px between items)
+      const availableWidth = containerWidth - 24;
+      const scale = availableWidth / A4_DIMENSIONS.WIDTH_PX;
+
+      // Set CSS variables for components to use
+      container.style.setProperty('--page-width', `${availableWidth}px`);
+      container.style.setProperty(
+        '--page-height',
+        `${A4_DIMENSIONS.HEIGHT_PX * scale}px`
+      );
+      container.style.setProperty('--page-scale', `${scale}`);
+    };
+
+    // Initial measurement
+    updateDimensions();
+
+    // Observe resize
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   // Scroll to selected entry when it changes
   useEffect(() => {
     if (selectedEntryId && entryRefs.current.has(selectedEntryId)) {
       const element = entryRefs.current.get(selectedEntryId);
-      element?.scrollIntoView({ behavior: "smooth", block: "start" });
+      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [selectedEntryId]);
 
@@ -56,7 +91,7 @@ export function PreviewPane({
   const scrollToEntry = (entryId: string) => {
     const element = entryRefs.current.get(entryId);
     if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -64,8 +99,8 @@ export function PreviewPane({
     return (
       <div
         className={cn(
-          "h-full flex flex-col items-center justify-center bg-muted/20 text-muted-foreground",
-          className,
+          'h-full flex flex-col items-center justify-center bg-muted/20 text-muted-foreground',
+          className
         )}
       >
         <FileText className="h-12 w-12 mb-3 opacity-30" />
@@ -78,30 +113,27 @@ export function PreviewPane({
   }
 
   return (
-    <div className={cn("h-full flex flex-col bg-muted/20", className)}>
+    <div
+      ref={containerRef}
+      className={cn('h-full flex flex-col bg-muted/20', className)}
+    >
       <ScrollArea className="flex-1" ref={scrollRef}>
-        <div className="p-2 space-y-2">
-          {entries.map((entry) => (
-            <div
-              key={entry.id}
-              ref={(el) => {
-                if (el) entryRefs.current.set(entry.id, el);
-              }}
-              className={cn(
-                "transition-all",
-                selectedEntryId === entry.id &&
-                  "ring-2 ring-primary ring-offset-2 rounded-lg",
-              )}
-            >
-              <EntryPreview
-                entry={entry}
-                totalBundlePages={totalBundlePages}
-                onContentChange={onContentChange}
-                onScrollToEntry={scrollToEntry}
-              />
-            </div>
-          ))}
-        </div>
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            ref={(el) => {
+              if (el) entryRefs.current.set(entry.id, el);
+            }}
+            className={cn('transition-all')}
+          >
+            <EntryPreview
+              entry={entry}
+              totalBundlePages={totalBundlePages}
+              onContentChange={onContentChange}
+              onScrollToEntry={scrollToEntry}
+            />
+          </div>
+        ))}
       </ScrollArea>
     </div>
   );
@@ -113,7 +145,7 @@ interface EntryPreviewProps {
   onContentChange?: (
     entryId: string,
     content: string,
-    pageCount: number,
+    pageCount: number
   ) => void;
   onScrollToEntry: (entryId: string) => void;
 }
@@ -129,10 +161,10 @@ function EntryPreview({
   };
 
   // Section break - render as full page with sticky header
-  if (entry.rowType === "section-break") {
+  if (entry.rowType === 'section-break') {
     return (
       <SectionBreakCanvas
-        sectionLabel={entry.sectionLabel || "Section Break"}
+        sectionLabel={entry.sectionLabel || 'Section Break'}
         globalPageNumber={entry.pageStart}
         totalBundlePages={totalBundlePages}
         className="border rounded-lg bg-white"
@@ -160,7 +192,7 @@ function EntryPreview({
       <div className="border rounded-lg overflow-hidden bg-white">
         <DraftingCanvas
           content={entry.tiptapContent}
-          entryType={entry.rowType as "cover-page" | "divider"}
+          entryType={entry.rowType as 'cover-page' | 'divider'}
           onContentChange={handleContentChange}
         />
       </div>
@@ -173,7 +205,7 @@ function EntryPreview({
       <A4Page className="flex items-center justify-center">
         <div className="text-center text-muted-foreground">
           <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">{entry.description || "Document"}</p>
+          <p className="text-sm">{entry.description || 'Document'}</p>
           <p className="text-xs opacity-70">
             Pages {entry.pageStart} - {entry.pageEnd}
           </p>

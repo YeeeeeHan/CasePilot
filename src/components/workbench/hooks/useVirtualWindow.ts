@@ -56,9 +56,15 @@ export function useVirtualWindow({
       const viewportHeight = container.clientHeight || window.innerHeight;
 
       // Calculate visible range
-      const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
+      const startIndex = Math.max(
+        0,
+        Math.floor(scrollTop / itemHeight) - overscan,
+      );
       const visibleCount = Math.ceil(viewportHeight / itemHeight);
-      const endIndex = Math.min(totalItems, startIndex + visibleCount + overscan * 2);
+      const endIndex = Math.min(
+        totalItems,
+        startIndex + visibleCount + overscan * 2,
+      );
 
       setVisibleRange((prev) => {
         // Only update if range actually changed

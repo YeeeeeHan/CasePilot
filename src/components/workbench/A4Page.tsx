@@ -8,9 +8,9 @@
  * Supports forwardRef for intersection observer integration.
  */
 
-import { cn } from "@/lib/utils";
-import { A4_DIMENSIONS } from "@/types/canvas";
-import { forwardRef } from "react";
+import { cn } from '@/lib/utils';
+import { A4_DIMENSIONS } from '@/types/canvas';
+import { forwardRef } from 'react';
 
 interface A4PageProps {
   children: React.ReactNode;
@@ -24,24 +24,31 @@ interface A4PageProps {
 
 export const A4Page = forwardRef<HTMLDivElement, A4PageProps>(
   ({ children, pageNumber, showPageBreak = false, className }, ref) => {
+    // Check if className includes responsive width classes
+    const isResponsive =
+      className?.includes('w-full') || className?.includes('max-w-full');
+
     return (
       <div
         ref={ref}
         className={cn(
           // A4 dimensions at 96 DPI
-          "relative bg-white shadow-md",
-          // Centered within parent
-          "mx-auto",
-          className,
+          'relative bg-white shadow-md',
+          // Centered within parent (unless responsive)
+          isResponsive ? '' : 'mx-auto',
+          className
         )}
         style={{
-          width: A4_DIMENSIONS.WIDTH_PX,
-          minHeight: A4_DIMENSIONS.HEIGHT_PX,
+          // Use CSS variables if available, fallback to hardcoded dimensions
+          width: isResponsive
+            ? undefined
+            : `var(--page-width, ${A4_DIMENSIONS.WIDTH_PX}px)`,
+          minHeight: `var(--page-height, ${A4_DIMENSIONS.HEIGHT_PX}px)`,
           // Keep consistent aspect ratio when scaling
           aspectRatio: `${A4_DIMENSIONS.WIDTH_MM} / ${A4_DIMENSIONS.HEIGHT_MM}`,
           // Performance: defer rendering of off-screen pages
-          contentVisibility: "auto",
-          containIntrinsicSize: `${A4_DIMENSIONS.WIDTH_PX}px ${A4_DIMENSIONS.HEIGHT_PX}px`,
+          contentVisibility: 'auto',
+          containIntrinsicSize: `var(--page-width, ${A4_DIMENSIONS.WIDTH_PX}px) var(--page-height, ${A4_DIMENSIONS.HEIGHT_PX}px)`,
         }}
       >
         {/* Page content */}
@@ -66,10 +73,10 @@ export const A4Page = forwardRef<HTMLDivElement, A4PageProps>(
         )}
       </div>
     );
-  },
+  }
 );
 
-A4Page.displayName = "A4Page";
+A4Page.displayName = 'A4Page';
 
 /**
  * A4PageContainer
@@ -91,10 +98,10 @@ export function A4PageContainer({ children, className }: A4PageContainerProps) {
       className={cn(
         // Vertical stacking with consistent gap (like PDF readers)
         // Balanced padding: py-3 for top/bottom, px-3 for left/right
-        "flex flex-col items-center gap-3 py-3 px-3",
+        'flex flex-col items-center gap-3 py-3 px-3',
         // Gray background to contrast white pages
-        "bg-muted/50",
-        className,
+        'bg-muted/50',
+        className
       )}
     >
       {children}
