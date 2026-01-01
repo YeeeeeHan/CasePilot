@@ -23,6 +23,19 @@ export interface PdfMetadata {
   file_size: number;
 }
 
+export interface Exhibit {
+  id: string;
+  case_id: string;
+  status: "unprocessed" | "processed" | "bundled"; // NEW
+  file_path: string; // NOT optional (required)
+  label?: string; // Now optional
+  sequence_index?: number; // Now optional
+  page_count?: number;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export function useInvoke() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,6 +197,172 @@ export function useInvoke() {
     [],
   );
 
+  // Exhibit CRUD functions
+
+  const listExhibits = useCallback(
+    async (caseId: string): Promise<Exhibit[]> => {
+      try {
+        const exhibits = await invoke<Exhibit[]>("list_exhibits", { caseId });
+        return exhibits;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to list exhibits:", message);
+        return [];
+      }
+    },
+    [],
+  );
+
+  const listStagingFiles = useCallback(
+    async (caseId: string): Promise<Exhibit[]> => {
+      try {
+        const files = await invoke<Exhibit[]>("list_staging_files", { caseId });
+        return files;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to list staging files:", message);
+        return [];
+      }
+    },
+    [],
+  );
+
+  const createExhibit = useCallback(
+    async (
+      caseId: string,
+      filePath: string,
+      status: "unprocessed" | "processed" | "bundled",
+      label?: string,
+      sequenceIndex?: number,
+      pageCount?: number,
+      description?: string,
+    ): Promise<Exhibit | null> => {
+      try {
+        const exhibit = await invoke<Exhibit>("create_exhibit", {
+          request: {
+            case_id: caseId,
+            file_path: filePath,
+            status,
+            label,
+            sequence_index: sequenceIndex,
+            page_count: pageCount,
+            description,
+          },
+        });
+        return exhibit;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to create exhibit:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const updateExhibit = useCallback(
+    async (
+      id: string,
+      status?: "unprocessed" | "processed" | "bundled",
+      label?: string,
+      sequenceIndex?: number,
+      pageCount?: number,
+      description?: string,
+    ): Promise<Exhibit | null> => {
+      try {
+        const exhibit = await invoke<Exhibit>("update_exhibit", {
+          request: {
+            id,
+            status,
+            label,
+            sequence_index: sequenceIndex,
+            page_count: pageCount,
+            description,
+          },
+        });
+        return exhibit;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to update exhibit:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const updateExhibitStatus = useCallback(
+    async (
+      id: string,
+      status: "unprocessed" | "processed" | "bundled",
+    ): Promise<Exhibit | null> => {
+      try {
+        const exhibit = await invoke<Exhibit>("update_exhibit_status", {
+          id,
+          status,
+        });
+        return exhibit;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to update exhibit status:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const promoteToFundled = useCallback(
+    async (
+      id: string,
+      label: string,
+      sequenceIndex: number,
+      description?: string,
+    ): Promise<Exhibit | null> => {
+      try {
+        const exhibit = await invoke<Exhibit>("promote_to_bundled", {
+          id,
+          label,
+          sequenceIndex,
+          description,
+        });
+        return exhibit;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to promote to bundled:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const deleteExhibit = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await invoke("delete_exhibit", { id });
+      return true;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("[useInvoke] Failed to delete exhibit:", message);
+      return false;
+    }
+  }, []);
+
+  const reorderExhibits = useCallback(
+    async (caseId: string, exhibitIds: string[]): Promise<Exhibit[]> => {
+      try {
+        const exhibits = await invoke<Exhibit[]>("reorder_exhibits", {
+          request: {
+            case_id: caseId,
+            exhibit_ids: exhibitIds,
+          },
+        });
+        return exhibits;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to reorder exhibits:", message);
+        return [];
+      }
+    },
+    [],
+  );
+
   return {
     loading,
     error,
@@ -196,5 +375,13 @@ export function useInvoke() {
     deleteCase,
     deleteDocument,
     extractPdfMetadata,
+    listExhibits,
+    listStagingFiles,
+    createExhibit,
+    updateExhibit,
+    updateExhibitStatus,
+    promoteToFundled,
+    deleteExhibit,
+    reorderExhibits,
   };
 }

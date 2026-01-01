@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Upload, Circle, CircleDot, CheckCircle2 } from "lucide-react";
+import { Upload, Circle, CircleDot, CheckCircle2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -8,12 +8,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 export type TriageStatus = "unprocessed" | "processed" | "bundled";
 
 export interface StagedFile {
   id: string;
   name: string;
+  filePath: string;
   status: TriageStatus;
   pageCount?: number;
   metadata?: {
@@ -27,6 +29,7 @@ interface StagingAreaProps {
   files: StagedFile[];
   onFileDrop?: (filePaths: string[]) => void;
   onFileSelect?: (fileId: string) => void;
+  onFileDelete?: (fileId: string) => void;
   selectedFileId?: string | null;
 }
 
@@ -59,6 +62,7 @@ export function StagingArea({
   files,
   onFileDrop,
   onFileSelect,
+  onFileDelete,
   selectedFileId,
 }: StagingAreaProps) {
   // Use ref to avoid re-running effect when callback changes
@@ -138,38 +142,57 @@ export function StagingArea({
               const StatusIcon = config.icon;
 
               return (
-                <Tooltip key={file.id}>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => onFileSelect?.(file.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors",
-                        selectedFileId === file.id
-                          ? "bg-accent text-accent-foreground"
-                          : "hover:bg-muted",
+                <div key={file.id} className="group relative">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onFileSelect?.(file.id)}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors pr-7",
+                          selectedFileId === file.id
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-muted",
+                          file.status === "bundled" && "opacity-60",
+                        )}
+                      >
+                        <StatusIcon
+                          className={cn("h-3 w-3 shrink-0", config.className)}
+                        />
+                        <span className="truncate flex-1">{file.name}</span>
+                        {file.pageCount && (
+                          <span className="text-muted-foreground shrink-0">
+                            {file.pageCount}p
+                          </span>
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">
+                      <p className="font-medium">{file.name}</p>
+                      <p className="text-muted-foreground">{config.label}</p>
+                      {file.metadata?.date && (
+                        <p className="text-muted-foreground">
+                          Date: {file.metadata.date}
+                        </p>
                       )}
-                    >
-                      <StatusIcon
-                        className={cn("h-3 w-3 shrink-0", config.className)}
-                      />
-                      <span className="truncate flex-1">{file.name}</span>
-                      {file.pageCount && (
-                        <span className="text-muted-foreground shrink-0">
-                          {file.pageCount}p
-                        </span>
+                      {file.status === "bundled" && (
+                        <p className="text-green-500">Already in bundle</p>
                       )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="text-xs">
-                    <p className="font-medium">{file.name}</p>
-                    <p className="text-muted-foreground">{config.label}</p>
-                    {file.metadata?.date && (
-                      <p className="text-muted-foreground">
-                        Date: {file.metadata.date}
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
+                    </TooltipContent>
+                  </Tooltip>
+                  {/* Delete button - show on hover */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFileDelete?.(file.id);
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                    <span className="sr-only">Delete file</span>
+                  </Button>
+                </div>
               );
             })}
           </div>

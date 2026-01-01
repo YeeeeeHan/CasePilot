@@ -1,4 +1,5 @@
-import { FolderOpen, Plus, Settings } from "lucide-react";
+import { useState } from "react";
+import { FolderOpen, Plus, Settings, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -7,6 +8,22 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 export interface ProjectCase {
   id: string;
@@ -19,6 +36,7 @@ interface ProjectSwitcherProps {
   activeCaseId?: string | null;
   onSelectCase?: (caseId: string) => void;
   onCreateCase?: () => void;
+  onDeleteCase?: (caseId: string) => void;
 }
 
 function getInitials(name: string): string {
@@ -41,7 +59,17 @@ export function ProjectSwitcher({
   activeCaseId,
   onSelectCase,
   onCreateCase,
+  onDeleteCase,
 }: ProjectSwitcherProps) {
+  const [caseToDelete, setCaseToDelete] = useState<ProjectCase | null>(null);
+
+  const handleDeleteConfirm = () => {
+    if (caseToDelete && onDeleteCase) {
+      onDeleteCase(caseToDelete.id);
+    }
+    setCaseToDelete(null);
+  };
+
   return (
     <TooltipProvider>
       <div className="flex flex-col h-full items-center gap-1">
@@ -52,24 +80,39 @@ export function ProjectSwitcher({
             const isActive = activeCaseId === caseItem.id;
 
             return (
-              <Tooltip key={caseItem.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onSelectCase?.(caseItem.id)}
-                    className={cn(
-                      "w-9 h-9 rounded-lg flex items-center justify-center text-xs font-semibold transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground",
-                    )}
+              <ContextMenu key={caseItem.id}>
+                <ContextMenuTrigger asChild>
+                  <div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onSelectCase?.(caseItem.id)}
+                          className={cn(
+                            "w-9 h-9 rounded-lg flex items-center justify-center text-xs font-semibold transition-colors",
+                            isActive
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {initials.slice(0, 3)}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>{caseItem.name}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setCaseToDelete(caseItem)}
                   >
-                    {initials.slice(0, 3)}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>{caseItem.name}</p>
-                </TooltipContent>
-              </Tooltip>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Case
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             );
           })}
 
@@ -113,6 +156,32 @@ export function ProjectSwitcher({
           </Tooltip>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={caseToDelete !== null}
+        onOpenChange={(open) => !open && setCaseToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Case</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{caseToDelete?.name}"? This will
+              permanently delete all documents and exhibits in this case. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }

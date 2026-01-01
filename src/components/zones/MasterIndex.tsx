@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { GripVertical } from "lucide-react";
+import { GripVertical, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ interface MasterIndexProps {
   onReorder?: (fromIndex: number, toIndex: number) => void;
   onDescriptionChange?: (entryId: string, description: string) => void;
   onStatusToggle?: (entryId: string) => void;
+  onDeleteEntry?: (entryId: string) => void;
 }
 
 export function MasterIndex({
@@ -39,6 +41,7 @@ export function MasterIndex({
   onReorder,
   onDescriptionChange,
   onStatusToggle,
+  onDeleteEntry,
 }: MasterIndexProps) {
   // Drag state
   const [draggedEntryId, setDraggedEntryId] = useState<string | null>(null);
@@ -116,6 +119,7 @@ export function MasterIndex({
                 <TableHead>Description</TableHead>
                 <TableHead className="w-[80px]">Status</TableHead>
                 <TableHead className="w-[80px] text-right">Pages</TableHead>
+                <TableHead className="w-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -126,7 +130,7 @@ export function MasterIndex({
                     selectedEntryId === entry.id ? "selected" : undefined
                   }
                   className={cn(
-                    "cursor-pointer transition-opacity",
+                    "cursor-pointer transition-opacity group",
                     selectedEntryId === entry.id && "bg-accent",
                     draggedEntryId === entry.id && "opacity-50",
                     dragOverIndex === index && "border-t-2 border-t-blue-500",
@@ -178,6 +182,20 @@ export function MasterIndex({
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {formatPageRange(entry.pageStart, entry.pageEnd)}
+                  </TableCell>
+                  <TableCell className="px-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteEntry?.(entry.id);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                      <span className="sr-only">Delete entry</span>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

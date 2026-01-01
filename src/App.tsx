@@ -14,6 +14,7 @@ import {
   useInvoke,
   type Case as DbCase,
   type Document as DbDocument,
+  type Exhibit,
 } from "./hooks/useInvoke";
 import {
   reorderArray,
@@ -35,16 +36,29 @@ export interface Case {
 }
 
 function App() {
-  const { listCases, createCase, listDocuments, extractPdfMetadata } =
-    useInvoke();
+  const {
+    listCases,
+    createCase,
+    deleteCase,
+    listDocuments,
+    extractPdfMetadata,
+    listExhibits,
+    listStagingFiles,
+    createExhibit,
+    updateExhibit,
+    updateExhibitStatus,
+    promoteToFundled,
+    deleteExhibit,
+    reorderExhibits,
+  } = useInvoke();
 
   // Case/document state
   const [cases, setCases] = useState<Case[]>([]);
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Zone B: Staging area state
-  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+  // Zone B: Staging area state (database-backed)
+  const [stagingExhibits, setStagingExhibits] = useState<Exhibit[]>([]);
   const [selectedStagedFileId, setSelectedStagedFileId] = useState<
     string | null
   >(null);
@@ -59,9 +73,9 @@ function App() {
   // Store previous index entries for undo functionality
   const previousIndexEntriesRef = useRef<IndexEntry[]>([]);
 
-  // Load cases on mount
+  // Load cases on mount (run only once)
   useEffect(() => {
-    const loadCases = async () => {
+    const loadCasesOnMount = async () => {
       setIsLoading(true);
       const dbCases = await listCases();
 
@@ -83,16 +97,45 @@ function App() {
 
       setCases(casesWithDocs);
 
-      // Auto-select first case if exists
-      if (casesWithDocs.length > 0 && !activeCaseId) {
-        setActiveCaseId(casesWithDocs[0].id);
+      // Auto-select first case if exists and load its data
+      if (casesWithDocs.length > 0) {
+        const firstCaseId = casesWithDocs[0].id;
+        setActiveCaseId(firstCaseId);
+
+        // Load staging files for the first case
+        const stagingFiles = await listStagingFiles(firstCaseId);
+        setStagingExhibits(stagingFiles);
+
+        // Load bundled exhibits for the first case
+        const exhibits = await listExhibits(firstCaseId);
+        if (exhibits.length > 0) {
+          let currentPage = 1;
+          const entries: IndexEntry[] = exhibits.map((exhibit) => {
+            const pageCount = exhibit.page_count || 1;
+            const pageStart = currentPage;
+            const pageEnd = currentPage + pageCount - 1;
+            currentPage = pageEnd + 1;
+
+            return {
+              id: exhibit.id,
+              tabNumber: (exhibit.sequence_index ?? 0) + 1,
+              description: exhibit.description || exhibit.label || "",
+              status: "agreed" as const,
+              pageStart,
+              pageEnd,
+              fileId: exhibit.file_path,
+            };
+          });
+          setIndexEntries(entries);
+        }
       }
 
       setIsLoading(false);
     };
 
-    loadCases();
-  }, [listCases, listDocuments, activeCaseId]);
+    loadCasesOnMount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   // Handle case creation
   const handleCreateCase = useCallback(async () => {
@@ -103,23 +146,115 @@ function App() {
         { id: newCase.id, name: newCase.name, documents: [] },
       ]);
       setActiveCaseId(newCase.id);
+      // Clear state for new case
+      setStagingExhibits([]);
+      setIndexEntries([]);
     }
   }, [createCase]);
 
+  // Handle case deletion
+  const handleDeleteCase = useCallback(
+    async (caseId: string) => {
+      const success = await deleteCase(caseId);
+      if (success) {
+        // Remove from local state
+        setCases((prev) => prev.filter((c) => c.id !== caseId));
+
+        // If deleted case was active, select another case
+        if (activeCaseId === caseId) {
+          const remainingCases = cases.filter((c) => c.id !== caseId);
+          if (remainingCases.length > 0) {
+            const nextCaseId = remainingCases[0].id;
+            setActiveCaseId(nextCaseId);
+            // Load staging files and exhibits for the new active case
+            const stagingFiles = await listStagingFiles(nextCaseId);
+            setStagingExhibits(stagingFiles);
+            const exhibits = await listExhibits(nextCaseId);
+            if (exhibits.length > 0) {
+              let currentPage = 1;
+              const entries: IndexEntry[] = exhibits.map((exhibit) => {
+                const pageCount = exhibit.page_count || 1;
+                const pageStart = currentPage;
+                const pageEnd = currentPage + pageCount - 1;
+                currentPage = pageEnd + 1;
+                return {
+                  id: exhibit.id,
+                  tabNumber: (exhibit.sequence_index ?? 0) + 1,
+                  description: exhibit.description || exhibit.label || "",
+                  status: "agreed" as const,
+                  pageStart,
+                  pageEnd,
+                  fileId: exhibit.file_path,
+                };
+              });
+              setIndexEntries(entries);
+            } else {
+              setIndexEntries([]);
+            }
+          } else {
+            setActiveCaseId(null);
+            setStagingExhibits([]);
+            setIndexEntries([]);
+          }
+        }
+        toast.success("Case deleted");
+      } else {
+        toast.error("Failed to delete case");
+      }
+    },
+    [activeCaseId, cases, deleteCase, listStagingFiles, listExhibits],
+  );
+
   // Handle case selection
-  const handleSelectCase = useCallback((caseId: string) => {
-    setActiveCaseId(caseId);
-    // Reset bundle state when switching cases
-    setStagedFiles([]);
-    setIndexEntries([]);
-    setSelectedStagedFileId(null);
-    setSelectedEntryId(null);
-    setCurrentPage(1);
-  }, []);
+  const handleSelectCase = useCallback(
+    async (caseId: string) => {
+      setActiveCaseId(caseId);
+      // Reset selection state
+      setSelectedStagedFileId(null);
+      setSelectedEntryId(null);
+      setCurrentPage(1);
+
+      // Load staging files from database
+      const stagingFiles = await listStagingFiles(caseId);
+      setStagingExhibits(stagingFiles);
+
+      // Load bundled exhibits from database
+      const exhibits = await listExhibits(caseId);
+      if (exhibits.length > 0) {
+        // Convert exhibits to IndexEntries with calculated page ranges
+        let currentPage = 1;
+        const entries: IndexEntry[] = exhibits.map((exhibit) => {
+          const pageCount = exhibit.page_count || 1;
+          const pageStart = currentPage;
+          const pageEnd = currentPage + pageCount - 1;
+          currentPage = pageEnd + 1;
+
+          return {
+            id: exhibit.id,
+            tabNumber: (exhibit.sequence_index ?? 0) + 1,
+            description: exhibit.description || exhibit.label || "",
+            status: "agreed" as const,
+            pageStart,
+            pageEnd,
+            fileId: exhibit.file_path,
+          };
+        });
+        setIndexEntries(entries);
+      } else {
+        setIndexEntries([]);
+      }
+    },
+    [listExhibits, listStagingFiles],
+  );
 
   // Handle file drop in staging area
   const handleFileDrop = useCallback(
     async (filePaths: string[]) => {
+      if (!activeCaseId) {
+        toast.error("No active case selected");
+        return;
+      }
+
       console.log(
         "[App] handleFileDrop called with",
         filePaths.length,
@@ -127,82 +262,109 @@ function App() {
         filePaths,
       );
 
-      // Create unprocessed files immediately (instant feedback)
-      const placeholderFiles: StagedFile[] = filePaths.map((path, index) => ({
-        id: `staged-${Date.now()}-${index}`,
-        name: path.split(/[\\/]/).pop() || path,
-        status: "unprocessed" as const,
-        pageCount: undefined,
-      }));
-      console.log("[App] Created placeholder files:", placeholderFiles);
-      setStagedFiles((prev) => [...prev, ...placeholderFiles]);
-
-      // Extract metadata asynchronously
-      console.log(
-        "[App] Starting metadata extraction for",
-        placeholderFiles.length,
-        "files",
-      );
-      const processedFiles = await Promise.all(
-        placeholderFiles.map(async (file, index) => {
-          console.log("[App] Extracting metadata for:", filePaths[index]);
-          const metadata = await extractPdfMetadata(filePaths[index]);
-          console.log("[App] Metadata result for", file.name, ":", metadata);
-          return {
-            ...file,
-            status: metadata
-              ? ("processed" as const)
-              : ("unprocessed" as const),
-            pageCount: metadata?.page_count,
-          };
+      // Create unprocessed exhibits in database immediately
+      const newExhibits = await Promise.all(
+        filePaths.map(async (path) => {
+          const name = path.split(/[\\/]/).pop() || path;
+          return await createExhibit(
+            activeCaseId,
+            path,
+            "unprocessed", // Initial status
+            undefined, // No label yet
+            undefined, // No sequence yet
+            undefined, // No page count yet
+            name, // Description: filename
+          );
         }),
       );
 
-      console.log("[App] All metadata extracted:", processedFiles);
-
-      // Update with page counts
-      setStagedFiles((prev) =>
-        prev.map((f) => {
-          const updated = processedFiles.find((pf) => pf.id === f.id);
-          return updated || f;
-        }),
+      // Filter out failed creations
+      const successfulExhibits = newExhibits.filter(
+        (e): e is Exhibit => e !== null,
       );
 
-      console.log("[App] handleFileDrop complete");
+      // Add to staging area (optimistic update)
+      setStagingExhibits((prev) => [...prev, ...successfulExhibits]);
+
+      // Extract metadata asynchronously and update status
+      successfulExhibits.forEach(async (exhibit) => {
+        const metadata = await extractPdfMetadata(exhibit.file_path);
+
+        if (metadata) {
+          // Update status to processed and set page count
+          const updated = await updateExhibit(
+            exhibit.id,
+            "processed", // Update status
+            undefined, // No label change
+            undefined, // No sequence change
+            metadata.page_count, // Set page count
+            undefined, // No description change
+          );
+
+          if (updated) {
+            // Update local state
+            setStagingExhibits((prev) =>
+              prev.map((e) => (e.id === exhibit.id ? updated : e)),
+            );
+          }
+        }
+      });
+
+      toast.success(`Added ${successfulExhibits.length} file(s) to staging`);
     },
-    [extractPdfMetadata],
+    [activeCaseId, createExhibit, extractPdfMetadata, updateExhibit],
   );
 
   // Handle moving file from staging to index
   const handleAddToIndex = useCallback(
-    (fileId: string) => {
-      const file = stagedFiles.find((f) => f.id === fileId);
-      if (!file) return;
+    async (exhibitId: string) => {
+      const exhibit = stagingExhibits.find((e) => e.id === exhibitId);
+      if (!exhibit || !activeCaseId) return;
 
-      // Calculate page numbers based on existing entries
+      // Calculate page numbers and sequence
       const lastEntry = indexEntries[indexEntries.length - 1];
       const pageStart = lastEntry ? lastEntry.pageEnd + 1 : 1;
-      const pageCount = file.pageCount || 1;
+      const pageCount = exhibit.page_count || 1;
       const pageEnd = pageStart + pageCount - 1;
+      const sequenceIndex = indexEntries.length;
+      const label = `Tab ${sequenceIndex + 1}`;
 
+      // Promote to bundled in database
+      const promoted = await promoteToFundled(
+        exhibit.id,
+        label,
+        sequenceIndex,
+        exhibit.description || exhibit.file_path.split(/[\\/]/).pop(),
+      );
+
+      if (!promoted) {
+        toast.error("Failed to add document to index");
+        return;
+      }
+
+      // Create index entry
       const newEntry: IndexEntry = {
-        id: `entry-${Date.now()}`,
-        tabNumber: indexEntries.length + 1,
-        description: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
+        id: promoted.id,
+        tabNumber: sequenceIndex + 1,
+        description: promoted.description || "",
         status: "agreed",
         pageStart,
         pageEnd,
-        fileId: file.id,
+        fileId: promoted.file_path,
       };
 
       setIndexEntries((prev) => [...prev, newEntry]);
 
-      // Update file status to bundled
-      setStagedFiles((prev) =>
-        prev.map((f) => (f.id === fileId ? { ...f, status: "bundled" } : f)),
+      // Update the exhibit's status in staging area (keep it visible, just mark as bundled)
+      setStagingExhibits((prev) =>
+        prev.map((e) =>
+          e.id === exhibitId ? { ...e, status: "bundled" as const } : e,
+        ),
       );
+
+      toast.success(`Added "${promoted.description || "document"}" to bundle`);
     },
-    [stagedFiles, indexEntries],
+    [stagingExhibits, indexEntries, activeCaseId, promoteToFundled],
   );
 
   // Handle entry selection (jump to page)
@@ -240,7 +402,9 @@ function App() {
 
   // Handle drag-to-reorder in Master Index
   const handleReorderEntries = useCallback(
-    (fromIndex: number, toIndex: number) => {
+    async (fromIndex: number, toIndex: number) => {
+      if (!activeCaseId) return;
+
       // Store current state for potential undo
       previousIndexEntriesRef.current = indexEntries;
 
@@ -253,16 +417,31 @@ function App() {
       // Recalculate page ranges based on new order
       reordered = recalculatePageRanges(reordered);
 
-      // Update state
+      // Update state optimistically
       setIndexEntries(reordered);
+
+      // Persist reorder to database
+      const exhibitIds = reordered.map((e) => e.id);
+      const result = await reorderExhibits(activeCaseId, exhibitIds);
+
+      if (result.length === 0) {
+        // Revert on failure
+        setIndexEntries(previousIndexEntriesRef.current);
+        toast.error("Failed to reorder. Changes reverted.");
+        return;
+      }
 
       // Show toast with undo option
       toast.success(`Moved to position ${toIndex + 1}`, {
         description: "All page numbers recalculated automatically.",
         action: {
           label: "Undo",
-          onClick: () => {
+          onClick: async () => {
             if (previousIndexEntriesRef.current.length > 0) {
+              const previousIds = previousIndexEntriesRef.current.map(
+                (e) => e.id,
+              );
+              await reorderExhibits(activeCaseId, previousIds);
               setIndexEntries(previousIndexEntriesRef.current);
               previousIndexEntriesRef.current = [];
               toast.info("Reorder undone");
@@ -272,7 +451,64 @@ function App() {
         duration: 5000,
       });
     },
-    [indexEntries],
+    [indexEntries, activeCaseId, reorderExhibits],
+  );
+
+  // Handle deleting a staging file
+  const handleDeleteStagingFile = useCallback(
+    async (fileId: string) => {
+      const file = stagingExhibits.find((e) => e.id === fileId);
+      if (!file) return;
+
+      // If it's bundled, also remove from index entries
+      if (file.status === "bundled") {
+        // Remove from index entries and recalculate
+        const updatedEntries = indexEntries.filter((e) => e.id !== fileId);
+        const recalculated = recalculatePageRanges(
+          recalculateTabNumbers(updatedEntries),
+        );
+        setIndexEntries(recalculated);
+      }
+
+      // Delete from database
+      const success = await deleteExhibit(fileId);
+      if (success) {
+        // Remove from staging
+        setStagingExhibits((prev) => prev.filter((e) => e.id !== fileId));
+        toast.success("File deleted");
+      } else {
+        toast.error("Failed to delete file");
+      }
+    },
+    [stagingExhibits, indexEntries, deleteExhibit],
+  );
+
+  // Handle removing an entry from master index (demote back to staging)
+  const handleDeleteEntry = useCallback(
+    async (entryId: string) => {
+      // Demote back to "processed" status (keep in staging area)
+      const updated = await updateExhibitStatus(entryId, "processed");
+      if (updated) {
+        // Remove from index entries and recalculate
+        const updatedEntries = indexEntries.filter((e) => e.id !== entryId);
+        const recalculated = recalculatePageRanges(
+          recalculateTabNumbers(updatedEntries),
+        );
+        setIndexEntries(recalculated);
+
+        // Update status in staging area (un-grey it)
+        setStagingExhibits((prev) =>
+          prev.map((e) =>
+            e.id === entryId ? { ...e, status: "processed" as const } : e,
+          ),
+        );
+
+        toast.success("Document removed from bundle");
+      } else {
+        toast.error("Failed to remove document from bundle");
+      }
+    },
+    [indexEntries, updateExhibitStatus],
   );
 
   // Handle export
@@ -292,6 +528,18 @@ function App() {
     initials: "", // Will be auto-generated by ProjectSwitcher
   }));
 
+  // Convert staging exhibits to StagedFile format for StagingArea component
+  const stagedFiles: StagedFile[] = stagingExhibits.map((exhibit) => ({
+    id: exhibit.id,
+    name:
+      exhibit.description ||
+      exhibit.file_path.split(/[\\/]/).pop() ||
+      "Unknown",
+    filePath: exhibit.file_path,
+    status: exhibit.status as "unprocessed" | "processed" | "bundled",
+    pageCount: exhibit.page_count ?? undefined,
+  }));
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center text-muted-foreground">
@@ -309,6 +557,7 @@ function App() {
             activeCaseId={activeCaseId}
             onSelectCase={handleSelectCase}
             onCreateCase={handleCreateCase}
+            onDeleteCase={handleDeleteCase}
           />
         }
         staging={
@@ -317,12 +566,13 @@ function App() {
             onFileDrop={handleFileDrop}
             onFileSelect={(fileId) => {
               setSelectedStagedFileId(fileId);
-              // Double-click could add to index (for now, single click selects)
               const file = stagedFiles.find((f) => f.id === fileId);
+              // Only add to index if not already bundled
               if (file && file.status !== "bundled") {
                 handleAddToIndex(fileId);
               }
             }}
+            onFileDelete={handleDeleteStagingFile}
             selectedFileId={selectedStagedFileId}
           />
         }
@@ -334,6 +584,7 @@ function App() {
             onDescriptionChange={handleDescriptionChange}
             onStatusToggle={handleStatusToggle}
             onReorder={handleReorderEntries}
+            onDeleteEntry={handleDeleteEntry}
           />
         }
         preview={

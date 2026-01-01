@@ -53,6 +53,47 @@ pub struct PdfMetadata {
     pub file_size: u64,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct Exhibit {
+    pub id: String,
+    pub case_id: String,
+    pub status: String,              // NEW: "unprocessed" | "processed" | "bundled"
+    pub file_path: String,            // Changed from Option (NOT NULL in DB)
+    pub label: Option<String>,        // Changed to Option (nullable in DB)
+    pub sequence_index: Option<i32>,  // Changed to Option (nullable in DB)
+    pub page_count: Option<i32>,
+    pub description: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateExhibitRequest {
+    pub case_id: String,
+    pub file_path: String,           // Changed to required
+    pub status: String,              // NEW: "unprocessed" | "processed" | "bundled"
+    pub label: Option<String>,       // Changed to optional
+    pub sequence_index: Option<i32>, // Changed to optional
+    pub page_count: Option<i32>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateExhibitRequest {
+    pub id: String,
+    pub status: Option<String>,      // NEW: optional status update
+    pub label: Option<String>,       // Changed to optional
+    pub sequence_index: Option<i32>, // Changed to optional
+    pub page_count: Option<i32>,     // NEW: allow page count updates
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReorderExhibitsRequest {
+    pub case_id: String,
+    pub exhibit_ids: Vec<String>,
+}
+
 // Tauri Commands
 
 #[tauri::command]
@@ -135,6 +176,108 @@ async fn extract_pdf_metadata(file_path: String) -> Result<PdfMetadata, String> 
     })
 }
 
+// Exhibit Commands
+
+#[tauri::command]
+async fn list_exhibits(
+    case_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<Exhibit>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::list_exhibits(pool, &case_id).await
+}
+
+#[tauri::command]
+async fn list_staging_files(
+    case_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<Exhibit>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::list_staging_files(pool, &case_id).await
+}
+
+#[tauri::command]
+async fn create_exhibit(
+    request: CreateExhibitRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<Exhibit, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::create_exhibit(
+        pool,
+        &request.case_id,
+        &request.file_path,
+        &request.status,
+        request.label.as_deref(),
+        request.sequence_index,
+        request.page_count,
+        request.description.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn update_exhibit(
+    request: UpdateExhibitRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<Exhibit, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::update_exhibit(
+        pool,
+        &request.id,
+        request.status.as_deref(),
+        request.label.as_deref(),
+        request.sequence_index,
+        request.page_count,
+        request.description.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn update_exhibit_status(
+    id: String,
+    status: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Exhibit, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::update_exhibit_status(pool, &id, &status).await
+}
+
+#[tauri::command]
+async fn promote_to_bundled(
+    id: String,
+    label: String,
+    sequence_index: i32,
+    description: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Exhibit, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::promote_to_bundled(pool, &id, &label, sequence_index, description.as_deref()).await
+}
+
+#[tauri::command]
+async fn delete_exhibit(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::delete_exhibit(pool, &id).await
+}
+
+#[tauri::command]
+async fn reorder_exhibits(
+    request: ReorderExhibitsRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<Exhibit>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::reorder_exhibits(pool, &request.case_id, request.exhibit_ids).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -188,6 +331,14 @@ pub fn run() {
             delete_case,
             delete_document,
             extract_pdf_metadata,
+            list_exhibits,
+            list_staging_files,
+            create_exhibit,
+            update_exhibit,
+            update_exhibit_status,
+            promote_to_bundled,
+            delete_exhibit,
+            reorder_exhibits,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
