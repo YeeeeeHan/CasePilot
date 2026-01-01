@@ -13,7 +13,7 @@
 
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ChevronDown, Loader2, Lock } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Document, Page } from 'react-pdf';
 
@@ -69,6 +69,13 @@ function VirtualizedPage({
     rootMargin: '200px', // Pre-load pages 200px before visible
   });
 
+  useEffect(() => {
+    console.debug('[VirtualizedPage] visibility change', {
+      pageNumber,
+      inView,
+    });
+  }, [inView, pageNumber]);
+
   return (
     <A4Page ref={ref}>
       {inView ? (
@@ -109,6 +116,7 @@ export function EvidenceCanvas({
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
+      console.debug('[EvidenceCanvas] document load success', { numPages });
       setNumPages(numPages);
       setLoading(false);
       setError(null);

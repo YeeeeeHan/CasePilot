@@ -9,8 +9,16 @@ import { cn } from "@/lib/utils";
 
 function ResizablePanelGroup({
   className,
+  onLayout,
   ...props
 }: React.ComponentProps<typeof PanelGroupPrimitive>) {
+  const handleLayout = React.useCallback(
+    (sizes: number[]) => {
+      console.debug("[ResizablePanelGroup] layout change", { sizes });
+      onLayout?.(sizes);
+    },
+    [onLayout],
+  );
   return (
     <PanelGroupPrimitive
       data-slot="resizable-panel-group"
@@ -18,6 +26,7 @@ function ResizablePanelGroup({
         "flex h-full w-full data-[orientation=vertical]:flex-col",
         className,
       )}
+      onLayout={handleLayout}
       {...props}
     />
   );
