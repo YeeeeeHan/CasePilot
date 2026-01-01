@@ -107,14 +107,14 @@ const COVER_PAGE_TEMPLATES: Template[] = [
 const DIVIDER_TEMPLATES: Template[] = [
   {
     id: "divider-blank",
-    name: "Blank Divider",
+    name: "Empty Page",
     description: "Start with a blank A4 page",
     icon: "file",
   },
   {
     id: "divider-tab",
-    name: "Tab Divider",
-    description: "Simple tab divider with centered title",
+    name: "Tab Page",
+    description: "Simple page with centered title",
     content: JSON.stringify({
       type: "doc",
       content: [
@@ -135,7 +135,7 @@ const DIVIDER_TEMPLATES: Template[] = [
   {
     id: "divider-plaintiff",
     name: "Plaintiff's Documents",
-    description: "Divider for Plaintiff's documents section",
+    description: "Section page for Plaintiff's documents",
     content: JSON.stringify({
       type: "doc",
       content: [
@@ -156,7 +156,7 @@ const DIVIDER_TEMPLATES: Template[] = [
   {
     id: "divider-defendant",
     name: "Defendant's Documents",
-    description: "Divider for Defendant's documents section",
+    description: "Section page for Defendant's documents",
     content: JSON.stringify({
       type: "doc",
       content: [
@@ -239,11 +239,12 @@ export function TemplateChooser({
     }
   };
 
-  const title = type === "cover-page" ? "Choose Cover Page" : "Choose Divider";
+  const title =
+    type === "cover-page" ? "Choose Cover Page" : "Choose Blank Page Template";
   const description =
     type === "cover-page"
       ? "Select a template for your cover page or start with a blank page."
-      : "Select a template for your divider or start with a blank page.";
+      : "Select a template for your blank page or start fresh.";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

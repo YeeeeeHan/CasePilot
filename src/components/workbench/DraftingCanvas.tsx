@@ -89,7 +89,7 @@ export function DraftingCanvas({
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <FileEdit className="h-4 w-4" />
           <span>
-            {entryType === "cover-page" ? "Cover Page" : "Section Divider"}
+            {entryType === "cover-page" ? "Cover Page" : "Blank Page"}
           </span>
         </div>
 
@@ -132,7 +132,7 @@ export function DraftingCanvasPlaceholder() {
       <A4Page className="flex items-center justify-center">
         <div className="text-center text-muted-foreground">
           <FileEdit className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p className="text-sm">Select a cover page or divider to edit</p>
+          <p className="text-sm">Select a cover page or blank page to edit</p>
         </div>
       </A4Page>
     </A4PageContainer>

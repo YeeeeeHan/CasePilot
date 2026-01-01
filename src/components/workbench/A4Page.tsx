@@ -39,6 +39,9 @@ export const A4Page = forwardRef<HTMLDivElement, A4PageProps>(
           minHeight: A4_DIMENSIONS.HEIGHT_PX,
           // Keep consistent aspect ratio when scaling
           aspectRatio: `${A4_DIMENSIONS.WIDTH_MM} / ${A4_DIMENSIONS.HEIGHT_MM}`,
+          // Performance: defer rendering of off-screen pages
+          contentVisibility: "auto",
+          containIntrinsicSize: `${A4_DIMENSIONS.WIDTH_PX}px ${A4_DIMENSIONS.HEIGHT_PX}px`,
         }}
       >
         {/* Page content */}

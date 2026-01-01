@@ -11,24 +11,26 @@
  * - Collapsible sticky header with "Locked" indicator
  */
 
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { ChevronDown, Loader2, Lock } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { useInView } from "react-intersection-observer";
-import { Document, Page } from "react-pdf";
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { ChevronDown, Loader2, Lock } from 'lucide-react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { useInView } from 'react-intersection-observer';
+import { Document, Page } from 'react-pdf';
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
-import { A4Page, A4PageContainer } from "./A4Page";
-import { PageSkeleton } from "./PageSkeleton";
-import { PageStampOverlay } from "./PageStampOverlay";
+} from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
+import { A4_DIMENSIONS } from '@/types/canvas';
+import { A4Page, A4PageContainer } from './A4Page';
+import { PageSkeleton } from './PageSkeleton';
+import { PageStampOverlay } from './PageStampOverlay';
+import { useVirtualWindow } from './hooks/useVirtualWindow';
 
 // Import PDF.js worker configuration
-import "@/lib/pdfWorker";
+import '@/lib/pdfWorker';
 // Note: CSS imports for AnnotationLayer and TextLayer are not needed
 // since we disable both with renderTextLayer={false} and renderAnnotationLayer={false}
 
@@ -57,22 +59,19 @@ interface VirtualizedPageProps {
   totalBundlePages: number;
 }
 
-function VirtualizedPage({
+/**
+ * VirtualizedPage - Memoized for performance
+ * Only re-renders when page numbers or visibility changes
+ */
+const VirtualizedPage = memo(function VirtualizedPage({
   pageNumber,
   globalPageNumber,
   totalBundlePages,
 }: VirtualizedPageProps) {
   const { ref, inView } = useInView({
     triggerOnce: false, // Re-render when scrolling back
-    rootMargin: "200px", // Pre-load pages 200px before visible
+    rootMargin: '200px', // Pre-load pages 200px before visible
   });
-
-  useEffect(() => {
-    console.debug("[VirtualizedPage] visibility change", {
-      pageNumber,
-      inView,
-    });
-  }, [inView, pageNumber]);
 
   return (
     <A4Page ref={ref}>
@@ -94,7 +93,66 @@ function VirtualizedPage({
       )}
     </A4Page>
   );
+});
+
+/**
+ * VirtualizedPageList - Only creates React components for visible pages
+ *
+ * For a 1000-page PDF, instead of creating 1000 VirtualizedPage components,
+ * this only creates ~20-30 components (visible + buffer) and uses padding
+ * to maintain correct scroll height.
+ */
+interface VirtualizedPageListProps {
+  numPages: number;
+  globalPageStart: number;
+  totalBundlePages: number;
 }
+
+const VirtualizedPageList = memo(function VirtualizedPageList({
+  numPages,
+  globalPageStart,
+  totalBundlePages,
+}: VirtualizedPageListProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { startIndex, endIndex, topPadding, bottomPadding } = useVirtualWindow({
+    totalItems: numPages,
+    itemHeight: A4_DIMENSIONS.HEIGHT_PX,
+    overscan: 3, // Render 3 pages above/below viewport
+    containerRef: containerRef as React.RefObject<HTMLElement>,
+  });
+
+  // Only create page components for the visible range
+  const visiblePages = useMemo(() => {
+    const pages = [];
+    for (let i = startIndex; i < endIndex; i++) {
+      pages.push(
+        <VirtualizedPage
+          key={i}
+          pageNumber={i + 1}
+          globalPageNumber={globalPageStart + i}
+          totalBundlePages={totalBundlePages}
+        />
+      );
+    }
+    return pages;
+  }, [startIndex, endIndex, globalPageStart, totalBundlePages]);
+
+  return (
+    <div ref={containerRef} className="flex flex-col gap-6">
+      {/* Top padding for pages above viewport */}
+      {topPadding > 0 && <div style={{ height: topPadding }} aria-hidden />}
+
+      {/* Only render visible pages */}
+      {visiblePages}
+
+      {/* Bottom padding for pages below viewport */}
+      {bottomPadding > 0 && (
+        <div style={{ height: bottomPadding }} aria-hidden />
+      )}
+    </div>
+  );
+});
 
 export function EvidenceCanvas({
   filePath,
@@ -113,30 +171,29 @@ export function EvidenceCanvas({
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
-      console.debug("[EvidenceCanvas] document load success", { numPages });
       setNumPages(numPages);
       setLoading(false);
       setError(null);
     },
-    [],
+    []
   );
 
   const onDocumentLoadError = useCallback(
     (error: Error) => {
-      console.error("PDF load error:", error);
-      console.error("Attempted URL:", pdfUrl);
-      console.error("Original file path:", filePath);
+      console.error('PDF load error:', error);
+      console.error('Attempted URL:', pdfUrl);
+      console.error('Original file path:', filePath);
       setError(`Failed to load PDF file.`);
       setLoading(false);
     },
-    [pdfUrl, filePath],
+    [pdfUrl, filePath]
   );
 
   return (
     <Collapsible
       open={!isCollapsed}
       onOpenChange={(open) => setIsCollapsed(!open)}
-      className={cn("flex flex-col", className)}
+      className={cn('flex flex-col', className)}
     >
       {/* Header with locked indicator and collapse toggle - sticky for scroll tracking */}
       <div className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky top-0">
@@ -149,7 +206,7 @@ export function EvidenceCanvas({
           <span>Evidence (Read-only)</span>
           {numPages && (
             <span className="text-xs opacity-70">
-              - {numPages} page{numPages > 1 ? "s" : ""}
+              - {numPages} page{numPages > 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -162,8 +219,8 @@ export function EvidenceCanvas({
           >
             <ChevronDown
               className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                isCollapsed && "-rotate-90",
+                'h-4 w-4 text-muted-foreground transition-transform duration-200',
+                isCollapsed && '-rotate-90'
               )}
             />
           </button>
@@ -190,17 +247,15 @@ export function EvidenceCanvas({
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={null}
-            className={cn("flex flex-col gap-6", loading && "hidden")}
+            className={cn(loading && 'hidden')}
           >
-            {numPages &&
-              Array.from({ length: numPages }, (_, i) => (
-                <VirtualizedPage
-                  key={i}
-                  pageNumber={i + 1}
-                  globalPageNumber={globalPageStart + i}
-                  totalBundlePages={totalBundlePages}
-                />
-              ))}
+            {numPages && (
+              <VirtualizedPageList
+                numPages={numPages}
+                globalPageStart={globalPageStart}
+                totalBundlePages={totalBundlePages}
+              />
+            )}
           </Document>
         </A4PageContainer>
       </CollapsibleContent>

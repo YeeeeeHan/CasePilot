@@ -591,11 +591,22 @@ function App() {
     async (entryId: string) => {
       const entry = indexEntries.find((e) => e.id === entryId);
 
-      // For section breaks, just remove from local state (no DB update needed)
-      if (entry?.rowType === "section-break") {
+      // For section breaks, cover pages, and dividers - just remove from local state (no DB update needed)
+      if (
+        entry?.rowType === "section-break" ||
+        entry?.rowType === "cover-page" ||
+        entry?.rowType === "divider"
+      ) {
         const updatedEntries = indexEntries.filter((e) => e.id !== entryId);
-        setIndexEntries(updatedEntries);
-        toast.success("Section break removed");
+        const recalculated = recalculatePageRanges(updatedEntries);
+        setIndexEntries(recalculated);
+
+        const typeLabels: Record<string, string> = {
+          "section-break": "Section break",
+          "cover-page": "Cover page",
+          divider: "Blank page",
+        };
+        toast.success(`${typeLabels[entry.rowType]} removed`);
         return;
       }
 
@@ -713,12 +724,12 @@ function App() {
     toast.success("Added cover page");
   }, []);
 
-  // Handle inserting a divider
+  // Handle inserting a blank page
   const handleInsertDivider = useCallback(() => {
     const dividerCount = indexEntries.filter(
       (e) => e.rowType === "divider",
     ).length;
-    const defaultTitle = `Divider ${dividerCount + 1}`;
+    const defaultTitle = `Blank Page ${dividerCount + 1}`;
 
     const newDivider: IndexEntry = createDividerPage(defaultTitle);
     setIndexEntries((prev) => {

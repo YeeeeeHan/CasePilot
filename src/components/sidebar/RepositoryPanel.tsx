@@ -125,7 +125,7 @@ export function RepositoryPanel({
               </p>
             </div>
           ) : (
-            <ScrollArea className="max-h-[300px]">
+            <ScrollArea>
               <div className="space-y-0.5 px-1 py-1">
                 {files.map((file) => (
                   <div key={file.id} className="group relative">
