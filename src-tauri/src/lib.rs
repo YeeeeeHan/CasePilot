@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
+mod bundle;
 mod db;
 mod pdf;
 
@@ -176,6 +177,16 @@ async fn extract_pdf_metadata(file_path: String) -> Result<PdfMetadata, String> 
     })
 }
 
+#[tauri::command]
+async fn extract_document_info(file_path: String) -> Result<pdf::ExtractedDocumentInfo, String> {
+    pdf::extract_document_info(&file_path)
+}
+
+#[tauri::command]
+async fn generate_auto_description(file_path: String) -> Result<String, String> {
+    pdf::generate_auto_description(&file_path)
+}
+
 // Exhibit Commands
 
 #[tauri::command]
@@ -278,6 +289,144 @@ async fn reorder_exhibits(
     db::reorder_exhibits(pool, &request.case_id, request.exhibit_ids).await
 }
 
+// Bundle Compilation Commands
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CompileBundleRequest {
+    pub case_id: String,
+    pub bundle_name: String,
+}
+
+#[tauri::command]
+async fn compile_bundle(
+    request: CompileBundleRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<bundle::CompileResult, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+
+    // Get all bundled exhibits for this case
+    let exhibits = db::list_exhibits(pool, &request.case_id).await?;
+
+    if exhibits.is_empty() {
+        return Ok(bundle::CompileResult {
+            success: false,
+            pdf_path: None,
+            toc_entries: Vec::new(),
+            total_pages: 0,
+            errors: vec!["No documents in bundle. Add documents to the Master Index first.".to_string()],
+            warnings: Vec::new(),
+        });
+    }
+
+    // Convert exhibits to BundleDocuments
+    let documents: Vec<bundle::BundleDocument> = exhibits
+        .iter()
+        .map(|e| bundle::BundleDocument {
+            id: e.id.clone(),
+            file_path: e.file_path.clone(),
+            label: e.label.clone().unwrap_or_else(|| format!("Document")),
+            description: e.description.clone().unwrap_or_else(|| "".to_string()),
+            page_count: e.page_count.unwrap_or(1) as usize,
+        })
+        .collect();
+
+    // Get output directory (use app data dir)
+    let output_dir = std::env::temp_dir().join("casepilot_bundles");
+
+    // Compile with default pagination style
+    let style = bundle::PaginationStyle::default();
+
+    bundle::compile_bundle(&documents, &output_dir, &request.bundle_name, &style)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TOCPreviewRequest {
+    pub case_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ValidateBundleRequest {
+    pub case_id: String,
+}
+
+#[tauri::command]
+async fn validate_bundle(
+    request: ValidateBundleRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<bundle::ValidationResult, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+
+    // Get all bundled exhibits for this case
+    let exhibits = db::list_exhibits(pool, &request.case_id).await?;
+
+    if exhibits.is_empty() {
+        return Ok(bundle::ValidationResult {
+            is_valid: false,
+            errors: vec![bundle::ValidationError {
+                error_type: "empty_bundle".to_string(),
+                message: "No documents in bundle".to_string(),
+                page: None,
+                expected: None,
+                actual: None,
+            }],
+            warnings: Vec::new(),
+        });
+    }
+
+    // Convert to BundleDocuments
+    let documents: Vec<bundle::BundleDocument> = exhibits
+        .iter()
+        .map(|e| bundle::BundleDocument {
+            id: e.id.clone(),
+            file_path: e.file_path.clone(),
+            label: e.label.clone().unwrap_or_else(|| "Document".to_string()),
+            description: e.description.clone().unwrap_or_default(),
+            page_count: e.page_count.unwrap_or(1) as usize,
+        })
+        .collect();
+
+    // Calculate TOC preview
+    let toc_page_count = bundle::estimate_toc_pages(documents.len());
+    let toc_entries = bundle::calculate_toc_preview(&documents, toc_page_count);
+
+    // Validate (use temp path since we don't have the final PDF yet)
+    Ok(bundle::validate_pagination(&toc_entries, std::path::Path::new("")))
+}
+
+#[tauri::command]
+async fn preview_toc(
+    request: TOCPreviewRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<bundle::TOCEntry>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+
+    // Get all bundled exhibits for this case
+    let exhibits = db::list_exhibits(pool, &request.case_id).await?;
+
+    if exhibits.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Convert to BundleDocuments
+    let documents: Vec<bundle::BundleDocument> = exhibits
+        .iter()
+        .map(|e| bundle::BundleDocument {
+            id: e.id.clone(),
+            file_path: e.file_path.clone(),
+            label: e.label.clone().unwrap_or_else(|| format!("Document")),
+            description: e.description.clone().unwrap_or_else(|| "".to_string()),
+            page_count: e.page_count.unwrap_or(1) as usize,
+        })
+        .collect();
+
+    // Estimate TOC pages and calculate preview
+    let toc_page_count = bundle::estimate_toc_pages(documents.len());
+    Ok(bundle::calculate_toc_preview(&documents, toc_page_count))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -331,6 +480,8 @@ pub fn run() {
             delete_case,
             delete_document,
             extract_pdf_metadata,
+            extract_document_info,
+            generate_auto_description,
             list_exhibits,
             list_staging_files,
             create_exhibit,
@@ -339,6 +490,9 @@ pub fn run() {
             promote_to_bundled,
             delete_exhibit,
             reorder_exhibits,
+            compile_bundle,
+            preview_toc,
+            validate_bundle
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

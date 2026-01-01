@@ -36,6 +36,46 @@ export interface Exhibit {
   updated_at: string;
 }
 
+export interface TOCEntry {
+  label: string;
+  description: string;
+  start_page: number;
+  end_page: number;
+  page_count: number;
+}
+
+export interface CompileResult {
+  success: boolean;
+  pdf_path?: string;
+  toc_entries: TOCEntry[];
+  total_pages: number;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface ValidationError {
+  error_type: string;
+  message: string;
+  page?: number;
+  expected?: number;
+  actual?: number;
+}
+
+export interface ValidationResult {
+  is_valid: boolean;
+  errors: ValidationError[];
+  warnings: string[];
+}
+
+export interface ExtractedDocumentInfo {
+  date?: string;
+  sender?: string;
+  recipient?: string;
+  subject?: string;
+  document_type?: string;
+  first_page_text?: string;
+}
+
 export function useInvoke() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -363,6 +403,101 @@ export function useInvoke() {
     [],
   );
 
+  // Bundle compilation functions
+
+  const compileBundle = useCallback(
+    async (
+      caseId: string,
+      bundleName: string,
+    ): Promise<CompileResult | null> => {
+      try {
+        const result = await invoke<CompileResult>("compile_bundle", {
+          request: {
+            case_id: caseId,
+            bundle_name: bundleName,
+          },
+        });
+        return result;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to compile bundle:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const previewToc = useCallback(
+    async (caseId: string): Promise<TOCEntry[]> => {
+      try {
+        const entries = await invoke<TOCEntry[]>("preview_toc", {
+          request: {
+            case_id: caseId,
+          },
+        });
+        return entries;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to preview TOC:", message);
+        return [];
+      }
+    },
+    [],
+  );
+
+  const validateBundle = useCallback(
+    async (caseId: string): Promise<ValidationResult | null> => {
+      try {
+        const result = await invoke<ValidationResult>("validate_bundle", {
+          request: {
+            case_id: caseId,
+          },
+        });
+        return result;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to validate bundle:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const extractDocumentInfo = useCallback(
+    async (filePath: string): Promise<ExtractedDocumentInfo | null> => {
+      try {
+        const info = await invoke<ExtractedDocumentInfo>(
+          "extract_document_info",
+          {
+            filePath,
+          },
+        );
+        return info;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to extract document info:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const generateAutoDescription = useCallback(
+    async (filePath: string): Promise<string | null> => {
+      try {
+        const description = await invoke<string>("generate_auto_description", {
+          filePath,
+        });
+        return description;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to generate description:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
   return {
     loading,
     error,
@@ -383,5 +518,10 @@ export function useInvoke() {
     promoteToFundled,
     deleteExhibit,
     reorderExhibits,
+    compileBundle,
+    previewToc,
+    validateBundle,
+    extractDocumentInfo,
+    generateAutoDescription,
   };
 }

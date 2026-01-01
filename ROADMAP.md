@@ -1,11 +1,11 @@
 # CasePilot Development Roadmap
 
-**Last Updated**: 2024-12-31
+**Last Updated**: 2026-01-01
 
-## Current Phase: Phase 0 - Foundation
+## Current Phase: Phase 2A - Bundle Composer UI Pivot
 
-**Status**: Planning Complete ✓
-**Next Milestone**: Phase 1 kickoff
+**Completed**: Phase 0 (Foundation) ✓, Phase 0.5 (Layout) ✓, Phase 1 (Editor + Basic Bundle) ✓, Phase 2 (Smart Bundle) ✓
+**Next Milestone**: Wire up App.tsx state management and complete UI integration
 
 ---
 
@@ -51,86 +51,109 @@ User research revealed the core pain point is **Bundle Compliance**, not AI writ
 
 ---
 
-## Phase 0.5: Core Layout Architecture
+## Phase 0.5: Core Layout Architecture ✓
 
-**Target**: TBD
 **Goal**: Implement the Split-Screen layout foundation (the "killer UX")
 
-### Status: Not Started
+### Status: Complete ✓
 
 **Priority**: The mandatory split-view that solves "Does the Index match the Page Number?" anxiety.
 
+### Architecture Pivot (Jan 2025)
+
+**Original design**: 4-zone layout with dedicated Staging Area (Zone B)
+**New design**: 3-column "Inspector" model
+
+```
+┌────────────────┬──────────────────────┬────────────────┐
+│ SIDEBAR        │ MASTER INDEX         │ INSPECTOR      │
+│ (200px)        │ (flex-1)             │ (320px)        │
+│                │                      │                │
+│ 📥 Inbox (47)  │ Tab │ Desc   │ Pages │ [Preview]      │
+│ ├─ scan01.pdf  │ ─── │ ────── │ ───── │ [Metadata]     │
+│ ├─ scan02.pdf  │  1  │ Email  │ 1-3   │ [Actions]      │
+│ 📁 Evidence    │  2  │ Photo  │ 4     │                │
+│ 📁 Drafts      │  3  │ Cont.  │ 5-12  │                │
+└────────────────┴──────────────────────┴────────────────┘
+```
+
+**Rationale**: Dedicated Zone B (Staging Area) wasted vertical space. The Inbox badge + Inspector model saves screen real estate while preserving the triage workflow.
+
 ### Tasks
 
-- [ ] **P0**: Split-view layout shell
-  - [ ] Left pane (Scaffold) + Right pane (Bundle Preview)
-  - [ ] Resizable divider between panes
-  - [ ] Responsive layout (minimum widths)
-- [ ] **P0**: Zone A - Case switcher
-  - [ ] Minimal sidebar (VS Code-style icons)
-  - [ ] Case list with active case indicator
-- [ ] **P0**: Zone B - Staging Area
-  - [ ] Drop zone for raw files
-  - [ ] Triage status indicators (Unprocessed/Processed/Bundled)
-  - [ ] Visual distinction between states
-- [ ] **P0**: Zone C - Master Index table
-  - [ ] High-density table component
-  - [ ] Columns: Tab (drag handle), Description (editable), Status (toggle), Page Range (read-only)
-  - [ ] Row selection state
-- [ ] **P0**: Zone D - PDF Preview pane
-  - [ ] Placeholder component for PDF viewer
-  - [ ] Pagination stamp display area (top-right)
+- [x] **P0**: 3-column resizable layout shell
+  - [x] Sidebar (Inbox + file tree) + Master Index (center) + Inspector (right)
+  - [x] Resizable dividers between panes
+  - [x] Responsive layout (minimum/maximum widths)
+- [x] **P0**: Zone A - Case switcher
+  - [x] Minimal sidebar (VS Code-style icons)
+  - [x] Case list with active case indicator
+- [x] **P0**: Inbox (replaces Zone B Staging Area)
+  - [x] Collapsible inbox section with badge count
+  - [x] Drop zone for raw files (Tauri drag-drop events)
+  - [x] Triage status indicators (Unprocessed/Processed/Bundled)
+  - [x] Visual distinction between states
+- [x] **P0**: Zone C - Master Index table
+  - [x] High-density table component
+  - [x] Columns: Tab (drag handle), Description (editable), Status (toggle), Page Range (read-only)
+  - [x] Row selection state
+- [x] **P0**: Inspector Panel (replaces Zone D Preview)
+  - [x] Context-aware metadata editing
+  - [x] PDF preview placeholder
+  - [x] "Add to Bundle" / "Remove from Bundle" actions
+  - [x] Unified selection state (drives Inspector content)
 - [ ] **P1**: Click-to-navigate interaction
-  - [ ] Click row in Zone C → Zone D jumps to page
-  - [ ] Visual feedback on selected row
+  - [x] Click row in Master Index → Inspector shows file
+  - [ ] Click row → PDF jumps to page (requires PDF viewer)
+  - [x] Visual feedback on selected row
 - [ ] **P1**: A4 Canvas logic
   - [ ] Detect document dimensions
   - [ ] Center non-A4 content on A4 canvas
   - [ ] 35mm margin warning for edge-to-edge content
 
-**Success Metric**: Visual layout matches the 4-zone architecture diagram in CLAUDE.md
+**Success Metric**: 3-column layout with functional Inspector and Inbox
 
 ---
 
-## Phase 1: Editor + Basic Bundle
+## Phase 1: Editor + Basic Bundle ✓
 
 **Target**: TBD
 **Goal**: Basic editing AND bundle assembly (the core value)
 
-### Status: Not Started
+### Status: Complete ✓
 
 **Priority**: TipTap setup + PDF import + TOC generation
 
 ### Tasks
 
-- [ ] **P0**: TipTap editor setup
-  - [ ] Initialize TipTap in React
-  - [ ] Basic extensions (bold, italic, headings)
-  - [ ] Custom paragraph styling
-- [ ] **P0**: SQLite schema design
-  - [ ] Cases table
-  - [ ] Documents table
-  - [ ] Exhibits table
-  - [ ] **Bundle table** (compilation metadata)
-  - [ ] Migrations setup (sqlx)
-- [ ] **P0**: PDF import and display
-  - [ ] Import PDF files into case
-  - [ ] PDF thumbnail generation
-  - [ ] Page count extraction
-- [ ] **P0**: Dynamic Table of Contents
-  - [ ] TOC component that lists documents
-  - [ ] Auto-calculate page numbers based on document order
-  - [ ] **TOC page # must match PDF position**
-- [ ] **P1**: File save/load (Tauri commands)
-  - [ ] `save_document` command
-  - [ ] `load_document` command
-  - [ ] `list_cases` command
-- [ ] **P1**: Case sidebar
-  - [ ] File tree component
-  - [ ] Drag-and-drop reordering
-  - [ ] New file/folder actions
+- [x] **P0**: TipTap editor setup
+  - [x] Initialize TipTap in React
+  - [x] Basic extensions (bold, italic, headings)
+  - [x] Custom paragraph styling
+- [x] **P0**: SQLite schema design
+  - [x] Cases table
+  - [x] Documents table
+  - [x] Exhibits table (with status: unprocessed/processed/bundled)
+  - [x] **Bundle table** (compilation metadata)
+  - [x] Migrations setup (sqlx)
+- [x] **P0**: PDF import and display
+  - [x] Import PDF files into case (drag-drop to Inbox)
+  - [x] PDF metadata extraction (page count)
+  - [x] Page count extraction
+- [x] **P0**: Dynamic Table of Contents
+  - [x] TOC component (Master Index)
+  - [x] Auto-calculate page numbers based on document order
+  - [x] **TOC page # must match PDF position**
+- [x] **P1**: File save/load (Tauri commands)
+  - [x] `list_cases`, `create_case`, `delete_case` commands
+  - [x] `list_exhibits`, `create_exhibit`, `update_exhibit` commands
+  - [x] `promote_to_bundled`, `reorder_exhibits` commands
+- [x] **P1**: Case sidebar
+  - [x] Project switcher (case icons)
+  - [x] Drag-and-drop reordering in Master Index
+  - [x] Inbox with file management
 
-**Success Metric**: Assemble a 50-document bundle with correct TOC page numbers
+**Success Metric**: Assemble a 50-document bundle with correct TOC page numbers ✓
 
 ---
 
@@ -139,37 +162,112 @@ User research revealed the core pain point is **Bundle Compliance**, not AI writ
 **Target**: TBD
 **Goal**: The "Perfect Compiler" - automated pagination and compliance
 
-### Status: Planned
+### Status: Complete ✓
 
 ### Tasks
 
-- [ ] **P0**: Auto-pagination (page stamps)
-  - [ ] Inject "Page X of Y" into PDF headers/footers
-  - [ ] Configurable position (top-right per ePD 2021)
-  - [ ] Stamps must not break existing layout
-- [ ] **P0**: Bundle PDF export
-  - [ ] Merge all documents into single PDF
-  - [ ] Apply pagination stamps
-  - [ ] Generate bookmarks per document
-  - [ ] Include TOC as first pages
-- [ ] **P0**: "Late Insert" handling
-  - [ ] Re-Pagination mode: Full renumber all pages
-  - [ ] Sub-Numbering mode: Insert as Page 45A, 45B
-  - [ ] Auto-update TOC after insert
-- [ ] **P1**: Pagination validation (Compiler Errors)
-  - [ ] TOC page # matches PDF position
-  - [ ] No pagination gaps
-  - [ ] ePD Para 78 compliance check
-- [ ] **P1**: Auto exhibit renumbering
-  - [ ] Detect exhibit insertion
-  - [ ] Recalculate sequence
-  - [ ] Update all references
-- [ ] **P1**: PDF text extraction (for metadata)
-  - [ ] pdfium integration (Rust)
-  - [ ] Extract Date, Sender, Recipient, Subject from emails
-  - [ ] Auto-fill TOC descriptions
+- [x] **P0**: Auto-pagination (page stamps)
+  - [x] Inject "Page X of Y" into PDF headers/footers
+  - [x] Configurable position (top-right per ePD 2021)
+  - [x] Stamps must not break existing layout
+- [x] **P0**: Bundle PDF export
+  - [x] Merge all documents into single PDF
+  - [x] Apply pagination stamps
+  - [x] Generate bookmarks per document (placeholder)
+  - [x] Include TOC as first pages
+- [x] **P0**: "Late Insert" handling
+  - [x] Re-Pagination mode: Full renumber all pages (via frontend reorder)
+  - [x] Sub-Numbering mode: Insert as Page 45A, 45B
+  - [x] Auto-update TOC after insert
+- [x] **P1**: Pagination validation (Compiler Errors)
+  - [x] TOC page # matches PDF position
+  - [x] No pagination gaps
+  - [x] ePD Para 78 compliance check
+- [x] **P1**: Auto exhibit renumbering
+  - [x] Detect exhibit insertion
+  - [x] Recalculate sequence
+  - [x] Update all references
+- [x] **P1**: PDF text extraction (for metadata)
+  - [x] lopdf text extraction (Rust)
+  - [x] Extract Date, Sender, Recipient, Subject from emails
+  - [x] Auto-fill TOC descriptions
 
 **Success Metric**: Compile 500-page bundle with correct pagination in < 60 seconds
+
+---
+
+## Phase 2A: Bundle Composer UI Pivot
+
+**Target**: TBD
+**Goal**: Implement "Zone B is the Truth; Zone C is the Lens" philosophy
+
+### Status: In Progress
+
+### Philosophy
+
+> **"Zone B is the Truth; Zone C is the Lens."**
+
+Key insights from lawyer feedback:
+
+1. **Description is King** - Filename doesn't matter, only TOC description matters
+2. **Disputed = TOC Label** - Just append "(Disputed)" in the TOC, no watermarking
+3. **No Staging Zone** - Edit descriptions directly in Inspector
+4. **Auto-Sort Disputed** - Usually put disputed docs at the end
+
+### New Architecture
+
+```
+┌──────┬──────────────┬─────────────────────────────────┬──────────────────────┐
+│ 48px │ 200px        │ flex-1                          │ 360px                │
+├──────┼──────────────┼─────────────────────────────────┼──────────────────────┤
+│ Case │ REPOSITORY   │ MASTER INDEX ("The Truth")      │ INSPECTOR ("Lens")   │
+│ Icons│ (Source)     │                                 │                      │
+│      │              │ No│ Date   │ Description │Page  │ ┌──────────────────┐ │
+│      │ 📁 Files     │ ──│────────│─────────────│───── │ │[File] [Preview]  │ │
+│      │ ├─ doc1.pdf  │ A.│        │ TAB A       │      │ ├──────────────────┤ │
+│      │ └─ doc2.pdf  │ 1.│ 14 Feb │ Statement...│ 6-98 │ │ [TOC Preview]    │ │
+│      │ (✓=linked)   │ 2.│ 21 Feb │ Defence...  │99-265│ │                  │ │
+│      │              │ ────────────────────────────────│ │ Disputed: ☐      │ │
+│      │              │ [+ Add Doc] [+ Section Break]   │ └──────────────────┘ │
+└──────┴──────────────┴─────────────────────────────────┴──────────────────────┘
+```
+
+### Tasks
+
+- [x] **P0**: Master Index column restructure
+  - [x] Change columns to: No | Date | Description | Page
+  - [x] Remove "Status" column (Agreed/Disputed toggle)
+  - [x] Implement two-column No + Date layout
+  - [x] Update page range format to "6 - 98" style
+- [x] **P0**: Section break system
+  - [x] Add `section-break` row type
+  - [x] Alphabetical labels (A., B., C.) auto-generated
+  - [x] User-defined description for TOC
+  - [x] Bold row styling for section breaks
+- [x] **P0**: Floating toolbar
+  - [x] [+ Add Document] button
+  - [x] [+ Insert Section Break] button
+  - [x] Position at bottom of Master Index
+- [x] **P0**: Repository simplification
+  - [x] Rename Inbox → Repository
+  - [x] Remove triage status (unprocessed/processed/bundled)
+  - [x] Add simple "linked" indicator (✓)
+- [x] **P0**: Inspector dual-tab
+  - [x] Add shadcn Tabs component
+  - [x] Tab 1: File Inspector (metadata + PDF preview)
+  - [x] Tab 2: Page Preview (live TOC preview)
+  - [x] Disputed checkbox in File tab
+- [ ] **P1**: Wire up App.tsx state management
+  - [ ] Update state for new IndexEntry format
+  - [ ] Connect Repository → Master Index flow
+  - [ ] Two-way sync between Inspector and Master Index
+- [ ] **P1**: Backend commands
+  - [ ] create_section_break command
+  - [ ] generate_toc_html command
+  - [ ] move_disputed_to_end command
+  - [ ] Database schema migration
+
+**Success Metric**: Bundle assembly matches real court TOC format exactly
 
 ---
 
@@ -256,17 +354,20 @@ User research revealed the core pain point is **Bundle Compliance**, not AI writ
 
 ## Notes & Decisions
 
-| Date       | Decision                                 | Rationale                                                                              |
-| ---------- | ---------------------------------------- | -------------------------------------------------------------------------------------- |
-| 2024-12-31 | Use TipTap over Slate                    | Better docs, ProseMirror foundation                                                    |
-| 2024-12-31 | Start with Windows target                | 90% of SG law firms use Windows                                                        |
-| 2024-12-31 | Local-first architecture                 | Lawyer privacy concerns, court compliance                                              |
-| 2024-12-31 | Use llama.cpp for local AI               | Privacy-first, streaming via Tauri events, no API costs                                |
-| 2024-12-31 | Hybrid editor (prose + slash/K)          | Matches lawyer expectations (Word-like), supports AI features                          |
-| 2024-12-31 | **Full pivot to Bundle Compilation**     | User research: "It's about pagination, not multimedia." Replace Acrobat, not Word.     |
-| 2024-12-31 | AI features deprioritized to Phase 3+    | Core value is bundle compliance; AI is enhancement, not MVP                            |
-| 2024-12-31 | Paralegal as secondary user persona      | They do 200+ hours of bundle work; design UX for bulk operations                       |
-| 2024-12-31 | ePD 2021 as authoritative compliance src | Supreme Court Practice Directions Part 10 (Para 78-80), Part 11 (Para 102) are the law |
+| Date       | Decision                                 | Rationale                                                                                   |
+| ---------- | ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 2024-12-31 | Use TipTap over Slate                    | Better docs, ProseMirror foundation                                                         |
+| 2024-12-31 | Start with Windows target                | 90% of SG law firms use Windows                                                             |
+| 2024-12-31 | Local-first architecture                 | Lawyer privacy concerns, court compliance                                                   |
+| 2024-12-31 | Use llama.cpp for local AI               | Privacy-first, streaming via Tauri events, no API costs                                     |
+| 2024-12-31 | Hybrid editor (prose + slash/K)          | Matches lawyer expectations (Word-like), supports AI features                               |
+| 2024-12-31 | **Full pivot to Bundle Compilation**     | User research: "It's about pagination, not multimedia." Replace Acrobat, not Word.          |
+| 2024-12-31 | AI features deprioritized to Phase 3+    | Core value is bundle compliance; AI is enhancement, not MVP                                 |
+| 2024-12-31 | Paralegal as secondary user persona      | They do 200+ hours of bundle work; design UX for bulk operations                            |
+| 2024-12-31 | ePD 2021 as authoritative compliance src | Supreme Court Practice Directions Part 10 (Para 78-80), Part 11 (Para 102) are the law      |
+| 2025-01-01 | **3-column Inspector model**             | Replaced 4-zone layout. Inbox + Inspector saves vertical space, metadata editing in context |
+| 2026-01-01 | **Bundle Compiler implemented**          | Phase 2 core: TOC generation, pagination stamps, PDF merging via lopdf + printpdf crates    |
+| 2026-01-01 | **Phase 2 Complete**                     | Sub-numbering (45A, 45B), pagination validation, PDF text extraction for auto-descriptions  |
 
 ---
 

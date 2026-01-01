@@ -62,56 +62,79 @@ CasePilot is a desktop application that automates the tedious, error-prone proce
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## UI Architecture: Split-Screen Layout
+## UI Architecture: Bundle Composer (4-Zone Layout)
 
-**Core Principle**: The Split-View is mandatory. The #1 user anxiety is "Does the Index match the Page Number?" Separating them into tabs prevents instant verification.
+**Core Philosophy**: "Zone B is the Truth; Zone C is the Lens."
+
+The Master Index is the single source of truth for the bundle. The Inspector is a lens that shows different views of the data.
+
+### Layout Diagram
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│ Zone A (Case Area)                                                        │
-│ [📁] [📁] [📁]  ← Project switcher (VS Code-style icons, minimal)        │
-├────────────────────┬────────────────────┬────────────────────────────────┤
-│ Zone B             │ Zone C             │ Zone D                          │
-│ Staging Area       │ Master Index       │ Compiler Preview                │
-│                    │ (Scaffold)         │ (Bundle)                        │
-│ ┌────────────────┐ │ ┌────────────────┐ │ ┌────────────────────────────┐ │
-│ │ Raw files dump │ │ │ Tab │ Desc │ Pg │ │ │                            │ │
-│ │                │ │ │ ─── │ ──── │ ── │ │ │     PDF Preview            │ │
-│ │ ○ Unprocessed  │ │ │  1  │ Email│ 1-3│ │ │                            │ │
-│ │ ◐ Processed    │ │ │  2  │ Photo│ 4  │ │ │   [Page 15 of 347]         │ │
-│ │ ● Bundled      │ │ │  3  │ Cont.│5-12│ │ │      ↑ stamp               │ │
-│ └────────────────┘ │ └────────────────┘ │ └────────────────────────────┘ │
-│ Drag files here    │ Click row → jumps  │ Shows pagination stamp         │
-└────────────────────┴────────────────────┴────────────────────────────────┘
+┌──────┬──────────────┬─────────────────────────────────┬──────────────────────┐
+│ 48px │ 200px        │ flex-1                          │ 360px                │
+├──────┼──────────────┼─────────────────────────────────┼──────────────────────┤
+│ Case │ REPOSITORY   │ MASTER INDEX ("The Truth")      │ INSPECTOR ("Lens")   │
+│ Icons│ (Source)     │                                 │                      │
+│      │              │ No│ Date   │ Description │Page  │ ┌──────────────────┐ │
+│      │ 📁 Files     │ ──│────────│─────────────│───── │ │[File] [Preview]  │ │
+│ JvS  │ ├─ doc1.pdf  │ A.│        │ TAB A       │      │ ├──────────────────┤ │
+│ AvB  │ └─ doc2.pdf  │ 1.│ 14 Feb │ Statement...│ 6-98 │ │ [PDF Preview]    │ │
+│      │ (✓=linked)   │ 2.│ 21 Feb │ Defence...  │99-265│ │                  │ │
+│ +    │              │ ────────────────────────────────│ │ Description: [__]│ │
+│      │              │ [+ Add Doc] [+ Section Break]   │ │ ☐ Disputed       │ │
+└──────┴──────────────┴─────────────────────────────────┴──────────────────────┘
 ```
 
 ### Zone Definitions
 
-| Zone | Name             | Purpose                                              |
-| ---- | ---------------- | ---------------------------------------------------- |
-| A    | Case Area        | Project switcher (minimal, users work 4+ hours/case) |
-| B    | Staging Area     | Inbox for raw files with triage status               |
-| C    | Master Index     | High-density TOC table (THE main editing surface)    |
-| D    | Compiler Preview | Live PDF preview with pagination stamps              |
+| Zone         | Purpose                                                      |
+| ------------ | ------------------------------------------------------------ |
+| Case Icons   | Project Switcher (48px vertical strip)                       |
+| Repository   | Source files (simple file tree with "linked" indicator)      |
+| Master Index | THE work surface - pixel-perfect TOC replica                 |
+| Inspector    | Dual-tab: File Inspector + Page Preview (live TOC rendering) |
 
-### Zone C: Master Index Columns
+### Master Index Columns
 
-| Column      | Type        | Description                              |
-| ----------- | ----------- | ---------------------------------------- |
-| Tab         | Drag handle | Reorder documents by dragging            |
-| Description | Editable    | Auto-filled from metadata, user-editable |
-| Status      | Toggle      | "Agreed" or "Disputed"                   |
-| Page Range  | Read-only   | Auto-calculated (e.g., "pp. 15-18")      |
+| Column      | Type        | Description                                        |
+| ----------- | ----------- | -------------------------------------------------- |
+| No.         | Auto-number | A., B., C. for section breaks; 1., 2., 3. for docs |
+| Date        | Editable    | Document date (e.g., "14 February 2025")           |
+| Description | Editable    | TOC entry text (THE most important field)          |
+| Page        | Read-only   | Auto-calculated page range (e.g., "6 - 98")        |
 
-### Zone B: Triage Status
+### Row Types
 
-- **Unprocessed**: Raw file just dropped in
-- **Processed**: Metadata extracted (Date, Sender, etc.)
-- **Bundled**: Already moved into the scaffold
+| Type          | Visual Style   | Behavior                               |
+| ------------- | -------------- | -------------------------------------- |
+| Section Break | Bold, bg-muted | Creates TAB separator, no page numbers |
+| Document      | Normal         | Links to file, has page range          |
 
-### Key Interaction
+### Inspector Dual-Tab
 
-Click a row in Zone C (Index) → Zone D (Preview) immediately jumps to that page. This enables rapid "spot-checking" to verify descriptions match documents.
+| Tab     | Content                                                    |
+| ------- | ---------------------------------------------------------- |
+| File    | PDF preview, Description, Date, Disputed checkbox, Actions |
+| Preview | Live WYSIWYG TOC preview (updates as Master Index changes) |
+
+### Repository (replaces Inbox)
+
+Files in the Repository show simple status:
+
+- **Available**: Ready to add to bundle
+- **Linked** (✓): Already in the Master Index (greyed out)
+
+No triage workflow - Description is King (edit directly in Inspector).
+
+### Key Interactions
+
+1. **Drop files** → Instantly appear in Repository
+2. **Double-click file** → Add to Master Index
+3. **Click Master Index row** → Inspector shows editable metadata
+4. **Edit in Inspector** → Syncs to Master Index row immediately
+5. **Check "Disputed"** → Appends "(Disputed)" to TOC description
+6. **[+ Section Break]** → Insert TAB separator row
 
 ### A4 Canvas Logic
 

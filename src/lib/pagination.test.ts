@@ -1,10 +1,44 @@
 import { describe, it, expect } from "vitest";
 import {
   recalculatePageRanges,
-  recalculateTabNumbers,
   reorderArray,
+  createDocumentEntry,
+  createSectionBreak,
+  getTotalPages,
+  getDocumentCount,
   type IndexEntry,
 } from "./pagination";
+
+// Helper to create a document entry for tests
+function makeDoc(
+  id: string,
+  description: string,
+  pageStart: number,
+  pageEnd: number,
+  disputed = false,
+): IndexEntry {
+  return {
+    id,
+    rowType: "document",
+    description,
+    pageStart,
+    pageEnd,
+    disputed,
+  };
+}
+
+// Helper to create a section break for tests
+function makeSection(id: string, sectionLabel: string): IndexEntry {
+  return {
+    id,
+    rowType: "section-break",
+    sectionLabel,
+    description: "",
+    pageStart: 0,
+    pageEnd: 0,
+    disputed: false,
+  };
+}
 
 describe("pagination utilities", () => {
   describe("recalculatePageRanges", () => {
@@ -14,16 +48,7 @@ describe("pagination utilities", () => {
     });
 
     it("handles single entry starting at page 1", () => {
-      const entries: IndexEntry[] = [
-        {
-          id: "1",
-          tabNumber: 1,
-          description: "Email",
-          status: "agreed",
-          pageStart: 1,
-          pageEnd: 5,
-        },
-      ];
+      const entries: IndexEntry[] = [makeDoc("1", "Email", 1, 5)];
 
       const result = recalculatePageRanges(entries);
 
@@ -34,30 +59,9 @@ describe("pagination utilities", () => {
 
     it("recalculates multiple entries with correct cumulative ranges", () => {
       const entries: IndexEntry[] = [
-        {
-          id: "1",
-          tabNumber: 1,
-          description: "Email 1",
-          status: "agreed",
-          pageStart: 1,
-          pageEnd: 5, // 5 pages
-        },
-        {
-          id: "2",
-          tabNumber: 2,
-          description: "Email 2",
-          status: "agreed",
-          pageStart: 10, // Wrong - should be 6
-          pageEnd: 12, // 3 pages
-        },
-        {
-          id: "3",
-          tabNumber: 3,
-          description: "Contract",
-          status: "disputed",
-          pageStart: 50, // Wrong - should be 9
-          pageEnd: 69, // 20 pages
-        },
+        makeDoc("1", "Email 1", 1, 5), // 5 pages
+        makeDoc("2", "Email 2", 10, 12), // 3 pages (wrong start)
+        makeDoc("3", "Contract", 50, 69, true), // 20 pages, disputed (wrong start)
       ];
 
       const result = recalculatePageRanges(entries);
@@ -79,14 +83,7 @@ describe("pagination utilities", () => {
 
     it("preserves page count when recalculating", () => {
       const entries: IndexEntry[] = [
-        {
-          id: "1",
-          tabNumber: 1,
-          description: "Doc 1",
-          status: "agreed",
-          pageStart: 100, // Wrong start
-          pageEnd: 110, // 11 pages
-        },
+        makeDoc("1", "Doc 1", 100, 110), // 11 pages (wrong start)
       ];
 
       const result = recalculatePageRanges(entries);
@@ -98,22 +95,8 @@ describe("pagination utilities", () => {
 
     it("handles single-page documents correctly", () => {
       const entries: IndexEntry[] = [
-        {
-          id: "1",
-          tabNumber: 1,
-          description: "Page 1",
-          status: "agreed",
-          pageStart: 1,
-          pageEnd: 1,
-        },
-        {
-          id: "2",
-          tabNumber: 2,
-          description: "Page 2",
-          status: "agreed",
-          pageStart: 2,
-          pageEnd: 2,
-        },
+        makeDoc("1", "Page 1", 1, 1),
+        makeDoc("2", "Page 2", 2, 2),
       ];
 
       const result = recalculatePageRanges(entries);
@@ -128,9 +111,10 @@ describe("pagination utilities", () => {
       const entries: IndexEntry[] = [
         {
           id: "abc-123",
-          tabNumber: 5,
+          rowType: "document",
           description: "Important Email",
-          status: "disputed",
+          date: "14 February 2025",
+          disputed: true,
           pageStart: 1,
           pageEnd: 3,
           fileId: "file-789",
@@ -140,22 +124,18 @@ describe("pagination utilities", () => {
       const result = recalculatePageRanges(entries);
 
       expect(result[0].id).toBe("abc-123");
-      expect(result[0].tabNumber).toBe(5); // Should be preserved (not recalculated here)
+      expect(result[0].rowType).toBe("document");
       expect(result[0].description).toBe("Important Email");
-      expect(result[0].status).toBe("disputed");
+      expect(result[0].date).toBe("14 February 2025");
+      expect(result[0].disputed).toBe(true);
       expect(result[0].fileId).toBe("file-789");
     });
 
     it("handles large bundles (500+ pages)", () => {
       // Create 100 documents with 5 pages each
-      const entries: IndexEntry[] = Array.from({ length: 100 }, (_, i) => ({
-        id: `doc-${i}`,
-        tabNumber: i + 1,
-        description: `Document ${i + 1}`,
-        status: "agreed" as const,
-        pageStart: i * 100, // Intentionally wrong
-        pageEnd: i * 100 + 4, // 5 pages each
-      }));
+      const entries: IndexEntry[] = Array.from({ length: 100 }, (_, i) =>
+        makeDoc(`doc-${i}`, `Document ${i + 1}`, i * 100, i * 100 + 4),
+      );
 
       const result = recalculatePageRanges(entries);
 
@@ -165,72 +145,39 @@ describe("pagination utilities", () => {
       expect(result[99].pageStart).toBe(496); // (99 * 5) + 1
       expect(result[99].pageEnd).toBe(500); // 100 docs × 5 pages = 500 total
     });
-  });
 
-  describe("recalculateTabNumbers", () => {
-    it("returns empty array for empty input", () => {
-      const result = recalculateTabNumbers([]);
-      expect(result).toEqual([]);
-    });
-
-    it("numbers entries sequentially from 1", () => {
+    it("skips section breaks in page calculations", () => {
       const entries: IndexEntry[] = [
-        {
-          id: "1",
-          tabNumber: 99, // Wrong
-          description: "First",
-          status: "agreed",
-          pageStart: 1,
-          pageEnd: 5,
-        },
-        {
-          id: "2",
-          tabNumber: 5, // Wrong
-          description: "Second",
-          status: "agreed",
-          pageStart: 6,
-          pageEnd: 10,
-        },
-        {
-          id: "3",
-          tabNumber: 1, // Wrong
-          description: "Third",
-          status: "agreed",
-          pageStart: 11,
-          pageEnd: 15,
-        },
+        makeSection("sec-1", "TAB A"),
+        makeDoc("1", "Email 1", 1, 5), // 5 pages
+        makeDoc("2", "Email 2", 6, 10), // 5 pages
+        makeSection("sec-2", "TAB B"),
+        makeDoc("3", "Contract", 11, 20), // 10 pages
       ];
 
-      const result = recalculateTabNumbers(entries);
+      const result = recalculatePageRanges(entries);
 
-      expect(result).toHaveLength(3);
-      expect(result[0].tabNumber).toBe(1);
-      expect(result[1].tabNumber).toBe(2);
-      expect(result[2].tabNumber).toBe(3);
-    });
+      expect(result).toHaveLength(5);
 
-    it("preserves all other fields", () => {
-      const entries: IndexEntry[] = [
-        {
-          id: "abc",
-          tabNumber: 999,
-          description: "Test Document",
-          status: "disputed",
-          pageStart: 10,
-          pageEnd: 20,
-          fileId: "file-1",
-        },
-      ];
+      // Section break unchanged
+      expect(result[0].rowType).toBe("section-break");
+      expect(result[0].pageStart).toBe(0);
+      expect(result[0].pageEnd).toBe(0);
 
-      const result = recalculateTabNumbers(entries);
+      // Documents calculated correctly
+      expect(result[1].pageStart).toBe(1);
+      expect(result[1].pageEnd).toBe(5);
+      expect(result[2].pageStart).toBe(6);
+      expect(result[2].pageEnd).toBe(10);
 
-      expect(result[0].id).toBe("abc");
-      expect(result[0].description).toBe("Test Document");
-      expect(result[0].status).toBe("disputed");
-      expect(result[0].pageStart).toBe(10);
-      expect(result[0].pageEnd).toBe(20);
-      expect(result[0].fileId).toBe("file-1");
-      expect(result[0].tabNumber).toBe(1); // Only this changes
+      // Second section break unchanged
+      expect(result[3].rowType).toBe("section-break");
+      expect(result[3].pageStart).toBe(0);
+      expect(result[3].pageEnd).toBe(0);
+
+      // Continue page count after section break
+      expect(result[4].pageStart).toBe(11);
+      expect(result[4].pageEnd).toBe(20);
     });
   });
 
@@ -303,153 +250,159 @@ describe("pagination utilities", () => {
     });
   });
 
+  describe("createDocumentEntry", () => {
+    it("creates a document entry with correct defaults", () => {
+      const entry = createDocumentEntry("file-123", "Test Document", 10);
+
+      expect(entry.rowType).toBe("document");
+      expect(entry.fileId).toBe("file-123");
+      expect(entry.description).toBe("Test Document");
+      expect(entry.pageStart).toBe(1);
+      expect(entry.pageEnd).toBe(10);
+      expect(entry.disputed).toBe(false);
+      expect(entry.date).toBe("");
+      expect(entry.id).toBeDefined();
+    });
+  });
+
+  describe("createSectionBreak", () => {
+    it("creates a section break with correct defaults", () => {
+      const entry = createSectionBreak("TAB A - Pleadings");
+
+      expect(entry.rowType).toBe("section-break");
+      expect(entry.sectionLabel).toBe("TAB A - Pleadings");
+      expect(entry.description).toBe("");
+      expect(entry.pageStart).toBe(0);
+      expect(entry.pageEnd).toBe(0);
+      expect(entry.disputed).toBe(false);
+      expect(entry.id).toBeDefined();
+    });
+  });
+
+  describe("getTotalPages", () => {
+    it("returns 0 for empty array", () => {
+      expect(getTotalPages([])).toBe(0);
+    });
+
+    it("returns page end of last document", () => {
+      const entries = [
+        makeDoc("1", "Doc 1", 1, 10),
+        makeDoc("2", "Doc 2", 11, 25),
+      ];
+      expect(getTotalPages(entries)).toBe(25);
+    });
+
+    it("ignores section breaks at the end", () => {
+      const entries: IndexEntry[] = [
+        makeDoc("1", "Doc 1", 1, 10),
+        makeSection("sec", "TAB A"),
+      ];
+      expect(getTotalPages(entries)).toBe(10);
+    });
+  });
+
+  describe("getDocumentCount", () => {
+    it("returns 0 for empty array", () => {
+      expect(getDocumentCount([])).toBe(0);
+    });
+
+    it("counts only documents, not section breaks", () => {
+      const entries: IndexEntry[] = [
+        makeSection("sec-1", "TAB A"),
+        makeDoc("1", "Doc 1", 1, 10),
+        makeDoc("2", "Doc 2", 11, 25),
+        makeSection("sec-2", "TAB B"),
+        makeDoc("3", "Doc 3", 26, 30),
+      ];
+      expect(getDocumentCount(entries)).toBe(3);
+    });
+  });
+
   describe("integration: reorder + recalculate", () => {
     it("handles full reorder workflow", () => {
       // Initial state: 3 documents in order
       const initial: IndexEntry[] = [
-        {
-          id: "doc-1",
-          tabNumber: 1,
-          description: "Email",
-          status: "agreed",
-          pageStart: 1,
-          pageEnd: 5,
-        },
-        {
-          id: "doc-2",
-          tabNumber: 2,
-          description: "Contract",
-          status: "agreed",
-          pageStart: 6,
-          pageEnd: 10,
-        },
-        {
-          id: "doc-3",
-          tabNumber: 3,
-          description: "Invoice",
-          status: "disputed",
-          pageStart: 11,
-          pageEnd: 15,
-        },
+        makeDoc("doc-1", "Email", 1, 5),
+        makeDoc("doc-2", "Contract", 6, 10),
+        makeDoc("doc-3", "Invoice", 11, 15, true), // disputed
       ];
 
       // User drags "Contract" (index 1) to top (index 0)
       let reordered = reorderArray(initial, 1, 0);
 
-      // Recalculate tab numbers
-      reordered = recalculateTabNumbers(reordered);
-
       // Recalculate page ranges
       reordered = recalculatePageRanges(reordered);
 
       // Expected result: Contract, Email, Invoice
-      expect(reordered).toEqual([
-        {
-          id: "doc-2",
-          tabNumber: 1, // Updated
-          description: "Contract",
-          status: "agreed",
-          pageStart: 1, // Updated
-          pageEnd: 5, // Updated (5 pages)
-        },
-        {
-          id: "doc-1",
-          tabNumber: 2, // Updated
-          description: "Email",
-          status: "agreed",
-          pageStart: 6, // Updated
-          pageEnd: 10, // Updated (5 pages)
-        },
-        {
-          id: "doc-3",
-          tabNumber: 3, // Unchanged
-          description: "Invoice",
-          status: "disputed",
-          pageStart: 11, // Unchanged
-          pageEnd: 15, // Unchanged (5 pages)
-        },
-      ]);
+      expect(reordered[0].id).toBe("doc-2");
+      expect(reordered[0].description).toBe("Contract");
+      expect(reordered[0].pageStart).toBe(1);
+      expect(reordered[0].pageEnd).toBe(5);
+
+      expect(reordered[1].id).toBe("doc-1");
+      expect(reordered[1].description).toBe("Email");
+      expect(reordered[1].pageStart).toBe(6);
+      expect(reordered[1].pageEnd).toBe(10);
+
+      expect(reordered[2].id).toBe("doc-3");
+      expect(reordered[2].description).toBe("Invoice");
+      expect(reordered[2].disputed).toBe(true);
+      expect(reordered[2].pageStart).toBe(11);
+      expect(reordered[2].pageEnd).toBe(15);
     });
 
-    it("handles late insert scenario (insert at position 2)", () => {
-      // Existing documents
+    it("handles late insert scenario with section breaks", () => {
+      // Existing documents with a section break
       const existing: IndexEntry[] = [
-        {
-          id: "1",
-          tabNumber: 1,
-          description: "Doc 1",
-          status: "agreed",
-          pageStart: 1,
-          pageEnd: 10,
-        },
-        {
-          id: "2",
-          tabNumber: 2,
-          description: "Doc 2",
-          status: "agreed",
-          pageStart: 11,
-          pageEnd: 20,
-        },
-        {
-          id: "3",
-          tabNumber: 3,
-          description: "Doc 3",
-          status: "agreed",
-          pageStart: 21,
-          pageEnd: 30,
-        },
+        makeSection("sec-1", "TAB A"),
+        makeDoc("1", "Doc 1", 1, 10),
+        makeDoc("2", "Doc 2", 11, 20),
+        makeSection("sec-2", "TAB B"),
+        makeDoc("3", "Doc 3", 21, 30),
       ];
 
-      // New document to insert at position 1 (between Doc 1 and Doc 2)
-      const newDoc: IndexEntry = {
-        id: "new",
-        tabNumber: 999, // Will be recalculated
-        description: "Late Insert",
-        status: "agreed",
-        pageStart: 999, // Will be recalculated
-        pageEnd: 1003, // 5 pages
-      };
+      // New document to insert at position 2 (after Doc 1)
+      const newDoc = makeDoc("new", "Late Insert", 999, 1003);
 
-      // Insert at position 1
-      const withInsert = [existing[0], newDoc, existing[1], existing[2]];
+      // Insert at position 2 (after Doc 1, before Doc 2)
+      const withInsert = [
+        existing[0],
+        existing[1],
+        newDoc,
+        existing[2],
+        existing[3],
+        existing[4],
+      ];
 
       // Recalculate
-      const result = recalculatePageRanges(recalculateTabNumbers(withInsert));
+      const result = recalculatePageRanges(withInsert);
 
-      expect(result).toEqual([
-        {
-          id: "1",
-          tabNumber: 1,
-          description: "Doc 1",
-          status: "agreed",
-          pageStart: 1,
-          pageEnd: 10,
-        },
-        {
-          id: "new",
-          tabNumber: 2, // Updated
-          description: "Late Insert",
-          status: "agreed",
-          pageStart: 11, // Updated
-          pageEnd: 15, // Updated (5 pages preserved)
-        },
-        {
-          id: "2",
-          tabNumber: 3, // Updated
-          description: "Doc 2",
-          status: "agreed",
-          pageStart: 16, // Updated (pushed down by 5 pages)
-          pageEnd: 25, // Updated
-        },
-        {
-          id: "3",
-          tabNumber: 4, // Updated
-          description: "Doc 3",
-          status: "agreed",
-          pageStart: 26, // Updated
-          pageEnd: 35, // Updated
-        },
-      ]);
+      // Section break unchanged
+      expect(result[0].sectionLabel).toBe("TAB A");
+      expect(result[0].pageStart).toBe(0);
+
+      // Doc 1 unchanged
+      expect(result[1].id).toBe("1");
+      expect(result[1].pageStart).toBe(1);
+      expect(result[1].pageEnd).toBe(10);
+
+      // New doc inserted
+      expect(result[2].id).toBe("new");
+      expect(result[2].pageStart).toBe(11);
+      expect(result[2].pageEnd).toBe(15); // 5 pages
+
+      // Doc 2 pushed down
+      expect(result[3].id).toBe("2");
+      expect(result[3].pageStart).toBe(16);
+      expect(result[3].pageEnd).toBe(25);
+
+      // Second section break unchanged
+      expect(result[4].sectionLabel).toBe("TAB B");
+
+      // Doc 3 pushed down
+      expect(result[5].id).toBe("3");
+      expect(result[5].pageStart).toBe(26);
+      expect(result[5].pageEnd).toBe(35);
     });
   });
 });

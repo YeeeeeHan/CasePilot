@@ -3,51 +3,57 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "../ui/resizable";
+import { ScrollArea } from "../ui/scroll-area";
 
 interface AppLayoutProps {
+  /** Zone A: Project switcher icons */
+  projectSwitcher: React.ReactNode;
+  /** Sidebar content: Inbox + File tree */
   sidebar: React.ReactNode;
-  staging: React.ReactNode;
+  /** Zone C: Master Index table */
   masterIndex: React.ReactNode;
-  preview: React.ReactNode;
+  /** Zone D: Inspector panel */
+  inspector: React.ReactNode;
 }
 
 export function AppLayout({
+  projectSwitcher,
   sidebar,
-  staging,
   masterIndex,
-  preview,
+  inspector,
 }: AppLayoutProps) {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
-      {/* Zone A: Fixed Sidebar */}
+      {/* Zone A: Fixed Project Switcher */}
       <div className="w-[48px] border-r border-border bg-muted flex flex-col items-center py-2 z-10">
-        {sidebar}
+        {projectSwitcher}
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Content Area: 3-Column Layout */}
       <div className="flex-1 min-w-0">
         <ResizablePanelGroup orientation="horizontal" className="h-full">
-          {/* Left Pane: Staging + Index */}
-          <ResizablePanel defaultSize={40} minSize={25}>
-            <div className="flex flex-col h-full">
-              {/* Zone B: Staging Area */}
-              <div className="h-[200px] border-b border-border bg-background p-4 overflow-hidden flex flex-col">
-                {staging}
-              </div>
+          {/* Left Column: Sidebar (Inbox + File Tree) */}
+          <ResizablePanel defaultSize={20} minSize={15}>
+            <ScrollArea className="h-full">
+              <div className="p-2">{sidebar}</div>
+            </ScrollArea>
+          </ResizablePanel>
 
-              {/* Zone C: Master Index */}
-              <div className="flex-1 bg-background p-4 overflow-auto">
-                {masterIndex}
-              </div>
+          <ResizableHandle />
+
+          {/* Center Column: Master Index */}
+          <ResizablePanel defaultSize={50} minSize={30}>
+            <div className="h-full bg-background p-4 overflow-auto">
+              {masterIndex}
             </div>
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
+          <ResizableHandle />
 
-          {/* Right Pane: Bundle Preview */}
-          <ResizablePanel defaultSize={60} minSize={25}>
-            <div className="h-full bg-muted/20 p-4 overflow-hidden">
-              {preview}
+          {/* Right Column: Inspector */}
+          <ResizablePanel defaultSize={30} minSize={20}>
+            <div className="h-full border-l border-border bg-background">
+              {inspector}
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>

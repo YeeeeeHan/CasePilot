@@ -1,8 +1,8 @@
-export { StagingArea, type StagedFile, type TriageStatus } from "./StagingArea";
-export {
-  MasterIndex,
-  type IndexEntry,
-  type DocumentStatus,
-} from "./MasterIndex";
+export { MasterIndex, type IndexEntry, type RowType } from "./MasterIndex";
 export { BundlePreview } from "./BundlePreview";
 export { ProjectSwitcher, type ProjectCase } from "./ProjectSwitcher";
+export {
+  Inspector,
+  type InspectorFile,
+  type SelectionSource,
+} from "./Inspector";

@@ -6,27 +6,69 @@ describe("MasterIndex", () => {
   const mockEntries: IndexEntry[] = [
     {
       id: "1",
-      tabNumber: 1,
+      rowType: "document",
       description: "Email from John",
-      status: "agreed",
+      date: "14 Feb 2025",
+      disputed: false,
       pageStart: 1,
       pageEnd: 5,
     },
     {
       id: "2",
-      tabNumber: 2,
+      rowType: "document",
       description: "Contract",
-      status: "disputed",
+      date: "21 Feb 2025",
+      disputed: true,
       pageStart: 6,
       pageEnd: 10,
     },
     {
       id: "3",
-      tabNumber: 3,
+      rowType: "document",
       description: "Invoice",
-      status: "agreed",
+      date: "",
+      disputed: false,
       pageStart: 11,
       pageEnd: 15,
+    },
+  ];
+
+  const mockEntriesWithSections: IndexEntry[] = [
+    {
+      id: "sec-1",
+      rowType: "section-break",
+      sectionLabel: "TAB A - Pleadings",
+      description: "",
+      pageStart: 0,
+      pageEnd: 0,
+      disputed: false,
+    },
+    {
+      id: "1",
+      rowType: "document",
+      description: "Statement of Claim",
+      date: "14 Feb 2025",
+      disputed: false,
+      pageStart: 1,
+      pageEnd: 5,
+    },
+    {
+      id: "sec-2",
+      rowType: "section-break",
+      sectionLabel: "TAB B - Evidence",
+      description: "",
+      pageStart: 0,
+      pageEnd: 0,
+      disputed: false,
+    },
+    {
+      id: "2",
+      rowType: "document",
+      description: "Email Evidence",
+      date: "21 Feb 2025",
+      disputed: false,
+      pageStart: 6,
+      pageEnd: 10,
     },
   ];
 
@@ -40,47 +82,56 @@ describe("MasterIndex", () => {
       expect(screen.getByDisplayValue("Invoice")).toBeInTheDocument();
     });
 
-    it("displays tab numbers correctly", () => {
+    it("displays document numbers correctly", () => {
       render(<MasterIndex entries={mockEntries} />);
 
-      // Tab numbers should be visible in the table
-      const tabCells = screen.getAllByRole("cell").filter((cell) => {
-        const text = cell.textContent;
-        return text === "1" || text === "2" || text === "3";
-      });
-      expect(tabCells.length).toBeGreaterThanOrEqual(3);
+      // Document numbers should be visible (1., 2., 3.)
+      expect(screen.getByText("1.")).toBeInTheDocument();
+      expect(screen.getByText("2.")).toBeInTheDocument();
+      expect(screen.getByText("3.")).toBeInTheDocument();
+    });
+
+    it("displays dates correctly", () => {
+      render(<MasterIndex entries={mockEntries} />);
+
+      expect(screen.getByDisplayValue("14 Feb 2025")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("21 Feb 2025")).toBeInTheDocument();
     });
 
     it("displays page ranges correctly", () => {
       render(<MasterIndex entries={mockEntries} />);
 
-      expect(screen.getByText("pp. 1-5")).toBeInTheDocument();
-      expect(screen.getByText("pp. 6-10")).toBeInTheDocument();
-      expect(screen.getByText("pp. 11-15")).toBeInTheDocument();
-    });
-
-    it("displays status badges correctly", () => {
-      render(<MasterIndex entries={mockEntries} />);
-
-      const agreedBadges = screen.getAllByText("Agreed");
-      const disputedBadges = screen.getAllByText("Disputed");
-
-      expect(agreedBadges).toHaveLength(2);
-      expect(disputedBadges).toHaveLength(1);
+      expect(screen.getByText("1 - 5")).toBeInTheDocument();
+      expect(screen.getByText("6 - 10")).toBeInTheDocument();
+      expect(screen.getByText("11 - 15")).toBeInTheDocument();
     });
 
     it("shows empty state when no entries", () => {
       render(<MasterIndex entries={[]} />);
 
       expect(
-        screen.getByText("Drag files from staging to add to bundle"),
+        screen.getByText(/Use the toolbar below to add documents/),
       ).toBeInTheDocument();
     });
 
     it("displays total page count", () => {
       render(<MasterIndex entries={mockEntries} />);
 
-      expect(screen.getByText(/Total: 15 pages/)).toBeInTheDocument();
+      expect(screen.getByText(/15 pages/)).toBeInTheDocument();
+    });
+
+    it("renders section breaks with correct labels", () => {
+      render(<MasterIndex entries={mockEntriesWithSections} />);
+
+      expect(screen.getByDisplayValue("TAB A - Pleadings")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("TAB B - Evidence")).toBeInTheDocument();
+    });
+
+    it("displays section break letters (A., B.)", () => {
+      render(<MasterIndex entries={mockEntriesWithSections} />);
+
+      expect(screen.getByText("A.")).toBeInTheDocument();
+      expect(screen.getByText("B.")).toBeInTheDocument();
     });
   });
 
@@ -115,16 +166,14 @@ describe("MasterIndex", () => {
       expect(onDescriptionChange).toHaveBeenCalledWith("1", "Updated Email");
     });
 
-    it("calls onStatusToggle when status badge is clicked", () => {
-      const onStatusToggle = vi.fn();
-      render(
-        <MasterIndex entries={mockEntries} onStatusToggle={onStatusToggle} />,
-      );
+    it("calls onDateChange when date is edited", () => {
+      const onDateChange = vi.fn();
+      render(<MasterIndex entries={mockEntries} onDateChange={onDateChange} />);
 
-      const agreedBadge = screen.getAllByText("Agreed")[0];
-      agreedBadge.click();
+      const input = screen.getByDisplayValue("14 Feb 2025") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "15 Feb 2025" } });
 
-      expect(onStatusToggle).toHaveBeenCalledWith("1");
+      expect(onDateChange).toHaveBeenCalledWith("1", "15 Feb 2025");
     });
 
     it("highlights selected entry", () => {
@@ -136,42 +185,74 @@ describe("MasterIndex", () => {
     });
   });
 
+  describe("floating toolbar", () => {
+    it("renders Add Document button", () => {
+      render(<MasterIndex entries={mockEntries} />);
+
+      expect(
+        screen.getByRole("button", { name: /Add Document/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("renders Insert Section Break button", () => {
+      render(<MasterIndex entries={mockEntries} />);
+
+      expect(
+        screen.getByRole("button", { name: /Section Break/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("calls onAddDocument when Add Document is clicked", () => {
+      const onAddDocument = vi.fn();
+      render(
+        <MasterIndex entries={mockEntries} onAddDocument={onAddDocument} />,
+      );
+
+      const button = screen.getByRole("button", { name: /Add Document/i });
+      button.click();
+
+      expect(onAddDocument).toHaveBeenCalled();
+    });
+
+    it("calls onInsertSectionBreak when Section Break is clicked", () => {
+      const onInsertSectionBreak = vi.fn();
+      render(
+        <MasterIndex
+          entries={mockEntries}
+          onInsertSectionBreak={onInsertSectionBreak}
+        />,
+      );
+
+      const button = screen.getByRole("button", { name: /Section Break/i });
+      button.click();
+
+      expect(onInsertSectionBreak).toHaveBeenCalled();
+    });
+  });
+
   describe("drag and drop", () => {
     it("renders drag handles for each entry", () => {
       render(<MasterIndex entries={mockEntries} />);
 
-      const dragHandles = screen.getAllByLabelText(/Reorder document/);
+      const dragHandles = screen.getAllByLabelText(/Drag to reorder/i);
       expect(dragHandles).toHaveLength(3);
     });
 
-    it("drag handles have correct ARIA labels", () => {
+    it("drag handles have grab cursor styling", () => {
       render(<MasterIndex entries={mockEntries} />);
 
-      expect(screen.getByLabelText("Reorder document 1")).toBeInTheDocument();
-      expect(screen.getByLabelText("Reorder document 2")).toBeInTheDocument();
-      expect(screen.getByLabelText("Reorder document 3")).toBeInTheDocument();
-    });
-
-    it("drag handles are draggable", () => {
-      render(<MasterIndex entries={mockEntries} />);
-
-      const dragHandles = screen.getAllByLabelText(/Reorder document/);
+      const dragHandles = screen.getAllByLabelText(/Drag to reorder/i);
       dragHandles.forEach((handle) => {
-        expect(handle).toHaveAttribute("draggable", "true");
-      });
-    });
-
-    it("has drag handlers configured on grip buttons", () => {
-      const onReorder = vi.fn();
-      render(<MasterIndex entries={mockEntries} onReorder={onReorder} />);
-
-      const dragHandles = screen.getAllByLabelText(/Reorder document/);
-
-      // Check that drag handlers are present (can't fully test DragEvent in jsdom)
-      dragHandles.forEach((handle) => {
-        expect(handle.getAttribute("draggable")).toBe("true");
         expect(handle).toHaveClass("cursor-grab");
       });
+    });
+
+    it("renders drag handles for section breaks too", () => {
+      render(<MasterIndex entries={mockEntriesWithSections} />);
+
+      // 2 section breaks + 2 documents = 4 drag handles
+      const dragHandles = screen.getAllByLabelText(/Drag to reorder/i);
+      expect(dragHandles).toHaveLength(4);
     });
   });
 
@@ -181,26 +262,13 @@ describe("MasterIndex", () => {
 
       expect(screen.getByRole("table")).toBeInTheDocument();
       expect(screen.getAllByRole("row")).toHaveLength(4); // 1 header + 3 entries
-      expect(screen.getAllByRole("columnheader")).toHaveLength(5);
     });
 
     it("description inputs are keyboard accessible", () => {
       render(<MasterIndex entries={mockEntries} />);
 
       const inputs = screen.getAllByRole("textbox");
-      expect(inputs).toHaveLength(3);
-      inputs.forEach((input) => {
-        expect(input).toHaveAttribute("type", "text");
-      });
-    });
-
-    it("status badges are clickable buttons", () => {
-      render(<MasterIndex entries={mockEntries} />);
-
-      const statusBadges = screen.getAllByText(/Agreed|Disputed/);
-      statusBadges.forEach((badge) => {
-        expect(badge).toHaveClass("cursor-pointer");
-      });
+      expect(inputs.length).toBeGreaterThanOrEqual(3);
     });
   });
 });

@@ -59,9 +59,27 @@ describe.skip("Bundle Compilation (Future Feature)", () => {
       mockInvoke.mockResolvedValueOnce({
         success: true,
         tocEntries: [
-          { label: "Tab 1", startPage: 3, endPage: 7, pageCount: 5 },
-          { label: "Tab 2", startPage: 8, endPage: 17, pageCount: 10 },
-          { label: "Tab 3", startPage: 18, endPage: 20, pageCount: 3 },
+          {
+            label: "Tab 1",
+            description: "AEIC of Plaintiff",
+            startPage: 3,
+            endPage: 7,
+            pageCount: 5,
+          },
+          {
+            label: "Tab 2",
+            description: "Bundle of Documents",
+            startPage: 8,
+            endPage: 17,
+            pageCount: 10,
+          },
+          {
+            label: "Tab 3",
+            description: "Written Submissions",
+            startPage: 18,
+            endPage: 20,
+            pageCount: 3,
+          },
         ],
         totalPages: 20,
         errors: [],
@@ -151,10 +169,34 @@ describe.skip("Bundle Compilation (Future Feature)", () => {
       mockInvoke.mockResolvedValueOnce({
         success: true,
         tocEntries: [
-          { label: "Tab 1", startPage: 3, endPage: 7, pageCount: 5 },
-          { label: "Tab 2", startPage: 8, endPage: 12, pageCount: 5 }, // NEW
-          { label: "Tab 3", startPage: 13, endPage: 22, pageCount: 10 }, // Was Tab 2, now shifted
-          { label: "Tab 4", startPage: 23, endPage: 25, pageCount: 3 }, // Was Tab 3, now shifted
+          {
+            label: "Tab 1",
+            description: "AEIC",
+            startPage: 3,
+            endPage: 7,
+            pageCount: 5,
+          },
+          {
+            label: "Tab 2",
+            description: "New Doc",
+            startPage: 8,
+            endPage: 12,
+            pageCount: 5,
+          }, // NEW
+          {
+            label: "Tab 3",
+            description: "Bundle of Documents",
+            startPage: 13,
+            endPage: 22,
+            pageCount: 10,
+          }, // Was Tab 2, now shifted
+          {
+            label: "Tab 4",
+            description: "Written Submissions",
+            startPage: 23,
+            endPage: 25,
+            pageCount: 3,
+          }, // Was Tab 3, now shifted
         ],
         totalPages: 25, // Was 20, now 25
         errors: [],
@@ -178,9 +220,27 @@ describe.skip("Bundle Compilation (Future Feature)", () => {
       mockInvoke.mockResolvedValueOnce({
         success: true,
         tocEntries: [
-          { label: "Tab 1", startPage: 3, endPage: 7, pageCount: 5 },
-          { label: "Tab 1A", startPage: 8, endPage: 12, pageCount: 5 }, // Sub-numbered
-          { label: "Tab 2", startPage: 13, endPage: 22, pageCount: 10 },
+          {
+            label: "Tab 1",
+            description: "AEIC",
+            startPage: 3,
+            endPage: 7,
+            pageCount: 5,
+          },
+          {
+            label: "Tab 1A",
+            description: "Late Insert",
+            startPage: 8,
+            endPage: 12,
+            pageCount: 5,
+          }, // Sub-numbered
+          {
+            label: "Tab 2",
+            description: "Bundle of Documents",
+            startPage: 13,
+            endPage: 22,
+            pageCount: 10,
+          },
         ],
         totalPages: 22,
         errors: [],
