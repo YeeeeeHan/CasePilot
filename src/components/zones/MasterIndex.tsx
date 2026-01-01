@@ -17,7 +17,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, X, FileDown, Loader2, Plus, Layers } from "lucide-react";
+import {
+  GripVertical,
+  X,
+  FileDown,
+  Loader2,
+  Plus,
+  Layers,
+  FileText,
+  FilePlus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,22 +37,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { IndexEntry, RowType } from "@/lib/pagination";
 
-export type RowType = "document" | "section-break";
-
-export interface IndexEntry {
-  id: string;
-  rowType: RowType;
-  // For section breaks:
-  sectionLabel?: string; // "TAB A", "Orders of Court", etc.
-  // For documents:
-  fileId?: string;
-  description: string;
-  date?: string; // "14 February 2025"
-  pageStart: number;
-  pageEnd: number;
-  disputed: boolean;
-}
+// Re-export for consumers
+export type { IndexEntry, RowType };
 
 interface MasterIndexProps {
   entries: IndexEntry[];
@@ -56,6 +53,8 @@ interface MasterIndexProps {
   onCompileBundle?: () => void;
   onAddDocument?: () => void;
   onInsertSectionBreak?: () => void;
+  onInsertCoverPage?: () => void;
+  onInsertDivider?: () => void;
   isCompiling?: boolean;
 }
 
@@ -222,6 +221,8 @@ export function MasterIndex({
   onCompileBundle,
   onAddDocument,
   onInsertSectionBreak,
+  onInsertCoverPage,
+  onInsertDivider,
   isCompiling = false,
 }: MasterIndexProps) {
   // Sensors for drag and drop
@@ -247,10 +248,17 @@ export function MasterIndex({
       }
       return `${generateSectionLabel(sectionCount - 1)}.`;
     } else {
-      // Count documents (not section breaks) up to this point
+      // Count all numbered entries (documents, cover pages, dividers) up to this point
       let docCount = 0;
       for (let i = 0; i <= index; i++) {
-        if (entries[i].rowType === "document") docCount++;
+        const rowType = entries[i].rowType;
+        if (
+          rowType === "document" ||
+          rowType === "cover-page" ||
+          rowType === "divider"
+        ) {
+          docCount++;
+        }
       }
       return `${docCount}.`;
     }
@@ -266,17 +274,28 @@ export function MasterIndex({
     }
   }
 
-  // Calculate total pages from last document entry
+  // Calculate total pages from last entry with pages
   const getTotalPages = (): number => {
     for (let i = entries.length - 1; i >= 0; i--) {
-      if (entries[i].rowType === "document") {
+      const rowType = entries[i].rowType;
+      if (
+        rowType === "document" ||
+        rowType === "cover-page" ||
+        rowType === "divider"
+      ) {
         return entries[i].pageEnd;
       }
     }
     return 0;
   };
 
-  const documentCount = entries.filter((e) => e.rowType === "document").length;
+  // Count all entries with page content (documents, cover pages, dividers)
+  const documentCount = entries.filter(
+    (e) =>
+      e.rowType === "document" ||
+      e.rowType === "cover-page" ||
+      e.rowType === "divider",
+  ).length;
 
   return (
     <div className="flex flex-col h-full">
@@ -343,7 +362,7 @@ export function MasterIndex({
 
       {/* Floating Toolbar */}
       <div className="mt-3 flex items-center justify-between">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -360,7 +379,25 @@ export function MasterIndex({
             className="gap-1.5 text-xs"
           >
             <Layers className="h-3.5 w-3.5" />
-            Insert Section Break
+            Section Break
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onInsertCoverPage}
+            className="gap-1.5 text-xs"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Cover Page
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onInsertDivider}
+            className="gap-1.5 text-xs"
+          >
+            <FilePlus className="h-3.5 w-3.5" />
+            Divider
           </Button>
         </div>
 

@@ -16,6 +16,7 @@ pub struct AppState {
 pub struct Case {
     pub id: String,
     pub name: String,
+    pub master_index_json: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -156,6 +157,27 @@ async fn delete_case(id: String, state: tauri::State<'_, AppState>) -> Result<()
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
     db::delete_case(pool, &id).await
+}
+
+#[tauri::command]
+async fn save_master_index(
+    case_id: String,
+    master_index_json: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::save_master_index(pool, &case_id, &master_index_json).await
+}
+
+#[tauri::command]
+async fn load_master_index(
+    case_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::load_master_index(pool, &case_id).await
 }
 
 #[tauri::command]
@@ -479,6 +501,8 @@ pub fn run() {
             save_document,
             delete_case,
             delete_document,
+            save_master_index,
+            load_master_index,
             extract_pdf_metadata,
             extract_document_info,
             generate_auto_description,

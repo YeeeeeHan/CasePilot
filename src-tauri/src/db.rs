@@ -7,6 +7,7 @@ pub async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), String> {
         CREATE TABLE IF NOT EXISTS cases (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
+            master_index_json TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
@@ -15,6 +16,21 @@ pub async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), String> {
     .execute(pool)
     .await
     .map_err(|e| format!("Failed to create cases table: {}", e))?;
+
+    // Add master_index_json column if it doesn't exist (migration for existing DBs)
+    let has_master_index_column = sqlx::query_scalar::<_, i32>(
+        "SELECT COUNT(*) FROM pragma_table_info('cases') WHERE name = 'master_index_json'"
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(0);
+
+    if has_master_index_column == 0 {
+        sqlx::query("ALTER TABLE cases ADD COLUMN master_index_json TEXT")
+            .execute(pool)
+            .await
+            .ok(); // Ignore error if column already exists
+    }
 
     sqlx::query(
         r#"
@@ -92,7 +108,7 @@ pub async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), String> {
 
 pub async fn list_cases(pool: &Pool<Sqlite>) -> Result<Vec<Case>, String> {
     let rows = sqlx::query_as::<_, Case>(
-        "SELECT id, name, created_at, updated_at FROM cases ORDER BY updated_at DESC"
+        "SELECT id, name, master_index_json, created_at, updated_at FROM cases ORDER BY updated_at DESC"
     )
     .fetch_all(pool)
     .await
@@ -119,9 +135,45 @@ pub async fn create_case(pool: &Pool<Sqlite>, name: &str) -> Result<Case, String
     Ok(Case {
         id,
         name: name.to_string(),
+        master_index_json: None,
         created_at: now.clone(),
         updated_at: now,
     })
+}
+
+pub async fn save_master_index(
+    pool: &Pool<Sqlite>,
+    case_id: &str,
+    master_index_json: &str,
+) -> Result<(), String> {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    sqlx::query(
+        "UPDATE cases SET master_index_json = ?, updated_at = ? WHERE id = ?"
+    )
+    .bind(master_index_json)
+    .bind(&now)
+    .bind(case_id)
+    .execute(pool)
+    .await
+    .map_err(|e| format!("Failed to save master index: {}", e))?;
+
+    Ok(())
+}
+
+pub async fn load_master_index(
+    pool: &Pool<Sqlite>,
+    case_id: &str,
+) -> Result<Option<String>, String> {
+    let result = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT master_index_json FROM cases WHERE id = ?"
+    )
+    .bind(case_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| format!("Failed to load master index: {}", e))?;
+
+    Ok(result)
 }
 
 pub async fn list_documents(pool: &Pool<Sqlite>, case_id: &str) -> Result<Vec<Document>, String> {
@@ -259,6 +311,7 @@ pub async fn list_staging_files(pool: &Pool<Sqlite>, case_id: &str) -> Result<Ve
     Ok(rows)
 }
 
+#[allow(dead_code)]
 pub async fn list_bundled_exhibits(pool: &Pool<Sqlite>, case_id: &str) -> Result<Vec<Exhibit>, String> {
     let rows = sqlx::query_as::<_, Exhibit>(
         "SELECT id, case_id, status, file_path, label, sequence_index, page_count, description, created_at, updated_at

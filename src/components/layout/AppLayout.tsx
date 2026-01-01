@@ -2,25 +2,28 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from "../ui/resizable";
-import { ScrollArea } from "../ui/scroll-area";
+} from '../ui/resizable';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface AppLayoutProps {
   /** Zone A: Project switcher icons */
   projectSwitcher: React.ReactNode;
   /** Sidebar content: Inbox + File tree */
   sidebar: React.ReactNode;
-  /** Zone C: Master Index table */
-  masterIndex: React.ReactNode;
+  /** Zone C: Workbench (Master Index + Preview Pane) */
+  workbench: React.ReactNode;
   /** Zone D: Inspector panel */
   inspector: React.ReactNode;
+  /** Whether the inspector panel is open */
+  inspectorOpen?: boolean;
 }
 
 export function AppLayout({
   projectSwitcher,
   sidebar,
-  masterIndex,
+  workbench,
   inspector,
+  inspectorOpen = false,
 }: AppLayoutProps) {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
@@ -41,21 +44,26 @@ export function AppLayout({
 
           <ResizableHandle />
 
-          {/* Center Column: Master Index */}
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="h-full bg-background p-4 overflow-auto">
-              {masterIndex}
+          {/* Center Column: Workbench (Master Index + Preview Pane) */}
+          <ResizablePanel defaultSize={inspectorOpen ? 50 : 80} minSize={30}>
+            <div className="h-full bg-background overflow-hidden">
+              {workbench}
             </div>
           </ResizablePanel>
 
-          <ResizableHandle />
+          {/* Only show handle and inspector when inspector is open */}
+          {inspectorOpen && (
+            <>
+              <ResizableHandle />
 
-          {/* Right Column: Inspector */}
-          <ResizablePanel defaultSize={30} minSize={20}>
-            <div className="h-full border-l border-border bg-background">
-              {inspector}
-            </div>
-          </ResizablePanel>
+              {/* Right Column: Inspector */}
+              <ResizablePanel defaultSize={30} minSize={20}>
+                <div className="h-full border-l border-border bg-background">
+                  {inspector}
+                </div>
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
       </div>
     </div>

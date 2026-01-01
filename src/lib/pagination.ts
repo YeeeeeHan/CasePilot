@@ -8,15 +8,19 @@
  * Key design: Section breaks do NOT count towards page numbers.
  */
 
-export type RowType = "document" | "section-break";
+export type RowType = "document" | "section-break" | "cover-page" | "divider";
 
 export interface IndexEntry {
   id: string;
   rowType: RowType;
   // For section breaks:
   sectionLabel?: string;
-  // For documents:
+  // For documents (imported PDFs):
   fileId?: string;
+  // For cover-page and divider (TipTap-editable):
+  tiptapContent?: string;
+  generatedPageCount?: number;
+  // Common fields:
   description: string;
   date?: string;
   pageStart: number;
@@ -55,8 +59,21 @@ export function recalculatePageRanges(entries: IndexEntry[]): IndexEntry[] {
     if (entry.rowType === "section-break") {
       // Section breaks don't have page numbers, pass through unchanged
       result.push({ ...entry });
+    } else if (entry.rowType === "cover-page" || entry.rowType === "divider") {
+      // Generated content uses generatedPageCount (from TipTap page detection)
+      const pageCount = entry.generatedPageCount || 1;
+      const pageStart = lastDocumentPageEnd === 0 ? 1 : lastDocumentPageEnd + 1;
+      const pageEnd = pageStart + pageCount - 1;
+
+      result.push({
+        ...entry,
+        pageStart,
+        pageEnd,
+      });
+
+      lastDocumentPageEnd = pageEnd;
     } else {
-      // Calculate the page count from the original entry
+      // Document (imported PDF) - calculate page count from existing range
       const pageCount = entry.pageEnd - entry.pageStart + 1;
 
       // First document starts at page 1
@@ -146,15 +163,17 @@ export function createSectionBreak(sectionLabel: string): IndexEntry {
 }
 
 /**
- * Calculates the total page count from all document entries.
+ * Calculates the total page count from all entries with pages.
  *
  * @param entries - Array of index entries
  * @returns Total number of pages across all documents
  */
 export function getTotalPages(entries: IndexEntry[]): number {
   for (let i = entries.length - 1; i >= 0; i--) {
-    if (entries[i].rowType === "document") {
-      return entries[i].pageEnd;
+    const entry = entries[i];
+    // Any entry type except section-break has pages
+    if (entry.rowType !== "section-break") {
+      return entry.pageEnd;
     }
   }
   return 0;
@@ -168,4 +187,69 @@ export function getTotalPages(entries: IndexEntry[]): number {
  */
 export function getDocumentCount(entries: IndexEntry[]): number {
   return entries.filter((e) => e.rowType === "document").length;
+}
+
+/**
+ * Creates a new cover page entry with optional TipTap content.
+ *
+ * @param content - Optional serialized TipTap JSON content
+ * @param description - Description for the TOC (default: "Cover Page")
+ * @returns New IndexEntry for a cover page
+ */
+export function createCoverPage(
+  content?: string,
+  description: string = "Cover Page",
+): IndexEntry {
+  return {
+    id: crypto.randomUUID(),
+    rowType: "cover-page",
+    description,
+    tiptapContent: content,
+    generatedPageCount: 1,
+    date: "",
+    pageStart: 1,
+    pageEnd: 1,
+    disputed: false,
+  };
+}
+
+/**
+ * Creates a new divider page entry with optional TipTap content.
+ *
+ * @param title - Title for the divider (e.g., "PLAINTIFF'S DOCUMENTS")
+ * @param content - Optional serialized TipTap JSON content
+ * @returns New IndexEntry for a divider page
+ */
+export function createDividerPage(title: string, content?: string): IndexEntry {
+  return {
+    id: crypto.randomUUID(),
+    rowType: "divider",
+    description: title,
+    tiptapContent: content,
+    generatedPageCount: 1,
+    date: "",
+    pageStart: 1,
+    pageEnd: 1,
+    disputed: false,
+  };
+}
+
+/**
+ * Determines if an entry is editable (TipTap canvas) vs immutable (PDF).
+ *
+ * @param entry - The index entry to check
+ * @returns true if the entry uses TipTap for editing
+ */
+export function isEditableEntry(entry: IndexEntry): boolean {
+  return entry.rowType === "cover-page" || entry.rowType === "divider";
+}
+
+/**
+ * Determines if an entry renders as a PDF (evidence).
+ *
+ * @param entry - The index entry to check
+ * @returns true if the entry is an imported PDF document
+ */
+export function isEvidenceEntry(entry: IndexEntry): boolean {
+  return entry.rowType === "document";
 }

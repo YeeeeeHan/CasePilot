@@ -271,6 +271,128 @@ Key insights from lawyer feedback:
 
 ---
 
+## Phase 2B: Hybrid Renderer Architecture
+
+**Target**: TBD
+**Goal**: Mix "Drafting" (mutable content) with "Bundling" (immutable evidence) in a unified viewer
+
+### Status: Planned
+
+### Architecture
+
+> **"Fake it in React, Burn it in Rust"**
+
+The Inspector's right pane becomes a **Smart Container** that switches rendering engine based on document type. This preserves the "Sanctity of Evidence" while allowing full customization of generated pages.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ INSPECTOR RIGHT PANE - "Smart Container"                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────┐    ┌─────────────────────────┐                │
+│  │   DRAFTING CANVAS       │    │   EVIDENCE CANVAS       │                │
+│  │   (Mode A)              │    │   (Mode B)              │                │
+│  ├─────────────────────────┤    ├─────────────────────────┤                │
+│  │ Engine: TipTap Editor   │    │ Engine: PDF Viewer      │                │
+│  │ Content: EDITABLE       │    │ Content: IMMUTABLE      │                │
+│  │ Cursor: Blinking text   │    │ Cursor: Pointer only    │                │
+│  │ Toolbar: Formatting     │    │ Toolbar: Overlays       │                │
+│  │                         │    │                         │                │
+│  │ Used for:               │    │ Used for:               │                │
+│  │ • Cover Page            │    │ • Emails                │                │
+│  │ • Table of Contents     │    │ • Contracts             │                │
+│  │ • Section Dividers      │    │ • Photos                │                │
+│  │ • Custom pages          │    │ • Scanned documents     │                │
+│  └─────────────────────────┘    └─────────────────────────┘                │
+│                                                                             │
+│  Pagination: Calculated dynamically across BOTH modes                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Technology Stack
+
+| Layer               | Library            | Purpose                                                 |
+| ------------------- | ------------------ | ------------------------------------------------------- |
+| Frontend (Drafting) | TipTap             | Editable cover pages, TOC, dividers with A4 constraints |
+| Frontend (Evidence) | react-pdf (pdf.js) | Render immutable PDFs with HTML overlay layer           |
+| Backend (Export)    | pdfium-render      | "Burn" overlays into final PDF at compile time          |
+| Fallback            | lopdf              | Pure Rust alternative (smaller binary, lower-level API) |
+
+### The "Overlay" Strategy
+
+**Live Preview (React)**: Don't modify PDF binary. Render original PDF + floating HTML `<div>` for page stamps.
+
+```tsx
+const EvidencePage = ({ pageNum, globalPageNum }) => (
+  <div className="relative">
+    {/* Immutable Evidence */}
+    <Page pageNumber={pageNum} renderTextLayer={false} />
+
+    {/* Mutable Overlay - updates instantly on reorder */}
+    <div className="absolute top-4 right-4 text-sm font-bold z-10">
+      Page {globalPageNum}
+    </div>
+  </div>
+);
+```
+
+**Final Export (Rust)**: "Burn" overlays into PDF content stream only when user clicks "Compile Bundle."
+
+### Dynamic Pagination Challenge
+
+When editable content changes length, pagination must ripple through the entire bundle:
+
+1. **User Edit**: Types 3 paragraphs into Cover Page
+2. **Detection**: TipTap detects page break → Cover Page now pp. 1–2
+3. **Ripple**: Backend recalculates all page numbers downstream
+4. **Update**: Evidence PDF overlay stamps update from "Page 2" → "Page 3"
+
+### Coordinate Translation
+
+React pixels (96 DPI) ≠ PDF Points (72 DPI). Formula for overlay positioning:
+
+```
+PDF_Y = Page_Height - (React_Y × 72/96)
+```
+
+Must send coordinates from Inspector to Rust backend for exact stamp placement.
+
+### Tasks
+
+- [ ] **P0**: Dual-mode Inspector container
+  - [ ] Detect document type (generated vs imported)
+  - [ ] Swap between TipTap and PDF viewer seamlessly
+  - [ ] Unified toolbar that changes based on mode
+- [ ] **P0**: Drafting Canvas (TipTap "Page View")
+  - [ ] A4 dimensions enforced in CSS (210mm × 297mm)
+  - [ ] Page break detection and visualization
+  - [ ] Cover page template with case metadata placeholders
+  - [ ] Section divider template
+- [ ] **P0**: Evidence Canvas (react-pdf)
+  - [ ] PDF rendering with react-pdf
+  - [ ] HTML overlay layer for page stamps
+  - [ ] Overlay positioning with coordinate translation
+  - [ ] "Locked" visual indicator for immutable content
+- [ ] **P0**: Live pagination ripple
+  - [ ] Detect TipTap page count changes
+  - [ ] Recalculate all downstream page numbers
+  - [ ] Update overlay stamps in real-time
+- [ ] **P1**: pdfium-render integration (Rust)
+  - [ ] Bundle pdfium library (sidecar ~10MB)
+  - [ ] `burn_overlays` command for final export
+  - [ ] High-level text injection API
+- [ ] **P1**: Redaction and highlighting overlays
+  - [ ] Redaction box tool (black rectangle)
+  - [ ] Highlight tool (yellow semi-transparent)
+  - [ ] Overlay coordinates stored per-document
+- [ ] **P2**: lopdf fallback
+  - [ ] Pure Rust implementation for smaller binary
+  - [ ] Lower-level content stream manipulation
+
+**Success Metric**: Seamless switch between editing Cover Page and viewing Evidence PDF with live pagination updates
+
+---
+
 ## Phase 3: Intelligence Layer (AI Features)
 
 **Target**: TBD
@@ -368,6 +490,7 @@ Key insights from lawyer feedback:
 | 2025-01-01 | **3-column Inspector model**             | Replaced 4-zone layout. Inbox + Inspector saves vertical space, metadata editing in context |
 | 2026-01-01 | **Bundle Compiler implemented**          | Phase 2 core: TOC generation, pagination stamps, PDF merging via lopdf + printpdf crates    |
 | 2026-01-01 | **Phase 2 Complete**                     | Sub-numbering (45A, 45B), pagination validation, PDF text extraction for auto-descriptions  |
+| 2026-01-01 | **Hybrid Renderer architecture**         | "Fake it in React, Burn it in Rust" - TipTap for drafting, react-pdf + overlay for evidence |
 
 ---
 

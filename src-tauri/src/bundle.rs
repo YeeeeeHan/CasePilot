@@ -37,12 +37,14 @@ impl Default for PaginationStyle {
 }
 
 /// Sub-page numbering for late inserts (e.g., 45A, 45B)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubPageNumber {
     pub base_page: usize,
     pub suffix: char,  // 'A', 'B', 'C', etc.
 }
 
+#[allow(dead_code)]
 impl SubPageNumber {
     pub fn new(base_page: usize, index: usize) -> Self {
         // index 0 = 'A', 1 = 'B', etc.
@@ -56,6 +58,7 @@ impl SubPageNumber {
 }
 
 /// Late insert mode for bundle compilation
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LateInsertMode {
     /// Full renumber: all pages after insert get new numbers
@@ -100,6 +103,7 @@ pub struct CompileResult {
 }
 
 /// Document to include in bundle
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct BundleDocument {
     pub id: String,
@@ -595,6 +599,7 @@ pub fn compile_bundle(
 }
 
 /// Calculate TOC entries with sub-numbering for late inserts
+#[allow(dead_code)]
 pub fn calculate_toc_with_subnumbers(
     documents: &[BundleDocument],
     toc_page_count: usize,
@@ -739,6 +744,7 @@ pub fn validate_pagination(
 }
 
 /// Inject sub-numbered pagination stamp (e.g., "Page 45A")
+#[allow(dead_code)]
 fn inject_subnumber_stamp(
     doc: &mut LopdfDocument,
     page_id: ObjectId,
@@ -811,6 +817,7 @@ fn inject_subnumber_stamp(
 }
 
 /// Inject pagination with sub-numbering support for late inserts
+#[allow(dead_code)]
 pub fn inject_pagination_with_subnumbers(
     input_path: &PathBuf,
     output_path: &PathBuf,
