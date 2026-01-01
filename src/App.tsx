@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import { AppLayout } from './components/layout/AppLayout';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { save } from "@tauri-apps/plugin-dialog";
+import { AppLayout } from "./components/layout/AppLayout";
 import {
   RepositoryPanel,
   type RepositoryFile,
-} from './components/sidebar/RepositoryPanel';
-import { Toaster } from './components/ui/sonner';
-import { Workbench } from './components/workbench';
+} from "./components/sidebar/RepositoryPanel";
+import { Toaster } from "./components/ui/sonner";
+import { Workbench } from "./components/workbench";
 import {
   Inspector,
   MasterIndex,
@@ -16,13 +17,13 @@ import {
   type ProjectCase,
   type RowType,
   type SelectionSource,
-} from './components/zones';
+} from "./components/zones";
 import {
   useInvoke,
   type Case as DbCase,
   type Document as DbDocument,
   type Exhibit,
-} from './hooks/useInvoke';
+} from "./hooks/useInvoke";
 import {
   createCoverPage,
   createDividerPage,
@@ -30,7 +31,7 @@ import {
   getTotalPages,
   recalculatePageRanges,
   reorderArray,
-} from './lib/pagination';
+} from "./lib/pagination";
 
 export interface Document {
   id: string;
@@ -110,7 +111,7 @@ function App() {
               caseId: d.case_id,
             })),
           };
-        })
+        }),
       );
 
       setCases(casesWithDocs);
@@ -131,7 +132,7 @@ function App() {
             const savedEntries = JSON.parse(savedIndexJson) as IndexEntry[];
             setIndexEntries(savedEntries);
           } catch (e) {
-            console.error('Failed to parse saved master index:', e);
+            console.error("Failed to parse saved master index:", e);
             // Fall back to loading from exhibits
             await loadEntriesFromExhibits(firstCaseId);
           }
@@ -153,10 +154,10 @@ function App() {
 
             return {
               id: exhibit.id,
-              rowType: 'document' as RowType,
+              rowType: "document" as RowType,
               fileId: exhibit.file_path,
-              description: exhibit.description || exhibit.label || '',
-              date: '',
+              description: exhibit.description || exhibit.label || "",
+              date: "",
               pageStart,
               pageEnd,
               disputed: false,
@@ -197,7 +198,7 @@ function App() {
 
   // Handle case creation
   const handleCreateCase = useCallback(async () => {
-    const newCase = await createCase('New Case');
+    const newCase = await createCase("New Case");
     if (newCase) {
       setCases((prev) => [
         ...prev,
@@ -237,10 +238,10 @@ function App() {
                 currentPage = pageEnd + 1;
                 return {
                   id: exhibit.id,
-                  rowType: 'document' as RowType,
+                  rowType: "document" as RowType,
                   fileId: exhibit.file_path,
-                  description: exhibit.description || exhibit.label || '',
-                  date: '',
+                  description: exhibit.description || exhibit.label || "",
+                  date: "",
                   pageStart,
                   pageEnd,
                   disputed: false,
@@ -256,12 +257,12 @@ function App() {
             setIndexEntries([]);
           }
         }
-        toast.success('Case deleted');
+        toast.success("Case deleted");
       } else {
-        toast.error('Failed to delete case');
+        toast.error("Failed to delete case");
       }
     },
-    [activeCaseId, cases, deleteCase, listStagingFiles, listExhibits]
+    [activeCaseId, cases, deleteCase, listStagingFiles, listExhibits],
   );
 
   // Handle case selection
@@ -284,7 +285,7 @@ function App() {
           setIndexEntries(savedEntries);
           return; // Successfully loaded from saved index
         } catch (e) {
-          console.error('Failed to parse saved master index:', e);
+          console.error("Failed to parse saved master index:", e);
         }
       }
 
@@ -300,10 +301,10 @@ function App() {
 
           return {
             id: exhibit.id,
-            rowType: 'document' as RowType,
+            rowType: "document" as RowType,
             fileId: exhibit.file_path,
-            description: exhibit.description || exhibit.label || '',
-            date: '',
+            description: exhibit.description || exhibit.label || "",
+            date: "",
             pageStart,
             pageEnd,
             disputed: false,
@@ -314,44 +315,56 @@ function App() {
         setIndexEntries([]);
       }
     },
-    [listExhibits, listStagingFiles, loadMasterIndex]
+    [listExhibits, listStagingFiles, loadMasterIndex],
   );
 
   // Handle file drop in repository
   const handleFileDrop = useCallback(
     async (filePaths: string[]) => {
       if (!activeCaseId) {
-        toast.error('No active case selected');
+        toast.error("No active case selected");
         return;
       }
 
       console.log(
-        '[App] handleFileDrop called with',
+        "[App] handleFileDrop called with",
         filePaths.length,
-        'files:',
-        filePaths
+        "files:",
+        filePaths,
       );
 
       // Create exhibits in database immediately
+      console.log("[App] Creating exhibits for", filePaths.length, "files");
       const newExhibits = await Promise.all(
         filePaths.map(async (path) => {
           const name = path.split(/[\\/]/).pop() || path;
-          return await createExhibit(
+          console.log(
+            "[App] Calling createExhibit for:",
+            path,
+            "with name:",
+            name,
+          );
+          const result = await createExhibit(
             activeCaseId,
             path,
-            'unprocessed', // Initial status (still used in DB)
+            "unprocessed", // Initial status (still used in DB)
             undefined, // No label yet
             undefined, // No sequence yet
             undefined, // No page count yet
-            name // Description: filename
+            name, // Description: filename
           );
-        })
+          console.log("[App] createExhibit result:", result);
+          return result;
+        }),
       );
+
+      console.log("[App] All createExhibit results:", newExhibits);
 
       // Filter out failed creations
       const successfulExhibits = newExhibits.filter(
-        (e): e is Exhibit => e !== null
+        (e): e is Exhibit => e !== null,
       );
+      console.log("[App] Successful exhibits:", successfulExhibits.length);
 
       // Add to repository (optimistic update)
       setRepositoryFiles((prev) => [...prev, ...successfulExhibits]);
@@ -364,17 +377,17 @@ function App() {
           // Update and set page count
           const updated = await updateExhibit(
             exhibit.id,
-            'processed', // Update status
+            "processed", // Update status
             undefined, // No label change
             undefined, // No sequence change
             metadata.page_count, // Set page count
-            undefined // No description change
+            undefined, // No description change
           );
 
           if (updated) {
             // Update local state
             setRepositoryFiles((prev) =>
-              prev.map((e) => (e.id === exhibit.id ? updated : e))
+              prev.map((e) => (e.id === exhibit.id ? updated : e)),
             );
           }
         }
@@ -382,7 +395,7 @@ function App() {
 
       toast.success(`Added ${successfulExhibits.length} file(s) to repository`);
     },
-    [activeCaseId, createExhibit, extractPdfMetadata, updateExhibit]
+    [activeCaseId, createExhibit, extractPdfMetadata, updateExhibit],
   );
 
   // Handle moving file from repository to index
@@ -394,7 +407,7 @@ function App() {
       // Calculate page numbers - find last document entry (skip section breaks)
       let lastDocPageEnd = 0;
       for (let i = indexEntries.length - 1; i >= 0; i--) {
-        if (indexEntries[i].rowType === 'document') {
+        if (indexEntries[i].rowType === "document") {
           lastDocPageEnd = indexEntries[i].pageEnd;
           break;
         }
@@ -403,7 +416,7 @@ function App() {
       const pageCount = file.page_count || 1;
       const pageEnd = pageStart + pageCount - 1;
       const sequenceIndex = indexEntries.filter(
-        (e) => e.rowType === 'document'
+        (e) => e.rowType === "document",
       ).length;
       const label = `Tab ${sequenceIndex + 1}`;
 
@@ -412,21 +425,21 @@ function App() {
         file.id,
         label,
         sequenceIndex,
-        file.description || file.file_path.split(/[\\/]/).pop()
+        file.description || file.file_path.split(/[\\/]/).pop(),
       );
 
       if (!promoted) {
-        toast.error('Failed to add document to index');
+        toast.error("Failed to add document to index");
         return;
       }
 
       // Create index entry with new format
       const newEntry: IndexEntry = {
         id: promoted.id,
-        rowType: 'document',
+        rowType: "document",
         fileId: promoted.file_path,
-        description: promoted.description || '',
-        date: '',
+        description: promoted.description || "",
+        date: "",
         pageStart,
         pageEnd,
         disputed: false,
@@ -437,26 +450,26 @@ function App() {
       // Update the file's status in repository (mark as linked/bundled)
       setRepositoryFiles((prev) =>
         prev.map((e) =>
-          e.id === fileId ? { ...e, status: 'bundled' as const } : e
-        )
+          e.id === fileId ? { ...e, status: "bundled" as const } : e,
+        ),
       );
 
-      toast.success(`Added "${promoted.description || 'document'}" to bundle`);
+      toast.success(`Added "${promoted.description || "document"}" to bundle`);
     },
-    [repositoryFiles, indexEntries, activeCaseId, promoteToFundled]
+    [repositoryFiles, indexEntries, activeCaseId, promoteToFundled],
   );
 
   // Handle entry selection in Master Index
   const handleSelectEntry = useCallback((entryId: string) => {
     setSelectedFileId(entryId);
-    setSelectionSource('master-index');
+    setSelectionSource("master-index");
     setInspectorOpen(true);
   }, []);
 
   // Handle file selection from Repository
   const handleSelectRepositoryFile = useCallback((fileId: string) => {
     setSelectedFileId(fileId);
-    setSelectionSource('repository');
+    setSelectionSource("repository");
     setInspectorOpen(true);
   }, []);
 
@@ -466,20 +479,20 @@ function App() {
       setIndexEntries((prev) =>
         prev.map((e) => {
           if (e.id !== entryId) return e;
-          if (e.rowType === 'section-break') {
+          if (e.rowType === "section-break") {
             return { ...e, sectionLabel: description };
           }
           return { ...e, description };
-        })
+        }),
       );
     },
-    []
+    [],
   );
 
   // Handle date change
   const handleDateChange = useCallback((entryId: string, date: string) => {
     setIndexEntries((prev) =>
-      prev.map((e) => (e.id === entryId ? { ...e, date } : e))
+      prev.map((e) => (e.id === entryId ? { ...e, date } : e)),
     );
   }, []);
 
@@ -487,10 +500,10 @@ function App() {
   const handleDisputedChange = useCallback(
     (entryId: string, disputed: boolean) => {
       setIndexEntries((prev) =>
-        prev.map((e) => (e.id === entryId ? { ...e, disputed } : e))
+        prev.map((e) => (e.id === entryId ? { ...e, disputed } : e)),
       );
     },
-    []
+    [],
   );
 
   // Handle drag-to-reorder in Master Index
@@ -512,38 +525,38 @@ function App() {
 
       // Persist reorder to database (only document entries)
       const exhibitIds = reordered
-        .filter((e) => e.rowType === 'document')
+        .filter((e) => e.rowType === "document")
         .map((e) => e.id);
       const result = await reorderExhibits(activeCaseId, exhibitIds);
 
       if (result.length === 0) {
         // Revert on failure
         setIndexEntries(previousIndexEntriesRef.current);
-        toast.error('Failed to reorder. Changes reverted.');
+        toast.error("Failed to reorder. Changes reverted.");
         return;
       }
 
       // Show toast with undo option
       toast.success(`Moved to position ${toIndex + 1}`, {
-        description: 'All page numbers recalculated automatically.',
+        description: "All page numbers recalculated automatically.",
         action: {
-          label: 'Undo',
+          label: "Undo",
           onClick: async () => {
             if (previousIndexEntriesRef.current.length > 0) {
               const previousIds = previousIndexEntriesRef.current
-                .filter((e) => e.rowType === 'document')
+                .filter((e) => e.rowType === "document")
                 .map((e) => e.id);
               await reorderExhibits(activeCaseId, previousIds);
               setIndexEntries(previousIndexEntriesRef.current);
               previousIndexEntriesRef.current = [];
-              toast.info('Reorder undone');
+              toast.info("Reorder undone");
             }
           },
         },
         duration: 5000,
       });
     },
-    [indexEntries, activeCaseId, reorderExhibits]
+    [indexEntries, activeCaseId, reorderExhibits],
   );
 
   // Handle deleting a repository file
@@ -553,7 +566,7 @@ function App() {
       if (!file) return;
 
       // If it's bundled, also remove from index entries
-      if (file.status === 'bundled') {
+      if (file.status === "bundled") {
         // Remove from index entries and recalculate
         const updatedEntries = indexEntries.filter((e) => e.id !== fileId);
         const recalculated = recalculatePageRanges(updatedEntries);
@@ -565,12 +578,12 @@ function App() {
       if (success) {
         // Remove from repository
         setRepositoryFiles((prev) => prev.filter((e) => e.id !== fileId));
-        toast.success('File deleted');
+        toast.success("File deleted");
       } else {
-        toast.error('Failed to delete file');
+        toast.error("Failed to delete file");
       }
     },
-    [repositoryFiles, indexEntries, deleteExhibit]
+    [repositoryFiles, indexEntries, deleteExhibit],
   );
 
   // Handle removing an entry from master index (demote back to repository)
@@ -579,15 +592,15 @@ function App() {
       const entry = indexEntries.find((e) => e.id === entryId);
 
       // For section breaks, just remove from local state (no DB update needed)
-      if (entry?.rowType === 'section-break') {
+      if (entry?.rowType === "section-break") {
         const updatedEntries = indexEntries.filter((e) => e.id !== entryId);
         setIndexEntries(updatedEntries);
-        toast.success('Section break removed');
+        toast.success("Section break removed");
         return;
       }
 
       // For documents, demote back to "processed" status (keep in repository)
-      const updated = await updateExhibitStatus(entryId, 'processed');
+      const updated = await updateExhibitStatus(entryId, "processed");
       if (updated) {
         // Remove from index entries and recalculate
         const updatedEntries = indexEntries.filter((e) => e.id !== entryId);
@@ -597,82 +610,86 @@ function App() {
         // Update status in repository (un-grey it, mark as unlinked)
         setRepositoryFiles((prev) =>
           prev.map((e) =>
-            e.id === entryId ? { ...e, status: 'processed' as const } : e
-          )
+            e.id === entryId ? { ...e, status: "processed" as const } : e,
+          ),
         );
 
-        toast.success('Document removed from bundle');
+        toast.success("Document removed from bundle");
       } else {
-        toast.error('Failed to remove document from bundle');
+        toast.error("Failed to remove document from bundle");
       }
     },
-    [indexEntries, updateExhibitStatus]
+    [indexEntries, updateExhibitStatus],
   );
 
   // Handle bundle compilation
   const handleCompileBundle = useCallback(async () => {
     if (!activeCaseId) {
-      toast.error('No active case selected');
+      toast.error("No active case selected");
       return;
     }
 
     if (indexEntries.length === 0) {
       toast.error(
-        'No documents in bundle. Add documents to the Master Index first.'
+        "No documents in bundle. Add documents to the Master Index first.",
       );
       return;
     }
 
-    setIsCompiling(true);
     const activeCase = cases.find((c) => c.id === activeCaseId);
-    const bundleName = activeCase?.name.replace(/\s+/g, '_') || 'Bundle';
+    const bundleName = activeCase?.name.replace(/\s+/g, "_") || "Bundle";
 
-    toast.info('Compiling bundle...', { duration: 2000 });
+    // Show save dialog
+    const selectedPath = await save({
+      defaultPath: `${bundleName}.pdf`,
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+      title: "Save Bundle As",
+    });
+
+    if (!selectedPath) {
+      // User cancelled
+      return;
+    }
+
+    setIsCompiling(true);
+    toast.info("Compiling bundle...", { duration: 2000 });
 
     try {
-      const result = await compileBundle(activeCaseId, bundleName);
+      const result = await compileBundle(
+        activeCaseId,
+        bundleName,
+        selectedPath,
+      );
 
       if (!result) {
-        toast.error('Failed to compile bundle');
+        toast.error("Failed to compile bundle");
         return;
       }
 
       if (!result.success) {
-        toast.error(result.errors.join(', ') || 'Compilation failed');
+        toast.error(result.errors.join(", ") || "Compilation failed");
         return;
       }
 
       toast.success(`Bundle compiled: ${result.total_pages} pages`, {
-        description: result.pdf_path
-          ? `Saved to: ${result.pdf_path}`
-          : undefined,
+        description: `Saved to: ${selectedPath}`,
         duration: 5000,
       });
 
-      // Open the PDF location (optional - if shell plugin available)
-      console.log('Bundle compiled:', result);
+      console.log("Bundle compiled:", result);
     } catch (error) {
-      console.error('Compile error:', error);
-      toast.error('Failed to compile bundle');
+      console.error("Compile error:", error);
+      toast.error("Failed to compile bundle");
     } finally {
       setIsCompiling(false);
     }
   }, [activeCaseId, indexEntries, cases, compileBundle]);
 
-  // Handle adding document from floating toolbar
-  const handleAddDocument = useCallback(() => {
-    // For now, just show a toast - file picker integration can be added later
-    // This handler can be connected to file selection dialog
-    toast.info(
-      'To add documents, drop PDF files into the Repository panel or use the system file picker.'
-    );
-  }, []);
-
   // Handle inserting a section break
   const handleInsertSectionBreak = useCallback(() => {
     // Generate next section label (A, B, C...)
     const sectionCount = indexEntries.filter(
-      (e) => e.rowType === 'section-break'
+      (e) => e.rowType === "section-break",
     ).length;
     const nextLetter = String.fromCharCode(65 + sectionCount); // A, B, C...
     const defaultLabel = `TAB ${nextLetter}`;
@@ -692,14 +709,14 @@ function App() {
     });
     // Auto-select the new cover page
     setSelectedFileId(newCoverPage.id);
-    setSelectionSource('master-index');
-    toast.success('Added cover page');
+    setSelectionSource("master-index");
+    toast.success("Added cover page");
   }, []);
 
   // Handle inserting a divider
   const handleInsertDivider = useCallback(() => {
     const dividerCount = indexEntries.filter(
-      (e) => e.rowType === 'divider'
+      (e) => e.rowType === "divider",
     ).length;
     const defaultTitle = `Divider ${dividerCount + 1}`;
 
@@ -710,9 +727,15 @@ function App() {
     });
     // Auto-select the new divider
     setSelectedFileId(newDivider.id);
-    setSelectionSource('master-index');
-    toast.success(`Added divider: ${defaultTitle}`);
+    setSelectionSource("master-index");
+    toast.success(`Added blank page: ${defaultTitle}`);
   }, [indexEntries]);
+
+  // Handle inserting a table of contents
+  const handleInsertTableOfContents = useCallback(() => {
+    // For now, just show a toast - TOC generation will be implemented later
+    toast.info("Table of Contents template coming soon!");
+  }, []);
 
   // Handle TipTap content changes (cover pages, dividers)
   // Triggers pagination ripple when page count changes
@@ -722,19 +745,19 @@ function App() {
         const updated = prev.map((e) =>
           e.id === entryId
             ? { ...e, tiptapContent: content, generatedPageCount: pageCount }
-            : e
+            : e,
         );
         return recalculatePageRanges(updated);
       });
     },
-    []
+    [],
   );
 
   // Convert cases to ProjectCase format
   const projectCases: ProjectCase[] = cases.map((c) => ({
     id: c.id,
     name: c.name,
-    initials: '', // Will be auto-generated by ProjectSwitcher
+    initials: "", // Will be auto-generated by ProjectSwitcher
   }));
 
   // Convert repository exhibits to RepositoryFile format
@@ -744,18 +767,18 @@ function App() {
       name:
         exhibit.description ||
         exhibit.file_path.split(/[\\/]/).pop() ||
-        'Unknown',
+        "Unknown",
       filePath: exhibit.file_path,
       pageCount: exhibit.page_count ?? undefined,
-      isLinked: exhibit.status === 'bundled',
-    })
+      isLinked: exhibit.status === "bundled",
+    }),
   );
 
   // Get selected file for Inspector
   const getSelectedFile = (): InspectorFile | null => {
     if (!selectedFileId) return null;
 
-    if (selectionSource === 'repository') {
+    if (selectionSource === "repository") {
       const exhibit = repositoryFiles.find((e) => e.id === selectedFileId);
       if (!exhibit) return null;
       return {
@@ -763,20 +786,20 @@ function App() {
         name:
           exhibit.description ||
           exhibit.file_path.split(/[\\/]/).pop() ||
-          'Unknown',
+          "Unknown",
         filePath: exhibit.file_path,
         pageCount: exhibit.page_count ?? undefined,
-        isLinked: exhibit.status === 'bundled',
+        isLinked: exhibit.status === "bundled",
       };
     }
 
-    if (selectionSource === 'master-index') {
+    if (selectionSource === "master-index") {
       const entry = indexEntries.find((e) => e.id === selectedFileId);
-      if (!entry || entry.rowType === 'section-break') return null;
+      if (!entry || entry.rowType === "section-break") return null;
       return {
         id: entry.id,
         name: entry.description,
-        filePath: entry.fileId || '',
+        filePath: entry.fileId || "",
         pageCount: entry.pageEnd - entry.pageStart + 1,
         isLinked: true,
       };
@@ -787,7 +810,7 @@ function App() {
 
   // Get selected entry for Inspector (when selecting from Master Index)
   const getSelectedEntry = (): IndexEntry | null => {
-    if (!selectedFileId || selectionSource !== 'master-index') return null;
+    if (!selectedFileId || selectionSource !== "master-index") return null;
     return indexEntries.find((e) => e.id === selectedFileId) || null;
   };
 
@@ -820,7 +843,7 @@ function App() {
             onFileDelete={handleDeleteRepositoryFile}
             onFileDrop={handleFileDrop}
             selectedFileId={
-              selectionSource === 'repository' ? selectedFileId : null
+              selectionSource === "repository" ? selectedFileId : null
             }
           />
         }
@@ -830,18 +853,16 @@ function App() {
               <MasterIndex
                 entries={indexEntries}
                 selectedEntryId={
-                  selectionSource === 'master-index' ? selectedFileId : null
+                  selectionSource === "master-index" ? selectedFileId : null
                 }
                 onSelectEntry={handleSelectEntry}
-                onDescriptionChange={handleDescriptionChange}
-                onDateChange={handleDateChange}
                 onReorder={handleReorderEntries}
                 onDeleteEntry={handleDeleteEntry}
                 onCompileBundle={handleCompileBundle}
-                onAddDocument={handleAddDocument}
                 onInsertSectionBreak={handleInsertSectionBreak}
                 onInsertCoverPage={handleInsertCoverPage}
                 onInsertDivider={handleInsertDivider}
+                onInsertTableOfContents={handleInsertTableOfContents}
                 isCompiling={isCompiling}
               />
             }

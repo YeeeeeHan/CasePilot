@@ -310,6 +310,15 @@ export function useInvoke() {
       pageCount?: number,
       description?: string,
     ): Promise<Exhibit | null> => {
+      console.log("[useInvoke] createExhibit called with:", {
+        caseId,
+        filePath,
+        status,
+        label,
+        sequenceIndex,
+        pageCount,
+        description,
+      });
       try {
         const exhibit = await invoke<Exhibit>("create_exhibit", {
           request: {
@@ -322,10 +331,11 @@ export function useInvoke() {
             description,
           },
         });
+        console.log("[useInvoke] createExhibit success:", exhibit);
         return exhibit;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        console.error("[useInvoke] Failed to create exhibit:", message);
+        console.error("[useInvoke] Failed to create exhibit:", message, e);
         return null;
       }
     },
@@ -442,12 +452,14 @@ export function useInvoke() {
     async (
       caseId: string,
       bundleName: string,
+      outputPath?: string,
     ): Promise<CompileResult | null> => {
       try {
         const result = await invoke<CompileResult>("compile_bundle", {
           request: {
             case_id: caseId,
             bundle_name: bundleName,
+            output_path: outputPath,
           },
         });
         return result;

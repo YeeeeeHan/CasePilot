@@ -22,13 +22,20 @@ import {
   X,
   FileDown,
   Loader2,
-  Plus,
   Layers,
   FileText,
   FilePlus,
+  ChevronDown,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -47,14 +54,12 @@ interface MasterIndexProps {
   selectedEntryId?: string | null;
   onSelectEntry?: (entryId: string) => void;
   onReorder?: (fromIndex: number, toIndex: number) => void;
-  onDescriptionChange?: (entryId: string, description: string) => void;
-  onDateChange?: (entryId: string, date: string) => void;
   onDeleteEntry?: (entryId: string) => void;
   onCompileBundle?: () => void;
-  onAddDocument?: () => void;
   onInsertSectionBreak?: () => void;
   onInsertCoverPage?: () => void;
   onInsertDivider?: () => void;
+  onInsertTableOfContents?: () => void;
   isCompiling?: boolean;
 }
 
@@ -92,8 +97,6 @@ interface DraggableRowProps {
   displayNumber: string;
   isSelected: boolean;
   onSelectEntry?: (entryId: string) => void;
-  onDescriptionChange?: (entryId: string, description: string) => void;
-  onDateChange?: (entryId: string, date: string) => void;
   onDeleteEntry?: (entryId: string) => void;
 }
 
@@ -102,8 +105,6 @@ function DraggableRow({
   displayNumber,
   isSelected,
   onSelectEntry,
-  onDescriptionChange,
-  onDateChange,
   onDeleteEntry,
 }: DraggableRowProps) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
@@ -147,39 +148,22 @@ function DraggableRow({
         {displayNumber}
       </TableCell>
 
-      {/* Date Column */}
-      <TableCell className="w-[100px]">
+      {/* Date Column (read-only display) */}
+      <TableCell className="w-[100px] text-xs">
         {isSectionBreak ? (
           <span className="text-muted-foreground">—</span>
         ) : (
-          <input
-            type="text"
-            value={entry.date || ""}
-            onChange={(e) => onDateChange?.(entry.id, e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            placeholder="dd Mon yyyy"
-            className="w-full bg-transparent border-none outline-none text-xs focus:ring-1 focus:ring-ring rounded px-1 -mx-1"
-          />
+          <span className="text-muted-foreground">{entry.date || "—"}</span>
         )}
       </TableCell>
 
-      {/* Description Column */}
-      <TableCell className={cn(isSectionBreak && "font-bold")}>
-        <input
-          type="text"
-          value={isSectionBreak ? entry.sectionLabel || "" : entry.description}
-          onChange={(e) => onDescriptionChange?.(entry.id, e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          placeholder={
-            isSectionBreak
-              ? "Section title (e.g., TAB A)"
-              : "Document description"
-          }
-          className={cn(
-            "w-full bg-transparent border-none outline-none text-xs focus:ring-1 focus:ring-ring rounded px-1 -mx-1",
-            isSectionBreak && "font-bold",
-          )}
-        />
+      {/* Description Column (read-only display) */}
+      <TableCell className={cn("text-xs", isSectionBreak && "font-bold")}>
+        <span className="truncate block">
+          {isSectionBreak
+            ? entry.sectionLabel || "Section Break"
+            : entry.description || "Untitled"}
+        </span>
       </TableCell>
 
       {/* Page Column */}
@@ -211,14 +195,12 @@ export function MasterIndex({
   selectedEntryId,
   onSelectEntry,
   onReorder,
-  onDescriptionChange,
-  onDateChange,
   onDeleteEntry,
   onCompileBundle,
-  onAddDocument,
   onInsertSectionBreak,
   onInsertCoverPage,
   onInsertDivider,
+  onInsertTableOfContents,
   isCompiling = false,
 }: MasterIndexProps) {
   // Sensors for drag and drop
@@ -312,7 +294,7 @@ export function MasterIndex({
             sensors={sensors}
           >
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[40px]"></TableHead>
                   <TableHead className="w-[50px]">No.</TableHead>
@@ -335,8 +317,6 @@ export function MasterIndex({
                       displayNumber={getDisplayNumber(entry, index)}
                       isSelected={selectedEntryId === entry.id}
                       onSelectEntry={onSelectEntry}
-                      onDescriptionChange={onDescriptionChange}
-                      onDateChange={onDateChange}
                       onDeleteEntry={onDeleteEntry}
                     />
                   ))}
@@ -353,29 +333,11 @@ export function MasterIndex({
           <Button
             variant="outline"
             size="sm"
-            onClick={onAddDocument}
-            className="gap-1.5 text-xs"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Document
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
             onClick={onInsertSectionBreak}
             className="gap-1.5 text-xs"
           >
             <Layers className="h-3.5 w-3.5" />
-            Section Break
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onInsertCoverPage}
-            className="gap-1.5 text-xs"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Cover Page
+            Tabs
           </Button>
           <Button
             variant="outline"
@@ -384,8 +346,27 @@ export function MasterIndex({
             className="gap-1.5 text-xs"
           >
             <FilePlus className="h-3.5 w-3.5" />
-            Divider
+            Blank Page
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <BookOpen className="h-3.5 w-3.5" />
+                Templates
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={onInsertCoverPage}>
+                <FileText className="h-4 w-4 mr-2" />
+                Cover Page
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onInsertTableOfContents}>
+                <BookOpen className="h-4 w-4 mr-2" />
+                Table of Contents
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="flex items-center gap-4">

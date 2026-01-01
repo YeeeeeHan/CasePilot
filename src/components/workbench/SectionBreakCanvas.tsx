@@ -8,17 +8,17 @@
  * Follows the same pattern as EvidenceCanvas for consistent UX.
  */
 
-import { ChevronDown, Layers } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDown, Layers } from "lucide-react";
+import { useState } from "react";
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
-import { A4Page, A4PageContainer } from './A4Page';
-import { PageStampOverlay } from './PageStampOverlay';
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+import { A4Page, A4PageContainer } from "./A4Page";
+import { PageStampOverlay } from "./PageStampOverlay";
 
 interface SectionBreakCanvasProps {
   /** The section/tab label (e.g., "TAB A - Pleadings") */
@@ -29,8 +29,6 @@ interface SectionBreakCanvasProps {
   totalBundlePages: number;
   /** Additional CSS classes */
   className?: string;
-  /** Whether to make the header sticky (for single-entry views like Inspector) */
-  stickyHeader?: boolean;
 }
 
 export function SectionBreakCanvas({
@@ -38,7 +36,6 @@ export function SectionBreakCanvas({
   globalPageNumber,
   totalBundlePages,
   className,
-  stickyHeader = false,
 }: SectionBreakCanvasProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -46,19 +43,14 @@ export function SectionBreakCanvas({
     <Collapsible
       open={!isCollapsed}
       onOpenChange={(open) => setIsCollapsed(!open)}
-      className={cn('flex flex-col', className)}
+      className={cn("flex flex-col", className)}
     >
-      {/* Header with section label and collapse toggle */}
-      <div
-        className={cn(
-          'z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg',
-          stickyHeader && 'sticky top-[54px]'
-        )}
-      >
+      {/* Header with section label and collapse toggle - sticky for scroll tracking */}
+      <div className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky top-0">
         {/* Section label indicator */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Layers className="h-4 w-4" />
-          <span className="font-medium">{sectionLabel || 'Section Break'}</span>
+          <span className="font-medium">{sectionLabel || "Section Break"}</span>
           <span className="text-xs opacity-70">- 1 page</span>
         </div>
 
@@ -70,8 +62,8 @@ export function SectionBreakCanvas({
           >
             <ChevronDown
               className={cn(
-                'h-4 w-4 text-muted-foreground transition-transform duration-200',
-                isCollapsed && '-rotate-90'
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                isCollapsed && "-rotate-90",
               )}
             />
           </button>
@@ -87,7 +79,7 @@ export function SectionBreakCanvas({
               <div className="text-center">
                 <Layers className="h-16 w-16 mx-auto mb-6 text-muted-foreground/30" />
                 <h1 className="text-3xl font-bold tracking-wide text-foreground">
-                  {sectionLabel || 'Section Break'}
+                  {sectionLabel || "Section Break"}
                 </h1>
               </div>
             </div>

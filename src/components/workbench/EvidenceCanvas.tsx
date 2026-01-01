@@ -11,24 +11,24 @@
  * - Collapsible sticky header with "Locked" indicator
  */
 
-import { convertFileSrc } from '@tauri-apps/api/core';
-import { ChevronDown, Loader2, Lock } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { useInView } from 'react-intersection-observer';
-import { Document, Page } from 'react-pdf';
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { ChevronDown, Loader2, Lock } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { useInView } from "react-intersection-observer";
+import { Document, Page } from "react-pdf";
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
-import { A4Page, A4PageContainer } from './A4Page';
-import { PageSkeleton } from './PageSkeleton';
-import { PageStampOverlay } from './PageStampOverlay';
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+import { A4Page, A4PageContainer } from "./A4Page";
+import { PageSkeleton } from "./PageSkeleton";
+import { PageStampOverlay } from "./PageStampOverlay";
 
 // Import PDF.js worker configuration
-import '@/lib/pdfWorker';
+import "@/lib/pdfWorker";
 // Note: CSS imports for AnnotationLayer and TextLayer are not needed
 // since we disable both with renderTextLayer={false} and renderAnnotationLayer={false}
 
@@ -43,8 +43,6 @@ interface EvidenceCanvasProps {
   className?: string;
   /** Callback when header is clicked to scroll to top of PDF */
   onScrollToTop?: () => void;
-  /** Whether to make the header sticky (for single-entry views like Inspector) */
-  stickyHeader?: boolean;
 }
 
 /**
@@ -66,11 +64,11 @@ function VirtualizedPage({
 }: VirtualizedPageProps) {
   const { ref, inView } = useInView({
     triggerOnce: false, // Re-render when scrolling back
-    rootMargin: '200px', // Pre-load pages 200px before visible
+    rootMargin: "200px", // Pre-load pages 200px before visible
   });
 
   useEffect(() => {
-    console.debug('[VirtualizedPage] visibility change', {
+    console.debug("[VirtualizedPage] visibility change", {
       pageNumber,
       inView,
     });
@@ -104,7 +102,6 @@ export function EvidenceCanvas({
   totalBundlePages,
   className,
   onScrollToTop,
-  stickyHeader = false,
 }: EvidenceCanvasProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,38 +113,33 @@ export function EvidenceCanvas({
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
-      console.debug('[EvidenceCanvas] document load success', { numPages });
+      console.debug("[EvidenceCanvas] document load success", { numPages });
       setNumPages(numPages);
       setLoading(false);
       setError(null);
     },
-    []
+    [],
   );
 
   const onDocumentLoadError = useCallback(
     (error: Error) => {
-      console.error('PDF load error:', error);
-      console.error('Attempted URL:', pdfUrl);
-      console.error('Original file path:', filePath);
+      console.error("PDF load error:", error);
+      console.error("Attempted URL:", pdfUrl);
+      console.error("Original file path:", filePath);
       setError(`Failed to load PDF file.`);
       setLoading(false);
     },
-    [pdfUrl, filePath]
+    [pdfUrl, filePath],
   );
 
   return (
     <Collapsible
       open={!isCollapsed}
       onOpenChange={(open) => setIsCollapsed(!open)}
-      className={cn('flex flex-col', className)}
+      className={cn("flex flex-col", className)}
     >
-      {/* Header with locked indicator and collapse toggle */}
-      <div
-        className={cn(
-          'z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg',
-          stickyHeader && 'sticky top-[54px]'
-        )}
-      >
+      {/* Header with locked indicator and collapse toggle - sticky for scroll tracking */}
+      <div className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky top-0">
         {/* Locked indicator - click to scroll to top */}
         <div
           className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
@@ -157,7 +149,7 @@ export function EvidenceCanvas({
           <span>Evidence (Read-only)</span>
           {numPages && (
             <span className="text-xs opacity-70">
-              - {numPages} page{numPages > 1 ? 's' : ''}
+              - {numPages} page{numPages > 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -170,8 +162,8 @@ export function EvidenceCanvas({
           >
             <ChevronDown
               className={cn(
-                'h-4 w-4 text-muted-foreground transition-transform duration-200',
-                isCollapsed && '-rotate-90'
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                isCollapsed && "-rotate-90",
               )}
             />
           </button>
@@ -198,7 +190,7 @@ export function EvidenceCanvas({
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={null}
-            className={cn('flex flex-col gap-6', loading && 'hidden')}
+            className={cn("flex flex-col gap-6", loading && "hidden")}
           >
             {numPages &&
               Array.from({ length: numPages }, (_, i) => (

@@ -36,4 +36,3 @@ export function PageSkeleton({ className }: PageSkeletonProps) {
     </div>
   );
 }
-

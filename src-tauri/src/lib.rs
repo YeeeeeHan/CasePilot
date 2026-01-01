@@ -236,9 +236,10 @@ async fn create_exhibit(
     request: CreateExhibitRequest,
     state: tauri::State<'_, AppState>,
 ) -> Result<Exhibit, String> {
+    println!("[lib.rs] create_exhibit called for case: {}, file: {}", request.case_id, request.file_path);
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::create_exhibit(
+    let result = db::create_exhibit(
         pool,
         &request.case_id,
         &request.file_path,
@@ -248,7 +249,12 @@ async fn create_exhibit(
         request.page_count,
         request.description.as_deref(),
     )
-    .await
+    .await;
+    match &result {
+        Ok(exhibit) => println!("[lib.rs] create_exhibit success: id={}, status={}", exhibit.id, exhibit.status),
+        Err(e) => println!("[lib.rs] create_exhibit error: {}", e),
+    }
+    result
 }
 
 #[tauri::command]
@@ -317,6 +323,7 @@ async fn reorder_exhibits(
 pub struct CompileBundleRequest {
     pub case_id: String,
     pub bundle_name: String,
+    pub output_path: Option<String>,
 }
 
 #[tauri::command]
@@ -353,13 +360,23 @@ async fn compile_bundle(
         })
         .collect();
 
-    // Get output directory (use app data dir)
-    let output_dir = std::env::temp_dir().join("casepilot_bundles");
+    // Determine output path - use provided path or fallback to temp dir
+    let (output_dir, bundle_name) = if let Some(ref output_path) = request.output_path {
+        let path = std::path::PathBuf::from(output_path);
+        let dir = path.parent().unwrap_or(&path).to_path_buf();
+        let name = path.file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| request.bundle_name.clone());
+        (dir, name)
+    } else {
+        (std::env::temp_dir().join("casepilot_bundles"), request.bundle_name.clone())
+    };
 
     // Compile with default pagination style
     let style = bundle::PaginationStyle::default();
 
-    bundle::compile_bundle(&documents, &output_dir, &request.bundle_name, &style)
+    bundle::compile_bundle(&documents, &output_dir, &bundle_name, &style)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -453,6 +470,7 @@ async fn preview_toc(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
 

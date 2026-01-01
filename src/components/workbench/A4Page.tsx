@@ -8,9 +8,9 @@
  * Supports forwardRef for intersection observer integration.
  */
 
-import { cn } from '@/lib/utils';
-import { A4_DIMENSIONS } from '@/types/canvas';
-import { forwardRef } from 'react';
+import { cn } from "@/lib/utils";
+import { A4_DIMENSIONS } from "@/types/canvas";
+import { forwardRef } from "react";
 
 interface A4PageProps {
   children: React.ReactNode;
@@ -29,10 +29,10 @@ export const A4Page = forwardRef<HTMLDivElement, A4PageProps>(
         ref={ref}
         className={cn(
           // A4 dimensions at 96 DPI
-          'relative bg-white shadow-md',
+          "relative bg-white shadow-md",
           // Centered within parent
-          'mx-auto',
-          className
+          "mx-auto",
+          className,
         )}
         style={{
           width: A4_DIMENSIONS.WIDTH_PX,
@@ -63,10 +63,10 @@ export const A4Page = forwardRef<HTMLDivElement, A4PageProps>(
         )}
       </div>
     );
-  }
+  },
 );
 
-A4Page.displayName = 'A4Page';
+A4Page.displayName = "A4Page";
 
 /**
  * A4PageContainer
@@ -87,10 +87,11 @@ export function A4PageContainer({ children, className }: A4PageContainerProps) {
     <div
       className={cn(
         // Vertical stacking with consistent gap (like PDF readers)
-        'flex flex-col items-center gap-6 py-6 px-4',
+        // Balanced padding: py-3 for top/bottom, px-3 for left/right
+        "flex flex-col items-center gap-3 py-3 px-3",
         // Gray background to contrast white pages
-        'bg-muted/50',
-        className
+        "bg-muted/50",
+        className,
       )}
     >
       {children}

@@ -2,17 +2,16 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '../ui/resizable';
-import { ScrollArea } from '../ui/scroll-area';
+} from "../ui/resizable";
 
 interface AppLayoutProps {
   /** Zone A: Project switcher icons */
   projectSwitcher: React.ReactNode;
-  /** Sidebar content: Inbox + File tree */
+  /** Sidebar content: Repository file tree */
   sidebar: React.ReactNode;
   /** Zone C: Workbench (Master Index + Preview Pane) */
   workbench: React.ReactNode;
-  /** Zone D: Inspector panel */
+  /** Zone D: Inspector panel (now in left sidebar) */
   inspector: React.ReactNode;
   /** Whether the inspector panel is open */
   inspectorOpen?: boolean;
@@ -32,38 +31,32 @@ export function AppLayout({
         {projectSwitcher}
       </div>
 
-      {/* Main Content Area: 3-Column Layout */}
+      {/* Main Content Area: 2-Column Layout */}
       <div className="flex-1 min-w-0">
         <ResizablePanelGroup orientation="horizontal" className="h-full">
-          {/* Left Column: Sidebar (Inbox + File Tree) */}
+          {/* Left Column: Sidebar (Repository + Inspector stacked vertically) */}
           <ResizablePanel defaultSize={20} minSize={15}>
-            <ScrollArea className="h-full">
-              <div className="p-2">{sidebar}</div>
-            </ScrollArea>
+            <div className="h-full flex flex-col">
+              {/* Repository section */}
+              <div className="p-2 border-b border-border">{sidebar}</div>
+
+              {/* Inspector section (takes remaining space) */}
+              {inspectorOpen && (
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  {inspector}
+                </div>
+              )}
+            </div>
           </ResizablePanel>
 
           <ResizableHandle />
 
-          {/* Center Column: Workbench (Master Index + Preview Pane) */}
-          <ResizablePanel defaultSize={inspectorOpen ? 50 : 80} minSize={30}>
+          {/* Right Column: Workbench (Master Index + Preview Pane) */}
+          <ResizablePanel defaultSize={80} minSize={50}>
             <div className="h-full bg-background overflow-hidden">
               {workbench}
             </div>
           </ResizablePanel>
-
-          {/* Only show handle and inspector when inspector is open */}
-          {inspectorOpen && (
-            <>
-              <ResizableHandle />
-
-              {/* Right Column: Inspector */}
-              <ResizablePanel defaultSize={15} minSize={20}>
-                <div className="h-full border-l border-border bg-background">
-                  {inspector}
-                </div>
-              </ResizablePanel>
-            </>
-          )}
         </ResizablePanelGroup>
       </div>
     </div>

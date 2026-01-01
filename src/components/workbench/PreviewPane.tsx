@@ -80,7 +80,7 @@ export function PreviewPane({
   return (
     <div className={cn("h-full flex flex-col bg-muted/20", className)}>
       <ScrollArea className="flex-1" ref={scrollRef}>
-        <div className="p-4 space-y-4">
+        <div className="p-2 space-y-2">
           {entries.map((entry) => (
             <div
               key={entry.id}
