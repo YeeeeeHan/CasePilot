@@ -51,3 +51,7 @@ next-env.d.ts
 /build
 /dist
 /dist-ssr
+
+# others
+bundle-sample.md
+llmchat.md
