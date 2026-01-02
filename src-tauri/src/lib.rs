@@ -1,35 +1,78 @@
+//! CasePilot v2.0 - Tauri Commands
+//!
+//! Core entities:
+//! - Case: Top-level container for a legal matter
+//! - File: Raw PDF asset in the repository
+//! - Artifact: Container (affidavit or bundle)
+//! - ArtifactEntry: Polymorphic link (file | component | nested artifact)
+
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, Pool, Sqlite};
 use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
-mod bundle;
 mod db;
 mod pdf;
+
+// ============================================================================
+// STATE
+// ============================================================================
 
 pub struct AppState {
     pub db: Arc<Mutex<Option<Pool<Sqlite>>>>,
 }
 
+// ============================================================================
+// DOMAIN TYPES
+// ============================================================================
+
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct Case {
     pub id: String,
     pub name: String,
-    pub master_index_json: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
-pub struct Document {
+pub struct File {
     pub id: String,
     pub case_id: String,
+    pub path: String,
+    pub original_name: String,
+    pub page_count: Option<i32>,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct Artifact {
+    pub id: String,
+    pub case_id: String,
+    pub artifact_type: String, // "affidavit" | "bundle"
     pub name: String,
-    pub content: String,
+    pub content_json: Option<String>, // TipTap JSON for affidavits
     pub created_at: String,
     pub updated_at: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct ArtifactEntry {
+    pub id: String,
+    pub artifact_id: String,
+    pub sequence_order: i32,
+    pub row_type: String, // "file" | "component" | "artifact"
+    pub file_id: Option<String>,
+    pub config_json: Option<String>,    // For components (cover, divider)
+    pub ref_artifact_id: Option<String>, // For nested artifacts
+    pub label_override: Option<String>,  // e.g., "TAK-1"
+    pub created_at: String,
+}
+
+// ============================================================================
+// REQUEST TYPES
+// ============================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateCaseRequest {
@@ -37,16 +80,64 @@ pub struct CreateCaseRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateDocumentRequest {
+pub struct CreateFileRequest {
     pub case_id: String,
-    pub name: String,
+    pub path: String,
+    pub original_name: String,
+    pub page_count: Option<i32>,
+    pub metadata_json: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SaveDocumentRequest {
+pub struct UpdateFileRequest {
     pub id: String,
-    pub content: String,
+    pub page_count: Option<i32>,
+    pub metadata_json: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateArtifactRequest {
+    pub case_id: String,
+    pub artifact_type: String,
+    pub name: String,
+    pub content_json: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateArtifactRequest {
+    pub id: String,
+    pub name: Option<String>,
+    pub content_json: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateEntryRequest {
+    pub artifact_id: String,
+    pub sequence_order: i32,
+    pub row_type: String,
+    pub file_id: Option<String>,
+    pub config_json: Option<String>,
+    pub ref_artifact_id: Option<String>,
+    pub label_override: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateEntryRequest {
+    pub id: String,
+    pub sequence_order: Option<i32>,
+    pub config_json: Option<String>,
+    pub label_override: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReorderEntriesRequest {
+    pub artifact_id: String,
+    pub entry_ids: Vec<String>,
+}
+
+// ============================================================================
+// PDF TYPES
+// ============================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PdfMetadata {
@@ -55,48 +146,9 @@ pub struct PdfMetadata {
     pub file_size: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
-pub struct Exhibit {
-    pub id: String,
-    pub case_id: String,
-    pub status: String,              // NEW: "unprocessed" | "processed" | "bundled"
-    pub file_path: String,            // Changed from Option (NOT NULL in DB)
-    pub label: Option<String>,        // Changed to Option (nullable in DB)
-    pub sequence_index: Option<i32>,  // Changed to Option (nullable in DB)
-    pub page_count: Option<i32>,
-    pub description: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateExhibitRequest {
-    pub case_id: String,
-    pub file_path: String,           // Changed to required
-    pub status: String,              // NEW: "unprocessed" | "processed" | "bundled"
-    pub label: Option<String>,       // Changed to optional
-    pub sequence_index: Option<i32>, // Changed to optional
-    pub page_count: Option<i32>,
-    pub description: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateExhibitRequest {
-    pub id: String,
-    pub status: Option<String>,      // NEW: optional status update
-    pub label: Option<String>,       // Changed to optional
-    pub sequence_index: Option<i32>, // Changed to optional
-    pub page_count: Option<i32>,     // NEW: allow page count updates
-    pub description: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ReorderExhibitsRequest {
-    pub case_id: String,
-    pub exhibit_ids: Vec<String>,
-}
-
-// Tauri Commands
+// ============================================================================
+// CASE COMMANDS
+// ============================================================================
 
 #[tauri::command]
 async fn list_cases(state: tauri::State<'_, AppState>) -> Result<Vec<Case>, String> {
@@ -116,82 +168,221 @@ async fn create_case(
 }
 
 #[tauri::command]
-async fn list_documents(
-    case_id: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<Document>, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::list_documents(pool, &case_id).await
-}
-
-#[tauri::command]
-async fn create_document(
-    request: CreateDocumentRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<Document, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::create_document(pool, &request.case_id, &request.name).await
-}
-
-#[tauri::command]
-async fn load_document(id: String, state: tauri::State<'_, AppState>) -> Result<Document, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::load_document(pool, &id).await
-}
-
-#[tauri::command]
-async fn save_document(
-    request: SaveDocumentRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<Document, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::save_document(pool, &request.id, &request.content).await
-}
-
-#[tauri::command]
 async fn delete_case(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
     db::delete_case(pool, &id).await
 }
 
+// ============================================================================
+// FILE COMMANDS
+// ============================================================================
+
 #[tauri::command]
-async fn save_master_index(
+async fn list_files(
     case_id: String,
-    master_index_json: String,
     state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<Vec<File>, String> {
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::save_master_index(pool, &case_id, &master_index_json).await
+    db::list_files(pool, &case_id).await
 }
 
 #[tauri::command]
-async fn load_master_index(
-    case_id: String,
+async fn create_file(
+    request: CreateFileRequest,
     state: tauri::State<'_, AppState>,
-) -> Result<Option<String>, String> {
+) -> Result<File, String> {
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::load_master_index(pool, &case_id).await
+    db::create_file(
+        pool,
+        &request.case_id,
+        &request.path,
+        &request.original_name,
+        request.page_count,
+        request.metadata_json.as_deref(),
+    )
+    .await
 }
 
 #[tauri::command]
-async fn delete_document(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+async fn get_file(id: String, state: tauri::State<'_, AppState>) -> Result<File, String> {
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::delete_document(pool, &id).await
+    db::get_file(pool, &id).await
 }
+
+#[tauri::command]
+async fn update_file(
+    request: UpdateFileRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<File, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::update_file(
+        pool,
+        &request.id,
+        request.page_count,
+        request.metadata_json.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn delete_file(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::delete_file(pool, &id).await
+}
+
+// ============================================================================
+// ARTIFACT COMMANDS
+// ============================================================================
+
+#[tauri::command]
+async fn list_artifacts(
+    case_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<Artifact>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::list_artifacts(pool, &case_id).await
+}
+
+#[tauri::command]
+async fn list_artifacts_by_type(
+    case_id: String,
+    artifact_type: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<Artifact>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::list_artifacts_by_type(pool, &case_id, &artifact_type).await
+}
+
+#[tauri::command]
+async fn create_artifact(
+    request: CreateArtifactRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<Artifact, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::create_artifact(
+        pool,
+        &request.case_id,
+        &request.artifact_type,
+        &request.name,
+        request.content_json.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn get_artifact(id: String, state: tauri::State<'_, AppState>) -> Result<Artifact, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::get_artifact(pool, &id).await
+}
+
+#[tauri::command]
+async fn update_artifact(
+    request: UpdateArtifactRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<Artifact, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::update_artifact(
+        pool,
+        &request.id,
+        request.name.as_deref(),
+        request.content_json.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn delete_artifact(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::delete_artifact(pool, &id).await
+}
+
+// ============================================================================
+// ARTIFACT ENTRY COMMANDS
+// ============================================================================
+
+#[tauri::command]
+async fn list_entries(
+    artifact_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<ArtifactEntry>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::list_entries(pool, &artifact_id).await
+}
+
+#[tauri::command]
+async fn create_entry(
+    request: CreateEntryRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<ArtifactEntry, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::create_entry(
+        pool,
+        &request.artifact_id,
+        request.sequence_order,
+        &request.row_type,
+        request.file_id.as_deref(),
+        request.config_json.as_deref(),
+        request.ref_artifact_id.as_deref(),
+        request.label_override.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn update_entry(
+    request: UpdateEntryRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<ArtifactEntry, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::update_entry(
+        pool,
+        &request.id,
+        request.sequence_order,
+        request.config_json.as_deref(),
+        request.label_override.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn delete_entry(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::delete_entry(pool, &id).await
+}
+
+#[tauri::command]
+async fn reorder_entries(
+    request: ReorderEntriesRequest,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<ArtifactEntry>, String> {
+    let db_guard = state.db.lock().await;
+    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
+    db::reorder_entries(pool, &request.artifact_id, request.entry_ids).await
+}
+
+// ============================================================================
+// PDF COMMANDS
+// ============================================================================
 
 #[tauri::command]
 async fn extract_pdf_metadata(file_path: String) -> Result<PdfMetadata, String> {
-    println!("[lib.rs] extract_pdf_metadata Tauri command called for: {}", file_path);
     let metadata = pdf::extract_pdf_metadata(&file_path)?;
-    println!("[lib.rs] Returning metadata: {:?}", metadata);
     Ok(PdfMetadata {
         page_count: metadata.page_count,
         title: metadata.title,
@@ -209,262 +400,9 @@ async fn generate_auto_description(file_path: String) -> Result<String, String> 
     pdf::generate_auto_description(&file_path)
 }
 
-// Exhibit Commands
-
-#[tauri::command]
-async fn list_exhibits(
-    case_id: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<Exhibit>, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::list_exhibits(pool, &case_id).await
-}
-
-#[tauri::command]
-async fn list_staging_files(
-    case_id: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<Exhibit>, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::list_staging_files(pool, &case_id).await
-}
-
-#[tauri::command]
-async fn create_exhibit(
-    request: CreateExhibitRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<Exhibit, String> {
-    println!("[lib.rs] create_exhibit called for case: {}, file: {}", request.case_id, request.file_path);
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    let result = db::create_exhibit(
-        pool,
-        &request.case_id,
-        &request.file_path,
-        &request.status,
-        request.label.as_deref(),
-        request.sequence_index,
-        request.page_count,
-        request.description.as_deref(),
-    )
-    .await;
-    match &result {
-        Ok(exhibit) => println!("[lib.rs] create_exhibit success: id={}, status={}", exhibit.id, exhibit.status),
-        Err(e) => println!("[lib.rs] create_exhibit error: {}", e),
-    }
-    result
-}
-
-#[tauri::command]
-async fn update_exhibit(
-    request: UpdateExhibitRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<Exhibit, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::update_exhibit(
-        pool,
-        &request.id,
-        request.status.as_deref(),
-        request.label.as_deref(),
-        request.sequence_index,
-        request.page_count,
-        request.description.as_deref(),
-    )
-    .await
-}
-
-#[tauri::command]
-async fn update_exhibit_status(
-    id: String,
-    status: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<Exhibit, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::update_exhibit_status(pool, &id, &status).await
-}
-
-#[tauri::command]
-async fn promote_to_bundled(
-    id: String,
-    label: String,
-    sequence_index: i32,
-    description: Option<String>,
-    state: tauri::State<'_, AppState>,
-) -> Result<Exhibit, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::promote_to_bundled(pool, &id, &label, sequence_index, description.as_deref()).await
-}
-
-#[tauri::command]
-async fn delete_exhibit(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::delete_exhibit(pool, &id).await
-}
-
-#[tauri::command]
-async fn reorder_exhibits(
-    request: ReorderExhibitsRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<Exhibit>, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::reorder_exhibits(pool, &request.case_id, request.exhibit_ids).await
-}
-
-// Bundle Compilation Commands
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CompileBundleRequest {
-    pub case_id: String,
-    pub bundle_name: String,
-    pub output_path: Option<String>,
-}
-
-#[tauri::command]
-async fn compile_bundle(
-    request: CompileBundleRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<bundle::CompileResult, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-
-    // Get all bundled exhibits for this case
-    let exhibits = db::list_exhibits(pool, &request.case_id).await?;
-
-    if exhibits.is_empty() {
-        return Ok(bundle::CompileResult {
-            success: false,
-            pdf_path: None,
-            toc_entries: Vec::new(),
-            total_pages: 0,
-            errors: vec!["No documents in bundle. Add documents to the Master Index first.".to_string()],
-            warnings: Vec::new(),
-        });
-    }
-
-    // Convert exhibits to BundleDocuments
-    let documents: Vec<bundle::BundleDocument> = exhibits
-        .iter()
-        .map(|e| bundle::BundleDocument {
-            id: e.id.clone(),
-            file_path: e.file_path.clone(),
-            label: e.label.clone().unwrap_or_else(|| format!("Document")),
-            description: e.description.clone().unwrap_or_else(|| "".to_string()),
-            page_count: e.page_count.unwrap_or(1) as usize,
-        })
-        .collect();
-
-    // Determine output path - use provided path or fallback to temp dir
-    let (output_dir, bundle_name) = if let Some(ref output_path) = request.output_path {
-        let path = std::path::PathBuf::from(output_path);
-        let dir = path.parent().unwrap_or(&path).to_path_buf();
-        let name = path.file_stem()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| request.bundle_name.clone());
-        (dir, name)
-    } else {
-        (std::env::temp_dir().join("casepilot_bundles"), request.bundle_name.clone())
-    };
-
-    // Compile with default pagination style
-    let style = bundle::PaginationStyle::default();
-
-    bundle::compile_bundle(&documents, &output_dir, &bundle_name, &style)
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TOCPreviewRequest {
-    pub case_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ValidateBundleRequest {
-    pub case_id: String,
-}
-
-#[tauri::command]
-async fn validate_bundle(
-    request: ValidateBundleRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<bundle::ValidationResult, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-
-    // Get all bundled exhibits for this case
-    let exhibits = db::list_exhibits(pool, &request.case_id).await?;
-
-    if exhibits.is_empty() {
-        return Ok(bundle::ValidationResult {
-            is_valid: false,
-            errors: vec![bundle::ValidationError {
-                error_type: "empty_bundle".to_string(),
-                message: "No documents in bundle".to_string(),
-                page: None,
-                expected: None,
-                actual: None,
-            }],
-            warnings: Vec::new(),
-        });
-    }
-
-    // Convert to BundleDocuments
-    let documents: Vec<bundle::BundleDocument> = exhibits
-        .iter()
-        .map(|e| bundle::BundleDocument {
-            id: e.id.clone(),
-            file_path: e.file_path.clone(),
-            label: e.label.clone().unwrap_or_else(|| "Document".to_string()),
-            description: e.description.clone().unwrap_or_default(),
-            page_count: e.page_count.unwrap_or(1) as usize,
-        })
-        .collect();
-
-    // Calculate TOC preview
-    let toc_page_count = bundle::estimate_toc_pages(documents.len());
-    let toc_entries = bundle::calculate_toc_preview(&documents, toc_page_count);
-
-    // Validate (use temp path since we don't have the final PDF yet)
-    Ok(bundle::validate_pagination(&toc_entries, std::path::Path::new("")))
-}
-
-#[tauri::command]
-async fn preview_toc(
-    request: TOCPreviewRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<bundle::TOCEntry>, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-
-    // Get all bundled exhibits for this case
-    let exhibits = db::list_exhibits(pool, &request.case_id).await?;
-
-    if exhibits.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    // Convert to BundleDocuments
-    let documents: Vec<bundle::BundleDocument> = exhibits
-        .iter()
-        .map(|e| bundle::BundleDocument {
-            id: e.id.clone(),
-            file_path: e.file_path.clone(),
-            label: e.label.clone().unwrap_or_else(|| format!("Document")),
-            description: e.description.clone().unwrap_or_else(|| "".to_string()),
-            page_count: e.page_count.unwrap_or(1) as usize,
-        })
-        .collect();
-
-    // Estimate TOC pages and calculate preview
-    let toc_page_count = bundle::estimate_toc_pages(documents.len());
-    Ok(bundle::calculate_toc_preview(&documents, toc_page_count))
-}
+// ============================================================================
+// APP ENTRY POINT
+// ============================================================================
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -474,7 +412,6 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle().clone();
 
-            // Initialize database
             tauri::async_runtime::spawn(async move {
                 let app_data_dir = app_handle
                     .path()
@@ -492,12 +429,10 @@ pub fn run() {
                     .await
                     .expect("Failed to connect to database");
 
-                // Run migrations
                 db::run_migrations(&pool)
                     .await
                     .expect("Failed to run migrations");
 
-                // Store pool in state
                 let state: tauri::State<AppState> = app_handle.state();
                 let mut db_guard = state.db.lock().await;
                 *db_guard = Some(pool);
@@ -511,30 +446,33 @@ pub fn run() {
             db: Arc::new(Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
+            // Case commands
             list_cases,
             create_case,
-            list_documents,
-            create_document,
-            load_document,
-            save_document,
             delete_case,
-            delete_document,
-            save_master_index,
-            load_master_index,
+            // File commands
+            list_files,
+            create_file,
+            get_file,
+            update_file,
+            delete_file,
+            // Artifact commands
+            list_artifacts,
+            list_artifacts_by_type,
+            create_artifact,
+            get_artifact,
+            update_artifact,
+            delete_artifact,
+            // Entry commands
+            list_entries,
+            create_entry,
+            update_entry,
+            delete_entry,
+            reorder_entries,
+            // PDF commands
             extract_pdf_metadata,
             extract_document_info,
             generate_auto_description,
-            list_exhibits,
-            list_staging_files,
-            create_exhibit,
-            update_exhibit,
-            update_exhibit_status,
-            promote_to_bundled,
-            delete_exhibit,
-            reorder_exhibits,
-            compile_bundle,
-            preview_toc,
-            validate_bundle
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

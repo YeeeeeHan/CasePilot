@@ -27,18 +27,18 @@ Bundles are chaotic and chronological. Affidavits are narrative and structured. 
 
 ## Tech Stack
 
-| Layer        | Technology                         | Purpose                                     |
-| ------------ | ---------------------------------- | ------------------------------------------- |
-| App Shell    | Tauri v2                           | Native desktop, small bundle (~10MB), **Air-gap friendly**        |
-| Backend      | Rust + `lopdf`                     | Memory-safe file handling, PDF manipulation |
-| Frontend     | React + TypeScript + Tailwind      | Component-driven UI                         |
-| State        | **Zustand**                        | Project state "Brain" (Files/Artifacts)     |
-| Explorer     | **react-arborist** + **@dnd-kit**  | VS Code-like file tree & drag-and-drop      |
-| Data Grid    | **@tanstack/react-table**          | High-performance Master Index (sorting)     |
-| Editor       | TipTap (ProseMirror)               | Rich text with custom nodes                 |
-| Preview      | **react-virtuoso** + **react-pdf** | Virtualized continuous bundle scrolling     |
-| Database     | SQLite (`sqlx`)                    | Structured data (Files, Artifacts, Entries) |
-| Intelligence | llama.cpp (bundled)                | Local LLM inference (Phase 3)               |
+| Layer        | Technology                         | Purpose                                                    |
+| ------------ | ---------------------------------- | ---------------------------------------------------------- |
+| App Shell    | Tauri v2                           | Native desktop, small bundle (~10MB), **Air-gap friendly** |
+| Backend      | Rust + `lopdf`                     | Memory-safe file handling, PDF manipulation                |
+| Frontend     | React + TypeScript + Tailwind      | Component-driven UI                                        |
+| State        | **Zustand**                        | Project state "Brain" (Files/Artifacts)                    |
+| Explorer     | **react-arborist** + **@dnd-kit**  | VS Code-like file tree & drag-and-drop                     |
+| Data Grid    | **@tanstack/react-table**          | High-performance Master Index (sorting)                    |
+| Editor       | TipTap (ProseMirror)               | Rich text with custom nodes                                |
+| Preview      | **react-virtuoso** + **react-pdf** | Virtualized continuous bundle scrolling                    |
+| Database     | SQLite (`sqlx`)                    | Structured data (Files, Artifacts, Entries)                |
+| Intelligence | llama.cpp (bundled)                | Local LLM inference (Phase 3)                              |
 
 ## System Architecture
 
@@ -106,7 +106,6 @@ Bundles are chaotic and chronological. Affidavits are narrative and structured. 
 └──────┴──────────────┴─────────────────────────────────┴──────────────────────┘
 
 ```
-
 
 ### Zone Definitions
 
