@@ -3,21 +3,22 @@ import {
   Group as PanelGroupPrimitive,
   Panel as PanelPrimitive,
   Separator as PanelResizeHandlePrimitive,
+  type Layout,
 } from "react-resizable-panels";
 
 import { cn } from "@/lib/utils";
 
 function ResizablePanelGroup({
   className,
-  onLayout,
+  onLayoutChange,
   ...props
 }: React.ComponentProps<typeof PanelGroupPrimitive>) {
-  const handleLayout = React.useCallback(
-    (sizes: number[]) => {
-      console.debug("[ResizablePanelGroup] layout change", { sizes });
-      onLayout?.(sizes);
+  const handleLayoutChange = React.useCallback(
+    (layout: Layout) => {
+      console.debug("[ResizablePanelGroup] layout change", { layout });
+      onLayoutChange?.(layout);
     },
-    [onLayout],
+    [onLayoutChange],
   );
   return (
     <PanelGroupPrimitive
@@ -26,7 +27,7 @@ function ResizablePanelGroup({
         "flex h-full w-full data-[orientation=vertical]:flex-col",
         className,
       )}
-      onLayout={handleLayout}
+      onLayoutChange={handleLayoutChange}
       {...props}
     />
   );

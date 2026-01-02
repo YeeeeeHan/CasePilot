@@ -23,17 +23,51 @@ export interface PdfMetadata {
   file_size: number;
 }
 
+// Legacy Exhibit type - kept for backward compatibility during migration
 export interface Exhibit {
   id: string;
   case_id: string;
-  status: "unprocessed" | "processed" | "bundled"; // NEW
-  file_path: string; // NOT optional (required)
-  label?: string; // Now optional
-  sequence_index?: number; // Now optional
+  status: "unprocessed" | "processed" | "bundled";
+  file_path: string;
+  label?: string;
+  sequence_index?: number;
   page_count?: number;
   description?: string;
   created_at: string;
   updated_at: string;
+}
+
+// v2.0 Types
+export interface CaseFile {
+  id: string;
+  case_id: string;
+  path: string;
+  original_name: string;
+  page_count?: number;
+  metadata_json?: string;
+  created_at: string;
+}
+
+export interface Artifact {
+  id: string;
+  case_id: string;
+  artifact_type: "affidavit" | "bundle";
+  name: string;
+  content_json?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArtifactEntry {
+  id: string;
+  artifact_id: string;
+  sequence_order: number;
+  row_type: "file" | "component" | "artifact";
+  file_id?: string;
+  config_json?: string;
+  ref_artifact_id?: string;
+  label_override?: string;
+  created_at: string;
 }
 
 export interface TOCEntry {
@@ -269,6 +303,286 @@ export function useInvoke() {
     },
     [],
   );
+
+  // ============================================================================
+  // v2.0 File API
+  // ============================================================================
+
+  const listFiles = useCallback(
+    async (caseId: string): Promise<CaseFile[]> => {
+      try {
+        const files = await invoke<CaseFile[]>("list_files", { caseId });
+        return files;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to list files:", message);
+        setError(message);
+        return [];
+      }
+    },
+    [],
+  );
+
+  const createFile = useCallback(
+    async (
+      caseId: string,
+      path: string,
+      originalName: string,
+      pageCount?: number,
+      metadataJson?: string,
+    ): Promise<{ file: CaseFile | null; error: string | null }> => {
+      console.log("[useInvoke] createFile called with:", {
+        caseId,
+        path,
+        originalName,
+        pageCount,
+      });
+      try {
+        const file = await invoke<CaseFile>("create_file", {
+          request: {
+            case_id: caseId,
+            path,
+            original_name: originalName,
+            page_count: pageCount,
+            metadata_json: metadataJson,
+          },
+        });
+        console.log("[useInvoke] createFile success:", file);
+        return { file, error: null };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to create file:", message, e);
+        return { file: null, error: message };
+      }
+    },
+    [],
+  );
+
+  const updateFile = useCallback(
+    async (
+      id: string,
+      pageCount?: number,
+      metadataJson?: string,
+    ): Promise<CaseFile | null> => {
+      try {
+        const file = await invoke<CaseFile>("update_file", {
+          request: {
+            id,
+            page_count: pageCount,
+            metadata_json: metadataJson,
+          },
+        });
+        return file;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to update file:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const deleteFile = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await invoke("delete_file", { id });
+      return true;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("[useInvoke] Failed to delete file:", message);
+      return false;
+    }
+  }, []);
+
+  // ============================================================================
+  // v2.0 Artifact API
+  // ============================================================================
+
+  const listArtifacts = useCallback(
+    async (caseId: string): Promise<Artifact[]> => {
+      try {
+        const artifacts = await invoke<Artifact[]>("list_artifacts", { caseId });
+        return artifacts;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to list artifacts:", message);
+        return [];
+      }
+    },
+    [],
+  );
+
+  const createArtifact = useCallback(
+    async (
+      caseId: string,
+      artifactType: "affidavit" | "bundle",
+      name: string,
+      contentJson?: string,
+    ): Promise<Artifact | null> => {
+      try {
+        const artifact = await invoke<Artifact>("create_artifact", {
+          request: {
+            case_id: caseId,
+            artifact_type: artifactType,
+            name,
+            content_json: contentJson,
+          },
+        });
+        return artifact;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to create artifact:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const updateArtifact = useCallback(
+    async (
+      id: string,
+      name?: string,
+      contentJson?: string,
+    ): Promise<Artifact | null> => {
+      try {
+        const artifact = await invoke<Artifact>("update_artifact", {
+          request: {
+            id,
+            name,
+            content_json: contentJson,
+          },
+        });
+        return artifact;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to update artifact:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const deleteArtifact = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await invoke("delete_artifact", { id });
+      return true;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("[useInvoke] Failed to delete artifact:", message);
+      return false;
+    }
+  }, []);
+
+  // ============================================================================
+  // v2.0 Artifact Entry API
+  // ============================================================================
+
+  const listEntries = useCallback(
+    async (artifactId: string): Promise<ArtifactEntry[]> => {
+      try {
+        const entries = await invoke<ArtifactEntry[]>("list_entries", {
+          artifactId,
+        });
+        return entries;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to list entries:", message);
+        return [];
+      }
+    },
+    [],
+  );
+
+  const createEntry = useCallback(
+    async (
+      artifactId: string,
+      sequenceOrder: number,
+      rowType: "file" | "component" | "artifact",
+      fileId?: string,
+      configJson?: string,
+      refArtifactId?: string,
+      labelOverride?: string,
+    ): Promise<ArtifactEntry | null> => {
+      try {
+        const entry = await invoke<ArtifactEntry>("create_entry", {
+          request: {
+            artifact_id: artifactId,
+            sequence_order: sequenceOrder,
+            row_type: rowType,
+            file_id: fileId,
+            config_json: configJson,
+            ref_artifact_id: refArtifactId,
+            label_override: labelOverride,
+          },
+        });
+        return entry;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to create entry:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const updateEntry = useCallback(
+    async (
+      id: string,
+      sequenceOrder?: number,
+      configJson?: string,
+      labelOverride?: string,
+    ): Promise<ArtifactEntry | null> => {
+      try {
+        const entry = await invoke<ArtifactEntry>("update_entry", {
+          request: {
+            id,
+            sequence_order: sequenceOrder,
+            config_json: configJson,
+            label_override: labelOverride,
+          },
+        });
+        return entry;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to update entry:", message);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const deleteEntry = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await invoke("delete_entry", { id });
+      return true;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("[useInvoke] Failed to delete entry:", message);
+      return false;
+    }
+  }, []);
+
+  const reorderEntries = useCallback(
+    async (artifactId: string, entryIds: string[]): Promise<ArtifactEntry[]> => {
+      try {
+        const entries = await invoke<ArtifactEntry[]>("reorder_entries", {
+          request: {
+            artifact_id: artifactId,
+            entry_ids: entryIds,
+          },
+        });
+        return entries;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("[useInvoke] Failed to reorder entries:", message);
+        return [];
+      }
+    },
+    [],
+  );
+
+  // ============================================================================
+  // Legacy Exhibit CRUD functions (deprecated - kept for reference)
+  // ============================================================================
 
   // Exhibit CRUD functions
 
@@ -557,6 +871,23 @@ export function useInvoke() {
     saveMasterIndex,
     loadMasterIndex,
     extractPdfMetadata,
+    // v2.0 File API
+    listFiles,
+    createFile,
+    updateFile,
+    deleteFile,
+    // v2.0 Artifact API
+    listArtifacts,
+    createArtifact,
+    updateArtifact,
+    deleteArtifact,
+    // v2.0 Entry API
+    listEntries,
+    createEntry,
+    updateEntry,
+    deleteEntry,
+    reorderEntries,
+    // Legacy (deprecated)
     listExhibits,
     listStagingFiles,
     createExhibit,
