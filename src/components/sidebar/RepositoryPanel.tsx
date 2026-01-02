@@ -132,14 +132,29 @@ export function RepositoryPanel({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
+                          draggable
                           onClick={() => onFileSelect?.(file.id)}
                           onDoubleClick={() => {
                             if (!file.isLinked) {
                               onFileDoubleClick?.(file.id);
                             }
                           }}
+                          onDragStart={(e) => {
+                            // Set custom MIME type with file data
+                            const fileData = JSON.stringify({
+                              id: file.id,
+                              name: file.name,
+                              path: file.filePath,
+                              pageCount: file.pageCount,
+                            });
+                            e.dataTransfer.setData(
+                              "application/x-casepilot-file",
+                              fileData
+                            );
+                            e.dataTransfer.effectAllowed = "copy";
+                          }}
                           className={cn(
-                            "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors pr-7",
+                            "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors pr-7 cursor-grab active:cursor-grabbing",
                             selectedFileId === file.id
                               ? "bg-accent text-accent-foreground"
                               : "hover:bg-muted",

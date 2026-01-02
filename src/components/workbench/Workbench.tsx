@@ -8,6 +8,7 @@
  * Uses resizable panels for flexible layout.
  */
 
+import { useState } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -15,7 +16,9 @@ import {
 } from "@/components/ui/resizable";
 import type { IndexEntry } from "@/lib/pagination";
 import { PreviewPane } from "./PreviewPane";
-import { AffidavitEditor } from "./AffidavitEditor";
+import { AffidavitEditor, type AvailableFile } from "./AffidavitEditor";
+import { EvidenceCanvas } from "./EvidenceCanvas";
+import { FileText } from "lucide-react";
 
 export type WorkbenchMode = "bundle" | "affidavit";
 
@@ -32,6 +35,8 @@ interface WorkbenchProps {
   mode?: WorkbenchMode;
   /** The active artifact (for affidavit mode) */
   activeArtifact?: ActiveArtifact | null;
+  /** Available files for exhibit insertion */
+  availableFiles?: AvailableFile[];
   /** The Master Index component (for bundle mode) */
   masterIndex?: React.ReactNode;
   /** All entries in the master index (for bundle mode) */
@@ -55,6 +60,7 @@ interface WorkbenchProps {
 export function Workbench({
   mode = "bundle",
   activeArtifact,
+  availableFiles = [],
   masterIndex,
   entries = [],
   selectedEntry,
@@ -63,6 +69,11 @@ export function Workbench({
   onAffidavitContentChange,
   onAffidavitInitialsChange,
 }: WorkbenchProps) {
+  // Track focused exhibit for cursor-following preview
+  const [focusedExhibitPath, setFocusedExhibitPath] = useState<string | null>(
+    null
+  );
+
   // Affidavit Mode
   if (mode === "affidavit" && activeArtifact) {
     return (
@@ -74,23 +85,36 @@ export function Workbench({
             name={activeArtifact.name}
             initials={activeArtifact.initials || ""}
             content={activeArtifact.content || ""}
+            availableFiles={availableFiles}
             onContentChange={onAffidavitContentChange}
             onInitialsChange={onAffidavitInitialsChange}
+            onExhibitFocus={setFocusedExhibitPath}
           />
         </ResizablePanel>
 
         <ResizableHandle />
 
-        {/* Right: Preview Pane (will show cursor-following PDF in Phase 4B) */}
+        {/* Right: Cursor-following PDF Preview */}
         <ResizablePanel defaultSize={50} minSize={30}>
-          <div className="h-full flex items-center justify-center bg-muted/30 text-muted-foreground text-sm">
-            <div className="text-center p-4">
-              <p className="font-medium">Exhibit Preview</p>
-              <p className="text-xs mt-1">
-                Drag files from the Files panel to insert exhibit references
-              </p>
+          {focusedExhibitPath ? (
+            <div className="h-full overflow-auto bg-muted/20">
+              <EvidenceCanvas
+                filePath={focusedExhibitPath}
+                globalPageStart={1}
+                totalBundlePages={1}
+              />
             </div>
-          </div>
+          ) : (
+            <div className="h-full flex items-center justify-center bg-muted/30 text-muted-foreground text-sm">
+              <div className="text-center p-4">
+                <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">Exhibit Preview</p>
+                <p className="text-xs mt-1 max-w-[200px]">
+                  Click on an exhibit reference in the editor to preview the PDF
+                </p>
+              </div>
+            </div>
+          )}
         </ResizablePanel>
       </ResizablePanelGroup>
     );

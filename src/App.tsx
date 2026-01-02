@@ -574,11 +574,46 @@ function App() {
     [indexEntries, activeCaseId, activeBundleId, reorderEntries],
   );
 
+  // Check if a file is referenced in any affidavit (for delete protection)
+  const isFileReferencedInAffidavit = useCallback(
+    (fileId: string): string | null => {
+      for (const artifact of artifacts) {
+        if (artifact.artifact_type !== "affidavit" || !artifact.content_json) {
+          continue;
+        }
+        try {
+          const parsed = JSON.parse(artifact.content_json);
+          const content = parsed.content || "";
+          const fileIdRegex = new RegExp(`fileId["\s:]+["']?${fileId}`, "i");
+          if (fileIdRegex.test(content)) {
+            return artifact.name;
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+      return null;
+    },
+    [artifacts]
+  );
+
   // Handle deleting a repository file
   const handleDeleteRepositoryFile = useCallback(
     async (fileId: string) => {
       const file = repositoryFiles.find((f) => f.id === fileId);
       if (!file) return;
+
+      // Check if file is referenced in any affidavit (delete protection)
+      const referencingAffidavit = isFileReferencedInAffidavit(fileId);
+      if (referencingAffidavit) {
+        toast.error(
+          `Cannot delete: Referenced in "${referencingAffidavit}"`,
+          {
+            description: "Remove the exhibit reference first, then delete the file.",
+          }
+        );
+        return;
+      }
 
       // If it's linked to the bundle, also remove those entries
       const linkedEntries = indexEntries.filter(
@@ -607,7 +642,7 @@ function App() {
         toast.error("Failed to delete file");
       }
     },
-    [repositoryFiles, indexEntries, deleteFile, deleteEntry],
+    [repositoryFiles, indexEntries, deleteFile, deleteEntry, isFileReferencedInAffidavit],
   );
 
   // Handle removing an entry from master index (demote back to repository)
@@ -972,6 +1007,14 @@ function App() {
     }),
   );
 
+  // Convert repository files to AvailableFile format for AffidavitEditor
+  const availableFilesForEditor = repositoryFiles.map((file) => ({
+    id: file.id,
+    name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
+    path: file.path,
+    pageCount: file.page_count ?? undefined,
+  }));
+
   // Get selected file for Inspector
   const getSelectedFile = (): InspectorFile | null => {
     if (!selectedFileId) return null;
@@ -1058,6 +1101,7 @@ function App() {
           <Workbench
             mode={workbenchMode}
             activeArtifact={getActiveArtifactForWorkbench()}
+            availableFiles={availableFilesForEditor}
             masterIndex={
               <MasterIndex
                 entries={indexEntries}
