@@ -12,9 +12,9 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@/components/ui/resizable';
-import type { IndexEntry } from '@/lib/pagination';
-import { PreviewPane } from './PreviewPane';
+} from "@/components/ui/resizable";
+import type { IndexEntry } from "@/lib/pagination";
+import { PreviewPane } from "./PreviewPane";
 
 interface WorkbenchProps {
   /** The Master Index component */
@@ -29,7 +29,7 @@ interface WorkbenchProps {
   onContentChange?: (
     entryId: string,
     content: string,
-    pageCount: number
+    pageCount: number,
   ) => void;
 }
 

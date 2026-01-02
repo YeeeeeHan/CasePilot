@@ -5,18 +5,18 @@
  * Renders all entries from the master index in sequence.
  */
 
-import { FileText } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { FileText } from "lucide-react";
+import { useEffect, useRef } from "react";
 
-import { ScrollArea } from '@/components/ui/scroll-area';
-import type { IndexEntry } from '@/lib/pagination';
-import { isEditableEntry, isEvidenceEntry } from '@/lib/pagination';
-import { cn } from '@/lib/utils';
-import { A4_DIMENSIONS } from '@/types/canvas';
-import { A4Page, A4PageContainer } from './A4Page';
-import { DraftingCanvas } from './DraftingCanvas';
-import { EvidenceCanvas } from './EvidenceCanvas';
-import { SectionBreakCanvas } from './SectionBreakCanvas';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { IndexEntry } from "@/lib/pagination";
+import { isEditableEntry, isEvidenceEntry } from "@/lib/pagination";
+import { cn } from "@/lib/utils";
+import { A4_DIMENSIONS } from "@/types/canvas";
+import { A4Page, A4PageContainer } from "./A4Page";
+import { DraftingCanvas } from "./DraftingCanvas";
+import { EvidenceCanvas } from "./EvidenceCanvas";
+import { SectionBreakCanvas } from "./SectionBreakCanvas";
 
 interface PreviewPaneProps {
   /** All entries in the master index */
@@ -29,7 +29,7 @@ interface PreviewPaneProps {
   onContentChange?: (
     entryId: string,
     content: string,
-    pageCount: number
+    pageCount: number,
   ) => void;
   /** Additional CSS classes */
   className?: string;
@@ -59,12 +59,12 @@ export function PreviewPane({
       const scale = availableWidth / A4_DIMENSIONS.WIDTH_PX;
 
       // Set CSS variables for components to use
-      container.style.setProperty('--page-width', `${availableWidth}px`);
+      container.style.setProperty("--page-width", `${availableWidth}px`);
       container.style.setProperty(
-        '--page-height',
-        `${A4_DIMENSIONS.HEIGHT_PX * scale}px`
+        "--page-height",
+        `${A4_DIMENSIONS.HEIGHT_PX * scale}px`,
       );
-      container.style.setProperty('--page-scale', `${scale}`);
+      container.style.setProperty("--page-scale", `${scale}`);
     };
 
     // Initial measurement
@@ -83,7 +83,7 @@ export function PreviewPane({
   useEffect(() => {
     if (selectedEntryId && entryRefs.current.has(selectedEntryId)) {
       const element = entryRefs.current.get(selectedEntryId);
-      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [selectedEntryId]);
 
@@ -91,7 +91,7 @@ export function PreviewPane({
   const scrollToEntry = (entryId: string) => {
     const element = entryRefs.current.get(entryId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -99,8 +99,8 @@ export function PreviewPane({
     return (
       <div
         className={cn(
-          'h-full flex flex-col items-center justify-center bg-muted/20 text-muted-foreground',
-          className
+          "h-full flex flex-col items-center justify-center bg-muted/20 text-muted-foreground",
+          className,
         )}
       >
         <FileText className="h-12 w-12 mb-3 opacity-30" />
@@ -115,7 +115,10 @@ export function PreviewPane({
   return (
     <div
       ref={containerRef}
-      className={cn('h-full flex flex-col bg-muted/20', className)}
+      className={cn(
+        "h-full flex flex-col bg-muted/20 overflow-hidden",
+        className,
+      )}
     >
       <ScrollArea className="flex-1" ref={scrollRef}>
         {entries.map((entry) => (
@@ -124,7 +127,7 @@ export function PreviewPane({
             ref={(el) => {
               if (el) entryRefs.current.set(entry.id, el);
             }}
-            className={cn('transition-all')}
+            className={cn("transition-all")}
           >
             <EntryPreview
               entry={entry}
@@ -145,7 +148,7 @@ interface EntryPreviewProps {
   onContentChange?: (
     entryId: string,
     content: string,
-    pageCount: number
+    pageCount: number,
   ) => void;
   onScrollToEntry: (entryId: string) => void;
 }
@@ -161,10 +164,10 @@ function EntryPreview({
   };
 
   // Section break - render as full page with sticky header
-  if (entry.rowType === 'section-break') {
+  if (entry.rowType === "section-break") {
     return (
       <SectionBreakCanvas
-        sectionLabel={entry.sectionLabel || 'Section Break'}
+        sectionLabel={entry.sectionLabel || "Section Break"}
         globalPageNumber={entry.pageStart}
         totalBundlePages={totalBundlePages}
         className="border rounded-lg bg-white"
@@ -192,7 +195,7 @@ function EntryPreview({
       <div className="border rounded-lg overflow-hidden bg-white">
         <DraftingCanvas
           content={entry.tiptapContent}
-          entryType={entry.rowType as 'cover-page' | 'divider'}
+          entryType={entry.rowType as "cover-page" | "divider"}
           onContentChange={handleContentChange}
         />
       </div>
@@ -205,7 +208,7 @@ function EntryPreview({
       <A4Page className="flex items-center justify-center">
         <div className="text-center text-muted-foreground">
           <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">{entry.description || 'Document'}</p>
+          <p className="text-sm">{entry.description || "Document"}</p>
           <p className="text-xs opacity-70">
             Pages {entry.pageStart} - {entry.pageEnd}
           </p>

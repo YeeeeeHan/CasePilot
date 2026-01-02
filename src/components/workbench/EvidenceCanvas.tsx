@@ -11,26 +11,26 @@
  * - Collapsible sticky header with "Locked" indicator
  */
 
-import { convertFileSrc } from '@tauri-apps/api/core';
-import { ChevronDown, Loader2, Lock } from 'lucide-react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useInView } from 'react-intersection-observer';
-import { Document, Page } from 'react-pdf';
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { ChevronDown, Loader2, Lock } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInView } from "react-intersection-observer";
+import { Document, Page } from "react-pdf";
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
-import { A4_DIMENSIONS } from '@/types/canvas';
-import { A4Page, A4PageContainer } from './A4Page';
-import { PageSkeleton } from './PageSkeleton';
-import { PageStampOverlay } from './PageStampOverlay';
-import { useVirtualWindow } from './hooks/useVirtualWindow';
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+import { A4_DIMENSIONS } from "@/types/canvas";
+import { A4Page, A4PageContainer } from "./A4Page";
+import { PageSkeleton } from "./PageSkeleton";
+import { PageStampOverlay } from "./PageStampOverlay";
+import { useVirtualWindow } from "./hooks/useVirtualWindow";
 
 // Import PDF.js worker configuration
-import '@/lib/pdfWorker';
+import "@/lib/pdfWorker";
 // Note: CSS imports for AnnotationLayer and TextLayer are not needed
 // since we disable both with renderTextLayer={false} and renderAnnotationLayer={false}
 
@@ -62,6 +62,8 @@ interface VirtualizedPageProps {
 /**
  * VirtualizedPage - Memoized for performance
  * Only re-renders when page numbers or visibility changes
+ *
+ * Uses CSS variable --page-width from PreviewPane for consistent scaling
  */
 const VirtualizedPage = memo(function VirtualizedPage({
   pageNumber,
@@ -69,60 +71,60 @@ const VirtualizedPage = memo(function VirtualizedPage({
   totalBundlePages,
 }: VirtualizedPageProps) {
   const { ref: inViewRef, inView } = useInView({
-    triggerOnce: false, // Re-render when scrolling back
-    rootMargin: '200px', // Pre-load pages 200px before visible
+    triggerOnce: false,
+    rootMargin: "200px",
   });
   const containerRef = useRef<HTMLDivElement>(null);
-  const [pageWidth, setPageWidth] = useState<number | null>(null);
+  const [pageWidth, setPageWidth] = useState<number>(A4_DIMENSIONS.WIDTH_PX);
 
-  // Combined ref callback for intersection observer and width measurement
+  // Combined ref callback
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {
       containerRef.current = node;
-      if (typeof inViewRef === 'function') {
+      if (typeof inViewRef === "function") {
         inViewRef(node);
       } else if (inViewRef) {
         (inViewRef as React.MutableRefObject<HTMLDivElement | null>).current =
           node;
       }
     },
-    [inViewRef]
+    [inViewRef],
   );
 
-  // Measure container width and update when it changes
+  // Read --page-width CSS variable (set by PreviewPane) for consistent scaling
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const updateWidth = () => {
-      const width = container.offsetWidth;
-      if (width > 0) {
-        setPageWidth(width);
+      const computed = getComputedStyle(container);
+      const cssWidth = computed.getPropertyValue("--page-width");
+      if (cssWidth) {
+        const width = parseFloat(cssWidth);
+        if (!isNaN(width) && width > 0) {
+          setPageWidth(width);
+        }
       }
     };
 
-    // Initial measurement
     updateWidth();
 
-    // Observe resize
+    // Re-check on resize (CSS variable changes when PreviewPane resizes)
     const resizeObserver = new ResizeObserver(updateWidth);
     resizeObserver.observe(container);
 
-    return () => {
-      resizeObserver.disconnect();
-    };
+    return () => resizeObserver.disconnect();
   }, []);
 
   return (
-    <A4Page ref={setRefs} className="w-full max-w-full">
+    <A4Page ref={setRefs}>
       {inView ? (
         <>
           <Page
             pageNumber={pageNumber}
-            width={pageWidth || A4_DIMENSIONS.WIDTH_PX}
+            width={pageWidth}
             renderTextLayer={false}
             renderAnnotationLayer={false}
-            className="mx-auto"
           />
           <PageStampOverlay
             pageNumber={globalPageNumber}
@@ -155,7 +157,11 @@ const VirtualizedPageList = memo(function VirtualizedPageList({
   totalBundlePages,
 }: VirtualizedPageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [itemHeight, setItemHeight] = useState<number>(A4_DIMENSIONS.HEIGHT_PX);
+  // Include gap (12px = gap-3) in item height for accurate virtualization
+  const GAP_PX = 12;
+  const [itemHeight, setItemHeight] = useState<number>(
+    A4_DIMENSIONS.HEIGHT_PX + GAP_PX,
+  );
 
   // Read dynamic page height from CSS variable
   useEffect(() => {
@@ -164,25 +170,22 @@ const VirtualizedPageList = memo(function VirtualizedPageList({
 
     const updateItemHeight = () => {
       const pageHeight =
-        getComputedStyle(container).getPropertyValue('--page-height');
+        getComputedStyle(container).getPropertyValue("--page-height");
       if (pageHeight) {
-        const height = parseInt(pageHeight, 10);
+        const height = parseFloat(pageHeight);
         if (!isNaN(height) && height > 0) {
-          setItemHeight(height);
+          // Add gap to get total item height for virtualization
+          setItemHeight(height + GAP_PX);
         }
       }
     };
 
-    // Initial measurement
     updateItemHeight();
 
-    // Observe for CSS variable changes (when container resizes)
     const resizeObserver = new ResizeObserver(updateItemHeight);
     resizeObserver.observe(container);
 
-    return () => {
-      resizeObserver.disconnect();
-    };
+    return () => resizeObserver.disconnect();
   }, []);
 
   const { startIndex, endIndex, topPadding, bottomPadding } = useVirtualWindow({
@@ -202,27 +205,26 @@ const VirtualizedPageList = memo(function VirtualizedPageList({
           pageNumber={i + 1}
           globalPageNumber={globalPageStart + i}
           totalBundlePages={totalBundlePages}
-        />
+        />,
       );
     }
     return pages;
   }, [startIndex, endIndex, globalPageStart, totalBundlePages]);
 
+  // Return a simple flex container - no A4Page wrapper (each VirtualizedPage has its own)
   return (
-    <A4Page>
-      <div ref={containerRef} className="flex flex-col gap-6">
-        {/* Top padding for pages above viewport */}
-        {topPadding > 0 && <div style={{ height: topPadding }} aria-hidden />}
+    <div ref={containerRef} className="flex flex-col items-center gap-3">
+      {/* Top padding for pages above viewport */}
+      {topPadding > 0 && <div style={{ height: topPadding }} aria-hidden />}
 
-        {/* Only render visible pages */}
-        {visiblePages}
+      {/* Only render visible pages */}
+      {visiblePages}
 
-        {/* Bottom padding for pages below viewport */}
-        {bottomPadding > 0 && (
-          <div style={{ height: bottomPadding }} aria-hidden />
-        )}
-      </div>
-    </A4Page>
+      {/* Bottom padding for pages below viewport */}
+      {bottomPadding > 0 && (
+        <div style={{ height: bottomPadding }} aria-hidden />
+      )}
+    </div>
   );
 });
 
@@ -247,25 +249,25 @@ export function EvidenceCanvas({
       setLoading(false);
       setError(null);
     },
-    []
+    [],
   );
 
   const onDocumentLoadError = useCallback(
     (error: Error) => {
-      console.error('PDF load error:', error);
-      console.error('Attempted URL:', pdfUrl);
-      console.error('Original file path:', filePath);
+      console.error("PDF load error:", error);
+      console.error("Attempted URL:", pdfUrl);
+      console.error("Original file path:", filePath);
       setError(`Failed to load PDF file.`);
       setLoading(false);
     },
-    [pdfUrl, filePath]
+    [pdfUrl, filePath],
   );
 
   return (
     <Collapsible
       open={!isCollapsed}
       onOpenChange={(open) => setIsCollapsed(!open)}
-      className={cn('flex flex-col', className)}
+      className={cn("flex flex-col", className)}
     >
       {/* Header with locked indicator and collapse toggle - sticky for scroll tracking */}
       <div className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky top-0">
@@ -278,7 +280,7 @@ export function EvidenceCanvas({
           <span>Evidence (Read-only)</span>
           {numPages && (
             <span className="text-xs opacity-70">
-              - {numPages} page{numPages > 1 ? 's' : ''}
+              - {numPages} page{numPages > 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -291,8 +293,8 @@ export function EvidenceCanvas({
           >
             <ChevronDown
               className={cn(
-                'h-4 w-4 text-muted-foreground transition-transform duration-200',
-                isCollapsed && '-rotate-90'
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                isCollapsed && "-rotate-90",
               )}
             />
           </button>
@@ -319,7 +321,7 @@ export function EvidenceCanvas({
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={null}
-            className={cn(loading && 'hidden')}
+            className={cn(loading && "hidden")}
           >
             {numPages && (
               <VirtualizedPageList
