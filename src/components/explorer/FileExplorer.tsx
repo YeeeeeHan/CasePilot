@@ -119,14 +119,15 @@ function Node({ node, style, dragHandle, onDelete }: NodeProps) {
     <div
       ref={dragHandle}
       style={style}
+      draggable={!isFolder}
       className={cn(
         "group flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer select-none",
         isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50",
         file?.isLinked && "opacity-50",
+        !isFolder && "cursor-grab active:cursor-grabbing",
       )}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      draggable={!isFolder}
       onDragStart={handleDragStart}
     >
       {/* Expand/collapse for folders */}
