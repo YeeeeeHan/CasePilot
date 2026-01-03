@@ -17,4 +17,8 @@ export {
   type TemplateType,
 } from "./TemplateChooser";
 export { Workbench, type WorkbenchMode } from "./Workbench";
-export { AffidavitEditor } from "./AffidavitEditor";
+export {
+  AffidavitEditor,
+  type AffidavitEditorHandle,
+  type AvailableFile,
+} from "./AffidavitEditor";

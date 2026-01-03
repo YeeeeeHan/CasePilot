@@ -66,7 +66,9 @@ export function useEditorDragDrop(options: UseEditorDragDropOptions) {
   const createTipTapDropHandlers = useCallback(
     (insertExhibit: (file: AvailableFile) => void) => ({
       dragover: (_view: unknown, event: DragEvent) => {
-        if (event.dataTransfer?.types.includes("application/x-casepilot-file")) {
+        if (
+          event.dataTransfer?.types.includes("application/x-casepilot-file")
+        ) {
           event.preventDefault();
           event.dataTransfer.dropEffect = "copy";
           return true;
@@ -74,7 +76,9 @@ export function useEditorDragDrop(options: UseEditorDragDropOptions) {
         return false;
       },
       drop: (_view: unknown, event: DragEvent) => {
-        const data = event.dataTransfer?.getData("application/x-casepilot-file");
+        const data = event.dataTransfer?.getData(
+          "application/x-casepilot-file",
+        );
         if (data) {
           event.preventDefault();
           event.stopPropagation();
@@ -101,4 +105,3 @@ export function useEditorDragDrop(options: UseEditorDragDropOptions) {
     createTipTapDropHandlers,
   };
 }
-

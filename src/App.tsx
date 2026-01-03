@@ -1,14 +1,19 @@
-import { save } from '@tauri-apps/plugin-dialog';
-import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
-import { AppLayout } from './components/layout/AppLayout';
+import { save } from "@tauri-apps/plugin-dialog";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { AppLayout } from "./components/layout/AppLayout";
 import {
   RepositoryPanel,
   type RepositoryFile,
-} from './components/sidebar/RepositoryPanel';
-import { Toaster } from './components/ui/sonner';
-import { Onboarding } from './components/views/Onboarding';
-import { Workbench, type WorkbenchMode } from './components/workbench';
+} from "./components/sidebar/RepositoryPanel";
+import { Toaster } from "./components/ui/sonner";
+import { Onboarding } from "./components/views/Onboarding";
+import {
+  Workbench,
+  type AffidavitEditorHandle,
+  type AvailableFile,
+  type WorkbenchMode,
+} from "./components/workbench";
 import {
   Inspector,
   MasterIndex,
@@ -17,12 +22,12 @@ import {
   type InspectorFile,
   type ProjectCase,
   type SelectionSource,
-} from './components/zones';
-import { useCaseManager } from './hooks/features/useCaseManager';
-import { useFileRepository } from './hooks/features/useFileRepository';
-import { useMasterIndex } from './hooks/features/useMasterIndex';
-import { useInvoke } from './hooks/useInvoke';
-import { getTotalPages, recalculatePageRanges } from './lib/pagination';
+} from "./components/zones";
+import { useCaseManager } from "./hooks/features/useCaseManager";
+import { useFileRepository } from "./hooks/features/useFileRepository";
+import { useMasterIndex } from "./hooks/features/useMasterIndex";
+import { useInvoke } from "./hooks/useInvoke";
+import { getTotalPages, recalculatePageRanges } from "./lib/pagination";
 
 function App() {
   const { compileBundle, createEntry, deleteEntry } = useInvoke();
@@ -35,6 +40,9 @@ function App() {
   // Compile state
   const [isCompiling, setIsCompiling] = useState(false);
 
+  // Ref to affidavit editor for inserting exhibits from Inspector
+  const editorRef = useRef<AffidavitEditorHandle>(null);
+
   // Unified selection state
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [selectionSource, setSelectionSource] =
@@ -44,13 +52,13 @@ function App() {
   // Derive linked file IDs from index entries
   const linkedFileIds = new Set(
     masterIndex.indexEntries
-      .filter((e) => e.rowType === 'document' && e.fileId)
-      .map((e) => e.fileId)
+      .filter((e) => e.rowType === "document" && e.fileId)
+      .map((e) => e.fileId),
   );
 
   // Derive workbench mode from active case
   const workbenchMode: WorkbenchMode =
-    caseManager.activeCase?.case_type === 'affidavit' ? 'affidavit' : 'bundle';
+    caseManager.activeCase?.case_type === "affidavit" ? "affidavit" : "bundle";
 
   // Load files and entries when case changes
   useEffect(() => {
@@ -71,19 +79,19 @@ function App() {
     async (caseId: string) => {
       caseManager.handleSelectCase(caseId);
     },
-    [caseManager]
+    [caseManager],
   );
 
   // Handle case creation
   const handleCreateCase = useCallback(
-    async (caseType: 'bundle' | 'affidavit') => {
+    async (caseType: "bundle" | "affidavit") => {
       const newCase = await caseManager.handleCreateCase(caseType);
       if (newCase) {
         fileRepository.clearFiles();
         masterIndex.clearEntries();
       }
     },
-    [caseManager, fileRepository, masterIndex]
+    [caseManager, fileRepository, masterIndex],
   );
 
   // Handle case deletion
@@ -98,20 +106,20 @@ function App() {
         masterIndex.clearEntries();
       }
     },
-    [caseManager, fileRepository, masterIndex]
+    [caseManager, fileRepository, masterIndex],
   );
 
   // Check if a file is referenced in any affidavit
   const isFileReferencedInAffidavit = useCallback(
     (fileId: string): string | null => {
       if (
-        caseManager.activeCase?.case_type === 'affidavit' &&
+        caseManager.activeCase?.case_type === "affidavit" &&
         caseManager.activeCase.content_json
       ) {
         try {
           const parsed = JSON.parse(caseManager.activeCase.content_json);
-          const content = parsed.content || '';
-          const fileIdRegex = new RegExp(`fileId["\s:]+["']?${fileId}`, 'i');
+          const content = parsed.content || "";
+          const fileIdRegex = new RegExp(`fileId["\s:]+["']?${fileId}`, "i");
           if (fileIdRegex.test(content)) {
             return caseManager.activeCase.name;
           }
@@ -121,7 +129,7 @@ function App() {
       }
       return null;
     },
-    [caseManager.activeCase]
+    [caseManager.activeCase],
   );
 
   // Handle file drop
@@ -129,7 +137,7 @@ function App() {
     async (filePaths: string[]) => {
       await fileRepository.handleFileDrop(caseManager.activeCaseId, filePaths);
     },
-    [caseManager.activeCaseId, fileRepository]
+    [caseManager.activeCaseId, fileRepository],
   );
 
   // Handle file deletion with linked entry cleanup
@@ -142,19 +150,19 @@ function App() {
       if (referencingAffidavit) {
         toast.error(`Cannot delete: Referenced in "${referencingAffidavit}"`, {
           description:
-            'Remove the exhibit reference first, then delete the file.',
+            "Remove the exhibit reference first, then delete the file.",
         });
         return;
       }
 
       // Remove linked entries
       const linkedEntries = masterIndex.indexEntries.filter(
-        (e) => e.rowType === 'document' && e.fileId === file.id
+        (e) => e.rowType === "document" && e.fileId === file.id,
       );
 
       if (linkedEntries.length > 0) {
         const updatedEntries = masterIndex.indexEntries.filter(
-          (e) => !(e.rowType === 'document' && e.fileId === file.id)
+          (e) => !(e.rowType === "document" && e.fileId === file.id),
         );
         const recalculated = recalculatePageRanges(updatedEntries);
         masterIndex.setIndexEntries(recalculated);
@@ -166,20 +174,20 @@ function App() {
 
       await fileRepository.handleDeleteRepositoryFile(fileId);
     },
-    [fileRepository, masterIndex, isFileReferencedInAffidavit, deleteEntry]
+    [fileRepository, masterIndex, isFileReferencedInAffidavit, deleteEntry],
   );
 
   // Handle entry selection in Master Index
   const handleSelectEntry = useCallback((entryId: string) => {
     setSelectedFileId(entryId);
-    setSelectionSource('master-index');
+    setSelectionSource("master-index");
     setInspectorOpen(true);
   }, []);
 
   // Handle file selection from Repository
   const handleSelectRepositoryFile = useCallback((fileId: string) => {
     setSelectedFileId(fileId);
-    setSelectionSource('repository');
+    setSelectionSource("repository");
     setInspectorOpen(true);
   }, []);
 
@@ -190,12 +198,12 @@ function App() {
       if (!file) return;
       handleAddFileToIndex({
         id: file.id,
-        name: file.original_name || file.path.split(/[\\/]/).pop() || 'Unknown',
+        name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
         path: file.path,
         pageCount: file.page_count ?? undefined,
       });
     },
-    [fileRepository.repositoryFiles]
+    [fileRepository.repositoryFiles],
   );
 
   // Handle adding a file to the Master Index
@@ -207,12 +215,12 @@ function App() {
       pageCount?: number;
     }) => {
       if (!caseManager.activeCaseId) {
-        toast.error('No active case');
+        toast.error("No active case");
         return;
       }
 
       const isAlreadyInIndex = masterIndex.indexEntries.some(
-        (e) => e.fileId === fileData.id
+        (e) => e.fileId === fileData.id,
       );
       if (isAlreadyInIndex) {
         toast.info(`"${fileData.name}" is already in the Master Index`);
@@ -222,31 +230,31 @@ function App() {
       const sequenceOrder = masterIndex.indexEntries.length;
       const configJson = JSON.stringify({
         description: fileData.name,
-        date: '',
+        date: "",
         disputed: false,
       });
 
       const dbEntry = await createEntry(
         caseManager.activeCaseId,
         sequenceOrder,
-        'file',
+        "file",
         fileData.id,
         configJson,
-        `Tab ${sequenceOrder + 1}`
+        `Tab ${sequenceOrder + 1}`,
       );
 
       if (!dbEntry) {
-        toast.error('Failed to add document to bundle');
+        toast.error("Failed to add document to bundle");
         return;
       }
 
       const newEntry: IndexEntry = {
         id: dbEntry.id,
-        rowType: 'document',
+        rowType: "document",
         fileId: fileData.id,
         filePath: fileData.path,
         description: fileData.name,
-        date: '',
+        date: "",
         pageStart: 1,
         pageEnd: fileData.pageCount || 1,
         disputed: false,
@@ -258,22 +266,41 @@ function App() {
       });
 
       setSelectedFileId(newEntry.id);
-      setSelectionSource('master-index');
+      setSelectionSource("master-index");
       toast.success(`Added "${fileData.name}" to Master Index`);
     },
-    [masterIndex, caseManager.activeCaseId, createEntry]
+    [masterIndex, caseManager.activeCaseId, createEntry],
   );
 
-  // Handle add to index from inspector
+  // Handle add to bundle/affidavit from inspector
   const handleAddToBundle = useCallback(
     async (fileId: string) => {
       if (!caseManager.activeCaseId) return;
       const file = fileRepository.repositoryFiles.find((f) => f.id === fileId);
-      if (file) {
-        await masterIndex.handleAddToIndex(caseManager.activeCaseId, file);
+      if (!file) return;
+
+      // In affidavit mode, insert exhibit into editor
+      if (workbenchMode === "affidavit" && editorRef.current) {
+        const availableFile: AvailableFile = {
+          id: file.id,
+          name:
+            file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
+          path: file.path,
+          pageCount: file.page_count ?? undefined,
+        };
+        editorRef.current.insertExhibit(availableFile);
+        return;
       }
+
+      // In bundle mode, add to master index
+      await masterIndex.handleAddToIndex(caseManager.activeCaseId, file);
     },
-    [caseManager.activeCaseId, fileRepository.repositoryFiles, masterIndex]
+    [
+      caseManager.activeCaseId,
+      fileRepository.repositoryFiles,
+      masterIndex,
+      workbenchMode,
+    ],
   );
 
   // Handle reorder with case ID
@@ -283,16 +310,16 @@ function App() {
       await masterIndex.handleReorderEntries(
         caseManager.activeCaseId,
         fromIndex,
-        toIndex
+        toIndex,
       );
     },
-    [caseManager.activeCaseId, masterIndex]
+    [caseManager.activeCaseId, masterIndex],
   );
 
   // Handle section break insert with case ID
   const handleInsertSectionBreak = useCallback(async () => {
     if (!caseManager.activeCaseId) {
-      toast.error('No active case');
+      toast.error("No active case");
       return;
     }
     await masterIndex.handleInsertSectionBreak(caseManager.activeCaseId);
@@ -301,80 +328,80 @@ function App() {
   // Handle cover page insert with case ID
   const handleInsertCoverPage = useCallback(async () => {
     if (!caseManager.activeCaseId) {
-      toast.error('No active case');
+      toast.error("No active case");
       return;
     }
     const entry = await masterIndex.handleInsertCoverPage(
-      caseManager.activeCaseId
+      caseManager.activeCaseId,
     );
     if (entry) {
       setSelectedFileId(entry.id);
-      setSelectionSource('master-index');
+      setSelectionSource("master-index");
     }
   }, [caseManager.activeCaseId, masterIndex]);
 
   // Handle divider insert with case ID
   const handleInsertDivider = useCallback(async () => {
     if (!caseManager.activeCaseId) {
-      toast.error('No active case');
+      toast.error("No active case");
       return;
     }
     const entry = await masterIndex.handleInsertDivider(
-      caseManager.activeCaseId
+      caseManager.activeCaseId,
     );
     if (entry) {
       setSelectedFileId(entry.id);
-      setSelectionSource('master-index');
+      setSelectionSource("master-index");
     }
   }, [caseManager.activeCaseId, masterIndex]);
 
   // Handle TOC insertion (placeholder)
   const handleInsertTableOfContents = useCallback(() => {
-    toast.info('Table of Contents template coming soon!');
+    toast.info("Table of Contents template coming soon!");
   }, []);
 
   // Handle bundle compilation
   const handleCompileBundle = useCallback(async () => {
     if (!caseManager.activeCaseId) {
-      toast.error('No active case selected');
+      toast.error("No active case selected");
       return;
     }
 
     if (masterIndex.indexEntries.length === 0) {
       toast.error(
-        'No documents in bundle. Add documents to the Master Index first.'
+        "No documents in bundle. Add documents to the Master Index first.",
       );
       return;
     }
 
     const bundleName =
-      caseManager.activeCase?.name.replace(/\s+/g, '_') || 'Bundle';
+      caseManager.activeCase?.name.replace(/\s+/g, "_") || "Bundle";
 
     const selectedPath = await save({
       defaultPath: `${bundleName}.pdf`,
-      filters: [{ name: 'PDF', extensions: ['pdf'] }],
-      title: 'Save Bundle As',
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+      title: "Save Bundle As",
     });
 
     if (!selectedPath) return;
 
     setIsCompiling(true);
-    toast.info('Compiling bundle...', { duration: 2000 });
+    toast.info("Compiling bundle...", { duration: 2000 });
 
     try {
       const result = await compileBundle(
         caseManager.activeCaseId,
         bundleName,
-        selectedPath
+        selectedPath,
       );
 
       if (!result) {
-        toast.error('Failed to compile bundle');
+        toast.error("Failed to compile bundle");
         return;
       }
 
       if (!result.success) {
-        toast.error(result.errors.join(', ') || 'Compilation failed');
+        toast.error(result.errors.join(", ") || "Compilation failed");
         return;
       }
 
@@ -383,8 +410,8 @@ function App() {
         duration: 5000,
       });
     } catch (error) {
-      console.error('Compile error:', error);
-      toast.error('Failed to compile bundle');
+      console.error("Compile error:", error);
+      toast.error("Failed to compile bundle");
     } finally {
       setIsCompiling(false);
     }
@@ -413,7 +440,7 @@ function App() {
 
       caseManager.updateCaseContent(caseId, contentJson);
     },
-    [caseManager]
+    [caseManager],
   );
 
   // Handle case initials changes (affidavit mode)
@@ -435,14 +462,14 @@ function App() {
       caseManager.updateCaseContent(caseId, contentJson);
       toast.success(`Initials updated to "${initials}"`);
     },
-    [caseManager]
+    [caseManager],
   );
 
   // Convert cases to ProjectCase format
   const projectCases: ProjectCase[] = caseManager.cases.map((c) => ({
     id: c.id,
     name: c.name,
-    initials: '',
+    initials: "",
   }));
 
   // Get active case data for Workbench
@@ -475,7 +502,7 @@ function App() {
   const repoFilesForPanel: RepositoryFile[] =
     fileRepository.repositoryFiles.map((file) => ({
       id: file.id,
-      name: file.original_name || file.path.split(/[\\/]/).pop() || 'Unknown',
+      name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
       filePath: file.path,
       pageCount: file.page_count ?? undefined,
       isLinked: linkedFileIds.has(file.id),
@@ -485,42 +512,42 @@ function App() {
   const availableFilesForEditor = fileRepository.repositoryFiles.map(
     (file) => ({
       id: file.id,
-      name: file.original_name || file.path.split(/[\\/]/).pop() || 'Unknown',
+      name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
       path: file.path,
       pageCount: file.page_count ?? undefined,
-    })
+    }),
   );
 
   // Get selected file for Inspector
   const getSelectedFile = (): InspectorFile | null => {
     if (!selectedFileId) return null;
 
-    if (selectionSource === 'repository') {
+    if (selectionSource === "repository") {
       const file = fileRepository.repositoryFiles.find(
-        (f) => f.id === selectedFileId
+        (f) => f.id === selectedFileId,
       );
       if (!file) return null;
       return {
         id: file.id,
-        name: file.original_name || file.path.split(/[\\/]/).pop() || 'Unknown',
+        name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
         filePath: file.path,
         pageCount: file.page_count ?? undefined,
         isLinked: linkedFileIds.has(file.id),
       };
     }
 
-    if (selectionSource === 'master-index') {
+    if (selectionSource === "master-index") {
       const entry = masterIndex.indexEntries.find(
-        (e) => e.id === selectedFileId
+        (e) => e.id === selectedFileId,
       );
-      if (!entry || entry.rowType === 'section-break') return null;
+      if (!entry || entry.rowType === "section-break") return null;
       const file = fileRepository.repositoryFiles.find(
-        (f) => f.id === entry.fileId
+        (f) => f.id === entry.fileId,
       );
       return {
         id: entry.id,
         name: entry.description,
-        filePath: file?.path || '',
+        filePath: file?.path || "",
         pageCount: entry.pageEnd - entry.pageStart + 1,
         isLinked: true,
       };
@@ -531,7 +558,7 @@ function App() {
 
   // Get selected entry for Inspector
   const getSelectedEntry = (): IndexEntry | null => {
-    if (!selectedFileId || selectionSource !== 'master-index') return null;
+    if (!selectedFileId || selectionSource !== "master-index") return null;
     return (
       masterIndex.indexEntries.find((e) => e.id === selectedFileId) || null
     );
@@ -567,7 +594,7 @@ function App() {
             onFileDrop={handleFileDrop}
             onFileDoubleClick={handleFileDoubleClick}
             selectedFileId={
-              selectionSource === 'repository' ? selectedFileId : null
+              selectionSource === "repository" ? selectedFileId : null
             }
           />
         }
@@ -579,11 +606,12 @@ function App() {
               mode={workbenchMode}
               activeCase={getActiveCaseForWorkbench()}
               availableFiles={availableFilesForEditor}
+              editorRef={editorRef}
               masterIndex={
                 <MasterIndex
                   entries={masterIndex.indexEntries}
                   selectedEntryId={
-                    selectionSource === 'master-index' ? selectedFileId : null
+                    selectionSource === "master-index" ? selectedFileId : null
                   }
                   onSelectEntry={handleSelectEntry}
                   onReorder={handleReorderEntries}
@@ -608,6 +636,7 @@ function App() {
         }
         inspector={
           <Inspector
+            mode={workbenchMode}
             selectedFile={getSelectedFile()}
             selectedEntry={getSelectedEntry()}
             selectionSource={selectionSource}

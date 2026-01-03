@@ -8,6 +8,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { WorkbenchMode } from "@/types/domain";
 
 export interface InspectorFile {
   id: string;
@@ -18,11 +19,19 @@ export interface InspectorFile {
 }
 
 interface FileInspectorProps {
+  mode: WorkbenchMode;
   file: InspectorFile;
   onAddToBundle?: (fileId: string) => void;
 }
 
-export function FileInspector({ file, onAddToBundle }: FileInspectorProps) {
+export function FileInspector({
+  mode,
+  file,
+  onAddToBundle,
+}: FileInspectorProps) {
+  const isAffidavit = mode === "affidavit";
+  const addButtonLabel = isAffidavit ? "Link Exhibit" : "Add to Bundle";
+  const linkedStatusLabel = isAffidavit ? "Linked" : "In Bundle";
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col p-4 space-y-4">
@@ -49,7 +58,7 @@ export function FileInspector({ file, onAddToBundle }: FileInspectorProps) {
               <span className="font-medium text-muted-foreground">Status:</span>
               {file.isLinked ? (
                 <span className="flex items-center gap-1 text-green-600">
-                  <Check className="h-3.5 w-3.5" /> In Bundle
+                  <Check className="h-3.5 w-3.5" /> {linkedStatusLabel}
                 </span>
               ) : (
                 <span className="text-muted-foreground">Available</span>
@@ -64,7 +73,7 @@ export function FileInspector({ file, onAddToBundle }: FileInspectorProps) {
         <div className="space-y-2">
           {!file.isLinked && (
             <Button className="w-full" onClick={() => onAddToBundle?.(file.id)}>
-              Add to Bundle
+              {addButtonLabel}
             </Button>
           )}
         </div>
@@ -80,4 +89,3 @@ export function FileInspector({ file, onAddToBundle }: FileInspectorProps) {
     </ScrollArea>
   );
 }
-

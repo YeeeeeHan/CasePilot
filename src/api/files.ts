@@ -104,4 +104,3 @@ export async function generateAutoDescription(
     return null;
   }
 }
-

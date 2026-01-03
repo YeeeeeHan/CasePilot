@@ -8,6 +8,7 @@
  * Uses resizable panels for flexible layout.
  */
 
+import type { RefObject } from "react";
 import { useState } from "react";
 import {
   ResizableHandle,
@@ -16,7 +17,11 @@ import {
 } from "@/components/ui/resizable";
 import type { IndexEntry } from "@/lib/pagination";
 import { PreviewPane } from "./PreviewPane";
-import { AffidavitEditor, type AvailableFile } from "./AffidavitEditor";
+import {
+  AffidavitEditor,
+  type AffidavitEditorHandle,
+  type AvailableFile,
+} from "./AffidavitEditor";
 import { EvidenceCanvas } from "./EvidenceCanvas";
 import { FileText } from "lucide-react";
 
@@ -37,6 +42,8 @@ interface WorkbenchProps {
   activeCase?: ActiveCase | null;
   /** Available files for exhibit insertion */
   availableFiles?: AvailableFile[];
+  /** Ref to affidavit editor (for external exhibit insertion) */
+  editorRef?: RefObject<AffidavitEditorHandle | null>;
   /** The Master Index component (for bundle mode) */
   masterIndex?: React.ReactNode;
   /** All entries in the master index (for bundle mode) */
@@ -61,6 +68,7 @@ export function Workbench({
   mode = "bundle",
   activeCase,
   availableFiles = [],
+  editorRef,
   masterIndex,
   entries = [],
   selectedEntry,
@@ -81,6 +89,7 @@ export function Workbench({
         {/* Left: Affidavit Editor */}
         <ResizablePanel defaultSize={50} minSize={30}>
           <AffidavitEditor
+            ref={editorRef}
             artifactId={activeCase.id}
             name={activeCase.name}
             initials={activeCase.initials || ""}

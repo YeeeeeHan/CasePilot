@@ -112,4 +112,3 @@ export const RepositoryItem = memo(function RepositoryItem({
     </div>
   );
 });
-

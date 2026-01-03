@@ -5,9 +5,9 @@
  * Extracted from App.tsx to reduce component complexity.
  */
 
-import { useCallback, useState } from 'react';
-import { toast } from 'sonner';
-import { useInvoke, type CaseFile } from '../useInvoke';
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import { useInvoke, type CaseFile } from "../useInvoke";
 
 export function useFileRepository() {
   const { listFiles, createFile, updateFile, deleteFile, extractPdfMetadata } =
@@ -22,13 +22,13 @@ export function useFileRepository() {
       setRepositoryFiles(files);
       return files;
     },
-    [listFiles]
+    [listFiles],
   );
 
   const handleFileDrop = useCallback(
     async (activeCaseId: string | null, filePaths: string[]) => {
       if (!activeCaseId) {
-        toast.error('No active case selected');
+        toast.error("No active case selected");
         return;
       }
 
@@ -36,7 +36,7 @@ export function useFileRepository() {
         filePaths.map(async (path) => {
           const name = path.split(/[\\/]/).pop() || path;
           return await createFile(activeCaseId, path, name);
-        })
+        }),
       );
 
       const successfulFiles: CaseFile[] = [];
@@ -61,7 +61,7 @@ export function useFileRepository() {
           const updated = await updateFile(file.id, metadata.page_count);
           if (updated) {
             setRepositoryFiles((prev) =>
-              prev.map((f) => (f.id === file.id ? updated : f))
+              prev.map((f) => (f.id === file.id ? updated : f)),
             );
           }
         }
@@ -72,13 +72,13 @@ export function useFileRepository() {
       } else if (errors.length > 0) {
         toast.warning(
           `Added ${successfulFiles.length} file(s), ${errors.length} failed`,
-          { description: errors[0] }
+          { description: errors[0] },
         );
       } else if (successfulFiles.length > 0) {
         toast.success(`Added ${successfulFiles.length} file(s) to repository`);
       }
     },
-    [createFile, extractPdfMetadata, updateFile]
+    [createFile, extractPdfMetadata, updateFile],
   );
 
   const handleDeleteRepositoryFile = useCallback(
@@ -86,14 +86,14 @@ export function useFileRepository() {
       const success = await deleteFile(fileId);
       if (success) {
         setRepositoryFiles((prev) => prev.filter((f) => f.id !== fileId));
-        toast.success('File deleted');
+        toast.success("File deleted");
         return true;
       } else {
-        toast.error('Failed to delete file');
+        toast.error("Failed to delete file");
         return false;
       }
     },
-    [deleteFile]
+    [deleteFile],
   );
 
   const clearFiles = useCallback(() => {

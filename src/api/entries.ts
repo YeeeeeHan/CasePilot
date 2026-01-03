@@ -118,4 +118,3 @@ export async function previewToc(caseId: string): Promise<TOCEntry[]> {
     return [];
   }
 }
-

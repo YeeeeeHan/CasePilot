@@ -131,22 +131,29 @@ export function useInvoke() {
     }
   }, []);
 
-  const createCase = useCallback(async (name: string, type: "affidavit" | "bundle", contentJson?: string): Promise<Case | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const newCase = await invoke<Case>("create_case", {
-        request: { name, case_type: type, content_json: contentJson },
-      });
-      return newCase;
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      setError(message);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const createCase = useCallback(
+    async (
+      name: string,
+      type: "affidavit" | "bundle",
+      contentJson?: string,
+    ): Promise<Case | null> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const newCase = await invoke<Case>("create_case", {
+          request: { name, case_type: type, content_json: contentJson },
+        });
+        return newCase;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        setError(message);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   const listDocuments = useCallback(
     async (caseId: string): Promise<Document[]> => {
@@ -447,10 +454,7 @@ export function useInvoke() {
   }, []);
 
   const reorderEntries = useCallback(
-    async (
-      caseId: string,
-      entryIds: string[],
-    ): Promise<ArtifactEntry[]> => {
+    async (caseId: string, entryIds: string[]): Promise<ArtifactEntry[]> => {
       try {
         const entries = await invoke<ArtifactEntry[]>("reorder_entries", {
           request: {

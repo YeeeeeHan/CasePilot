@@ -64,4 +64,3 @@ export function useWorkbenchContext(): WorkbenchContextValue {
 export function useOptionalWorkbenchContext(): WorkbenchContextValue | null {
   return useContext(WorkbenchContext);
 }
-

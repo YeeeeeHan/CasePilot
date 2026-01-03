@@ -8,6 +8,7 @@
 import { FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { IndexEntry } from "@/lib/pagination";
+import type { WorkbenchMode } from "@/types/domain";
 import { FileInspector, type InspectorFile } from "./FileInspector";
 import { EntryInspector } from "./EntryInspector";
 
@@ -17,6 +18,7 @@ export type SelectionSource = "repository" | "master-index";
 export type { InspectorFile };
 
 interface InspectorProps {
+  mode: WorkbenchMode;
   selectedFile: InspectorFile | null;
   selectedEntry: IndexEntry | null;
   selectionSource: SelectionSource | null;
@@ -29,6 +31,7 @@ interface InspectorProps {
 }
 
 export function Inspector({
+  mode,
   selectedFile,
   selectedEntry,
   selectionSource,
@@ -61,6 +64,7 @@ export function Inspector({
       <div className="flex flex-col h-full">
         <InspectorHeader onClose={onClose} />
         <EntryInspector
+          mode={mode}
           entry={selectedEntry}
           onDescriptionChange={onDescriptionChange}
           onDateChange={onDateChange}
@@ -76,7 +80,11 @@ export function Inspector({
     return (
       <div className="flex flex-col h-full">
         <InspectorHeader onClose={onClose} />
-        <FileInspector file={selectedFile} onAddToBundle={onAddToBundle} />
+        <FileInspector
+          mode={mode}
+          file={selectedFile}
+          onAddToBundle={onAddToBundle}
+        />
       </div>
     );
   }

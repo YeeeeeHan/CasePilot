@@ -10,7 +10,14 @@
  * - Cursor-following preview
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -27,6 +34,11 @@ export interface AvailableFile {
   name: string;
   path: string;
   pageCount?: number;
+}
+
+/** Handle exposed by AffidavitEditor via ref */
+export interface AffidavitEditorHandle {
+  insertExhibit: (file: AvailableFile) => void;
 }
 
 interface AffidavitEditorProps {
@@ -48,16 +60,22 @@ interface AffidavitEditorProps {
   onExhibitFocus?: (filePath: string | null) => void;
 }
 
-export function AffidavitEditor({
-  artifactId,
-  name,
-  initials,
-  content,
-  availableFiles: _availableFiles = [], // Reserved for future slash command
-  onContentChange,
-  onInitialsChange,
-  onExhibitFocus,
-}: AffidavitEditorProps) {
+export const AffidavitEditor = forwardRef<
+  AffidavitEditorHandle,
+  AffidavitEditorProps
+>(function AffidavitEditor(
+  {
+    artifactId,
+    name,
+    initials,
+    content,
+    availableFiles: _availableFiles = [], // Reserved for future slash command
+    onContentChange,
+    onInitialsChange,
+    onExhibitFocus,
+  },
+  ref,
+) {
   const [isEditingInitials, setIsEditingInitials] = useState(false);
   const [editedInitials, setEditedInitials] = useState(initials);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -205,6 +223,15 @@ export function AffidavitEditor({
       toast.success(`Inserted exhibit: ${file.name}`);
     };
   }, [editor]);
+
+  // Expose insertExhibit to parent via ref
+  useImperativeHandle(
+    ref,
+    () => ({
+      insertExhibit: (file: AvailableFile) => insertExhibitRef.current(file),
+    }),
+    [],
+  );
 
   // Sync content when artifactId changes
   useEffect(() => {
@@ -369,7 +396,7 @@ export function AffidavitEditor({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Get all exhibit file IDs from an affidavit's content

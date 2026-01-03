@@ -12,8 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { IndexEntry } from "@/lib/pagination";
+import type { WorkbenchMode } from "@/types/domain";
 
 interface EntryInspectorProps {
+  mode: WorkbenchMode;
   entry: IndexEntry;
   onDescriptionChange?: (entryId: string, description: string) => void;
   onDateChange?: (entryId: string, date: string) => void;
@@ -22,6 +24,7 @@ interface EntryInspectorProps {
 }
 
 export function EntryInspector({
+  mode,
   entry,
   onDescriptionChange,
   onDateChange,
@@ -29,6 +32,10 @@ export function EntryInspector({
   onRemoveFromBundle,
 }: EntryInspectorProps) {
   const isSectionBreak = entry.rowType === "section-break";
+  const isAffidavit = mode === "affidavit";
+  const removeButtonLabel = isAffidavit
+    ? "Unlink Exhibit"
+    : "Remove from Bundle";
 
   const formatPageRange = (start: number, end: number) => {
     if (start === end) return `${start}`;
@@ -56,13 +63,9 @@ export function EntryInspector({
             <Input
               id="description"
               value={
-                isSectionBreak
-                  ? entry.sectionLabel || ""
-                  : entry.description
+                isSectionBreak ? entry.sectionLabel || "" : entry.description
               }
-              onChange={(e) =>
-                onDescriptionChange?.(entry.id, e.target.value)
-              }
+              onChange={(e) => onDescriptionChange?.(entry.id, e.target.value)}
               className="h-8 text-sm"
               placeholder={
                 isSectionBreak
@@ -132,11 +135,10 @@ export function EntryInspector({
             className="w-full"
             onClick={() => onRemoveFromBundle?.(entry.id)}
           >
-            Remove from Bundle
+            {removeButtonLabel}
           </Button>
         </div>
       </div>
     </ScrollArea>
   );
 }
-

@@ -149,4 +149,3 @@ export function getDisplayNumber(
     return `${docCount}.`;
   }
 }
-

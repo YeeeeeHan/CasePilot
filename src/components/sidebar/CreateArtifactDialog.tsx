@@ -49,7 +49,11 @@ export function CreateArtifactDialog({
   const handleCreate = () => {
     if (!name.trim()) return;
 
-    onCreate?.(type, name.trim(), type === "affidavit" ? initials.trim() : undefined);
+    onCreate?.(
+      type,
+      name.trim(),
+      type === "affidavit" ? initials.trim() : undefined,
+    );
     onOpenChange(false);
   };
 
@@ -123,4 +127,3 @@ export function CreateArtifactDialog({
     </Dialog>
   );
 }
-

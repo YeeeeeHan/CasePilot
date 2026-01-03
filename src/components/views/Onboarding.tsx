@@ -63,4 +63,3 @@ export function Onboarding({ onCreateCase }: OnboardingProps) {
     </div>
   );
 }
-

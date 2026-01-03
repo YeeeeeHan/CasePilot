@@ -75,4 +75,3 @@ export interface ExtractedDocumentInfo {
   document_type?: string;
   first_page_text?: string;
 }
-

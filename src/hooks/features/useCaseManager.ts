@@ -5,13 +5,13 @@
  * Extracted from App.tsx to reduce component complexity.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   useInvoke,
   type Case as DbCase,
   type Document as DbDocument,
-} from '../useInvoke';
+} from "../useInvoke";
 
 export interface Document {
   id: string;
@@ -22,7 +22,7 @@ export interface Document {
 export interface Case {
   id: string;
   name: string;
-  case_type: 'affidavit' | 'bundle';
+  case_type: "affidavit" | "bundle";
   content_json: string | null;
   documents: Document[];
 }
@@ -48,7 +48,7 @@ export function useCaseManager() {
           return {
             id: c.id,
             name: c.name,
-            case_type: (c.case_type || 'bundle') as 'affidavit' | 'bundle',
+            case_type: (c.case_type || "bundle") as "affidavit" | "bundle",
             content_json: c.content_json || null,
             documents: docs.map((d: DbDocument) => ({
               id: d.id,
@@ -56,7 +56,7 @@ export function useCaseManager() {
               caseId: d.case_id,
             })),
           };
-        })
+        }),
       );
 
       setCases(casesWithDocs);
@@ -73,13 +73,13 @@ export function useCaseManager() {
   }, []);
 
   const handleCreateCase = useCallback(
-    async (caseType: 'bundle' | 'affidavit') => {
-      const newCase = await createCase('New Case', caseType);
+    async (caseType: "bundle" | "affidavit") => {
+      const newCase = await createCase("New Case", caseType);
       if (newCase) {
         const newCaseObj: Case = {
           id: newCase.id,
           name: newCase.name,
-          case_type: newCase.case_type as 'affidavit' | 'bundle',
+          case_type: newCase.case_type as "affidavit" | "bundle",
           content_json: newCase.content_json,
           documents: [],
         };
@@ -89,7 +89,7 @@ export function useCaseManager() {
       }
       return null;
     },
-    [createCase]
+    [createCase],
   );
 
   const handleDeleteCase = useCallback(
@@ -103,21 +103,21 @@ export function useCaseManager() {
           if (remainingCases.length > 0) {
             const nextCaseId = remainingCases[0].id;
             setActiveCaseId(nextCaseId);
-            toast.success('Case deleted');
+            toast.success("Case deleted");
             return nextCaseId;
           } else {
             setActiveCaseId(null);
-            toast.success('Case deleted');
+            toast.success("Case deleted");
             return null;
           }
         }
-        toast.success('Case deleted');
+        toast.success("Case deleted");
       } else {
-        toast.error('Failed to delete case');
+        toast.error("Failed to delete case");
       }
       return activeCaseId;
     },
-    [activeCaseId, cases, deleteCase]
+    [activeCaseId, cases, deleteCase],
   );
 
   const handleSelectCase = useCallback((caseId: string) => {
@@ -128,11 +128,11 @@ export function useCaseManager() {
     (caseId: string, contentJson: string) => {
       setCases((prev) =>
         prev.map((c) =>
-          c.id === caseId ? { ...c, content_json: contentJson } : c
-        )
+          c.id === caseId ? { ...c, content_json: contentJson } : c,
+        ),
       );
     },
-    []
+    [],
   );
 
   return {

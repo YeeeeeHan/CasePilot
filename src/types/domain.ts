@@ -75,4 +75,3 @@ export interface AvailableFile {
   path: string;
   pageCount?: number;
 }
-

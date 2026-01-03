@@ -6,11 +6,11 @@
  * Extracted from App.tsx to reduce component complexity.
  */
 
-import type { IndexEntry } from '@/lib/pagination';
-import { recalculatePageRanges, reorderArray } from '@/lib/pagination';
-import { useCallback, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import { useInvoke, type ArtifactEntry, type CaseFile } from '../useInvoke';
+import type { IndexEntry } from "@/lib/pagination";
+import { recalculatePageRanges, reorderArray } from "@/lib/pagination";
+import { useCallback, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useInvoke, type ArtifactEntry, type CaseFile } from "../useInvoke";
 
 export function useMasterIndex() {
   const { listEntries, createEntry, deleteEntry, reorderEntries } = useInvoke();
@@ -29,7 +29,7 @@ export function useMasterIndex() {
       const entries: IndexEntry[] = dbEntries
         .sort(
           (a: ArtifactEntry, b: ArtifactEntry) =>
-            a.sequence_order - b.sequence_order
+            a.sequence_order - b.sequence_order,
         )
         .map((entry: ArtifactEntry) => {
           let config: Record<string, unknown> = {};
@@ -41,43 +41,43 @@ export function useMasterIndex() {
             }
           }
 
-          if (entry.row_type === 'file' && entry.file_id) {
+          if (entry.row_type === "file" && entry.file_id) {
             const file = fileMap.get(entry.file_id);
             const pageCount = file?.page_count || 1;
             return {
               id: entry.id,
-              rowType: 'document' as const,
+              rowType: "document" as const,
               fileId: entry.file_id,
-              filePath: file?.path || '',
+              filePath: file?.path || "",
               description:
                 (config.description as string) ||
                 file?.original_name ||
-                'Unknown',
-              date: (config.date as string) || '',
+                "Unknown",
+              date: (config.date as string) || "",
               pageStart: 1,
               pageEnd: pageCount,
               disputed: (config.disputed as boolean) || false,
             };
           }
 
-          if (entry.row_type === 'component') {
+          if (entry.row_type === "component") {
             const template = config.template as string;
-            if (template === 'section-break') {
+            if (template === "section-break") {
               return {
                 id: entry.id,
-                rowType: 'section-break' as const,
-                sectionLabel: (config.sectionLabel as string) || 'Section',
-                description: '',
+                rowType: "section-break" as const,
+                sectionLabel: (config.sectionLabel as string) || "Section",
+                description: "",
                 pageStart: 1,
                 pageEnd: 1,
                 disputed: false,
               };
             }
-            if (template === 'cover-page') {
+            if (template === "cover-page") {
               return {
                 id: entry.id,
-                rowType: 'cover-page' as const,
-                description: (config.description as string) || 'Cover Page',
+                rowType: "cover-page" as const,
+                description: (config.description as string) || "Cover Page",
                 tiptapContent: config.tiptapContent as string | undefined,
                 generatedPageCount: (config.generatedPageCount as number) || 1,
                 pageStart: 1,
@@ -85,11 +85,11 @@ export function useMasterIndex() {
                 disputed: false,
               };
             }
-            if (template === 'divider') {
+            if (template === "divider") {
               return {
                 id: entry.id,
-                rowType: 'divider' as const,
-                description: (config.description as string) || 'Blank Page',
+                rowType: "divider" as const,
+                description: (config.description as string) || "Blank Page",
                 tiptapContent: config.tiptapContent as string | undefined,
                 generatedPageCount: (config.generatedPageCount as number) || 1,
                 pageStart: 1,
@@ -101,10 +101,10 @@ export function useMasterIndex() {
 
           return {
             id: entry.id,
-            rowType: 'document' as const,
+            rowType: "document" as const,
             fileId: entry.file_id,
-            description: 'Unknown',
-            date: '',
+            description: "Unknown",
+            date: "",
             pageStart: 1,
             pageEnd: 1,
             disputed: false,
@@ -115,7 +115,7 @@ export function useMasterIndex() {
       setIndexEntries(result);
       return result;
     },
-    [listEntries]
+    [listEntries],
   );
 
   const handleReorderEntries = useCallback(
@@ -126,36 +126,36 @@ export function useMasterIndex() {
       setIndexEntries(reordered);
 
       const entryIds = reordered
-        .filter((e) => e.rowType === 'document')
+        .filter((e) => e.rowType === "document")
         .map((e) => e.id);
       const result = await reorderEntries(activeCaseId, entryIds);
 
       if (result.length === 0 && entryIds.length > 0) {
         setIndexEntries(previousIndexEntriesRef.current);
-        toast.error('Failed to reorder. Changes reverted.');
+        toast.error("Failed to reorder. Changes reverted.");
         return;
       }
 
       toast.success(`Moved to position ${toIndex + 1}`, {
-        description: 'All page numbers recalculated automatically.',
+        description: "All page numbers recalculated automatically.",
         action: {
-          label: 'Undo',
+          label: "Undo",
           onClick: async () => {
             if (previousIndexEntriesRef.current.length > 0) {
               const previousIds = previousIndexEntriesRef.current
-                .filter((e) => e.rowType === 'document')
+                .filter((e) => e.rowType === "document")
                 .map((e) => e.id);
               await reorderEntries(activeCaseId, previousIds);
               setIndexEntries(previousIndexEntriesRef.current);
               previousIndexEntriesRef.current = [];
-              toast.info('Reorder undone');
+              toast.info("Reorder undone");
             }
           },
         },
         duration: 5000,
       });
     },
-    [indexEntries, reorderEntries]
+    [indexEntries, reorderEntries],
   );
 
   const handleDeleteEntry = useCallback(
@@ -163,18 +163,18 @@ export function useMasterIndex() {
       const entry = indexEntries.find((e) => e.id === entryId);
 
       if (
-        entry?.rowType === 'section-break' ||
-        entry?.rowType === 'cover-page' ||
-        entry?.rowType === 'divider'
+        entry?.rowType === "section-break" ||
+        entry?.rowType === "cover-page" ||
+        entry?.rowType === "divider"
       ) {
         const updatedEntries = indexEntries.filter((e) => e.id !== entryId);
         const recalculated = recalculatePageRanges(updatedEntries);
         setIndexEntries(recalculated);
 
         const typeLabels: Record<string, string> = {
-          'section-break': 'Section break',
-          'cover-page': 'Cover page',
-          divider: 'Blank page',
+          "section-break": "Section break",
+          "cover-page": "Cover page",
+          divider: "Blank page",
         };
         toast.success(`${typeLabels[entry.rowType]} removed`);
         return;
@@ -185,19 +185,19 @@ export function useMasterIndex() {
         const updatedEntries = indexEntries.filter((e) => e.id !== entryId);
         const recalculated = recalculatePageRanges(updatedEntries);
         setIndexEntries(recalculated);
-        toast.success('Document removed from bundle');
+        toast.success("Document removed from bundle");
       } else {
-        toast.error('Failed to remove document from bundle');
+        toast.error("Failed to remove document from bundle");
       }
     },
-    [indexEntries, deleteEntry]
+    [indexEntries, deleteEntry],
   );
 
   const handleAddToIndex = useCallback(
     async (activeCaseId: string, file: CaseFile) => {
       let lastDocPageEnd = 0;
       for (let i = indexEntries.length - 1; i >= 0; i--) {
-        if (indexEntries[i].rowType === 'document') {
+        if (indexEntries[i].rowType === "document") {
           lastDocPageEnd = indexEntries[i].pageEnd;
           break;
         }
@@ -206,36 +206,36 @@ export function useMasterIndex() {
       const pageCount = file.page_count || 1;
       const pageEnd = pageStart + pageCount - 1;
       const sequenceOrder = indexEntries.filter(
-        (e) => e.rowType === 'document'
+        (e) => e.rowType === "document",
       ).length;
 
       const configJson = JSON.stringify({
         description: file.original_name,
-        date: '',
+        date: "",
         disputed: false,
       });
 
       const entry = await createEntry(
         activeCaseId,
         sequenceOrder,
-        'file',
+        "file",
         file.id,
         configJson,
-        `Tab ${sequenceOrder + 1}`
+        `Tab ${sequenceOrder + 1}`,
       );
 
       if (!entry) {
-        toast.error('Failed to add document to index');
+        toast.error("Failed to add document to index");
         return null;
       }
 
       const newEntry: IndexEntry = {
         id: entry.id,
-        rowType: 'document',
+        rowType: "document",
         fileId: file.id,
         filePath: file.path,
         description: file.original_name,
-        date: '',
+        date: "",
         pageStart,
         pageEnd,
         disputed: false,
@@ -245,79 +245,79 @@ export function useMasterIndex() {
       toast.success(`Added "${file.original_name}" to bundle`);
       return newEntry;
     },
-    [indexEntries, createEntry]
+    [indexEntries, createEntry],
   );
 
   const handleInsertSectionBreak = useCallback(
     async (activeCaseId: string) => {
       const sectionCount = indexEntries.filter(
-        (e) => e.rowType === 'section-break'
+        (e) => e.rowType === "section-break",
       ).length;
       const nextLetter = String.fromCharCode(65 + sectionCount);
       const defaultLabel = `TAB ${nextLetter}`;
 
       const configJson = JSON.stringify({
-        template: 'section-break',
+        template: "section-break",
         sectionLabel: defaultLabel,
       });
 
       const dbEntry = await createEntry(
         activeCaseId,
         indexEntries.length,
-        'component',
+        "component",
         undefined,
-        configJson
+        configJson,
       );
 
       if (!dbEntry) {
-        toast.error('Failed to add section break');
+        toast.error("Failed to add section break");
         return null;
       }
 
       const newSectionBreak: IndexEntry = {
         id: dbEntry.id,
-        rowType: 'section-break',
+        rowType: "section-break",
         sectionLabel: defaultLabel,
-        description: '',
+        description: "",
         pageStart: 1,
         pageEnd: 1,
         disputed: false,
       };
 
       setIndexEntries((prev) =>
-        recalculatePageRanges([...prev, newSectionBreak])
+        recalculatePageRanges([...prev, newSectionBreak]),
       );
       toast.success(`Added section break: ${defaultLabel}`);
       return newSectionBreak;
     },
-    [indexEntries, createEntry]
+    [indexEntries, createEntry],
   );
 
   const handleInsertCoverPage = useCallback(
     async (activeCaseId: string) => {
       const configJson = JSON.stringify({
-        template: 'cover-page',
-        description: 'Cover Page',
+        template: "cover-page",
+        description: "Cover Page",
         generatedPageCount: 1,
       });
 
       const dbEntry = await createEntry(
         activeCaseId,
         0,
-        'component',
+        "component",
         undefined,
-        configJson
+        configJson,
       );
 
       if (!dbEntry) {
-        toast.error('Failed to add cover page');
+        toast.error("Failed to add cover page");
         return null;
       }
 
       const newCoverPage: IndexEntry = {
         id: dbEntry.id,
-        rowType: 'cover-page',
-        description: 'Cover Page',
+        rowType: "cover-page",
+        description: "Cover Page",
         generatedPageCount: 1,
         pageStart: 1,
         pageEnd: 1,
@@ -328,21 +328,21 @@ export function useMasterIndex() {
         const updated = [newCoverPage, ...prev];
         return recalculatePageRanges(updated);
       });
-      toast.success('Added cover page');
+      toast.success("Added cover page");
       return newCoverPage;
     },
-    [createEntry]
+    [createEntry],
   );
 
   const handleInsertDivider = useCallback(
     async (activeCaseId: string) => {
       const dividerCount = indexEntries.filter(
-        (e) => e.rowType === 'divider'
+        (e) => e.rowType === "divider",
       ).length;
       const defaultTitle = `Blank Page ${dividerCount + 1}`;
 
       const configJson = JSON.stringify({
-        template: 'divider',
+        template: "divider",
         description: defaultTitle,
         generatedPageCount: 1,
       });
@@ -350,19 +350,19 @@ export function useMasterIndex() {
       const dbEntry = await createEntry(
         activeCaseId,
         indexEntries.length,
-        'component',
+        "component",
         undefined,
-        configJson
+        configJson,
       );
 
       if (!dbEntry) {
-        toast.error('Failed to add blank page');
+        toast.error("Failed to add blank page");
         return null;
       }
 
       const newDivider: IndexEntry = {
         id: dbEntry.id,
-        rowType: 'divider',
+        rowType: "divider",
         description: defaultTitle,
         generatedPageCount: 1,
         pageStart: 1,
@@ -377,7 +377,7 @@ export function useMasterIndex() {
       toast.success(`Added blank page: ${defaultTitle}`);
       return newDivider;
     },
-    [indexEntries, createEntry]
+    [indexEntries, createEntry],
   );
 
   const handleDescriptionChange = useCallback(
@@ -385,29 +385,29 @@ export function useMasterIndex() {
       setIndexEntries((prev) =>
         prev.map((e) => {
           if (e.id !== entryId) return e;
-          if (e.rowType === 'section-break') {
+          if (e.rowType === "section-break") {
             return { ...e, sectionLabel: description };
           }
           return { ...e, description };
-        })
+        }),
       );
     },
-    []
+    [],
   );
 
   const handleDateChange = useCallback((entryId: string, date: string) => {
     setIndexEntries((prev) =>
-      prev.map((e) => (e.id === entryId ? { ...e, date } : e))
+      prev.map((e) => (e.id === entryId ? { ...e, date } : e)),
     );
   }, []);
 
   const handleDisputedChange = useCallback(
     (entryId: string, disputed: boolean) => {
       setIndexEntries((prev) =>
-        prev.map((e) => (e.id === entryId ? { ...e, disputed } : e))
+        prev.map((e) => (e.id === entryId ? { ...e, disputed } : e)),
       );
     },
-    []
+    [],
   );
 
   const handleTiptapContentChange = useCallback(
@@ -416,12 +416,12 @@ export function useMasterIndex() {
         const updated = prev.map((e) =>
           e.id === entryId
             ? { ...e, tiptapContent: content, generatedPageCount: pageCount }
-            : e
+            : e,
         );
         return recalculatePageRanges(updated);
       });
     },
-    []
+    [],
   );
 
   const clearEntries = useCallback(() => {
