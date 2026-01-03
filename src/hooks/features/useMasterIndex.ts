@@ -296,9 +296,41 @@ export function useMasterIndex() {
 
   const handleInsertCoverPage = useCallback(
     async (activeCaseId: string) => {
+      // Guard: Prevent adding more than one cover page
+      const existingCoverPage = indexEntries.find(
+        (e) => e.rowType === "cover-page",
+      );
+      if (existingCoverPage) {
+        toast.info("A cover page already exists in this bundle");
+        return null;
+      }
+
+      // Singapore Supreme Court cover page template (ePD 2021 compliant)
+      const sgCoverPageContent = `<p style="text-align: center;"><strong>IN THE GENERAL DIVISION OF THE HIGH COURT<br>OF THE REPUBLIC OF SINGAPORE</strong></p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;"><strong>Suit No. HC/S _____/20__</strong></p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;">Between</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;"><strong>[PLAINTIFF NAME]</strong></p>
+<p style="text-align: center;">... Plaintiff</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;">And</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;"><strong>[DEFENDANT NAME]</strong></p>
+<p style="text-align: center;">... Defendant</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;"><strong>_______________________</strong></p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;"><strong>BUNDLE OF DOCUMENTS</strong></p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;"><strong>_______________________</strong></p>`;
+
       const configJson = JSON.stringify({
         template: "cover-page",
         description: "Cover Page",
+        tiptapContent: sgCoverPageContent,
         generatedPageCount: 1,
       });
 
@@ -319,6 +351,7 @@ export function useMasterIndex() {
         id: dbEntry.id,
         rowType: "cover-page",
         description: "Cover Page",
+        tiptapContent: sgCoverPageContent,
         generatedPageCount: 1,
         pageStart: 1,
         pageEnd: 1,
@@ -332,11 +365,20 @@ export function useMasterIndex() {
       toast.success("Added cover page");
       return newCoverPage;
     },
-    [createEntry],
+    [indexEntries, createEntry],
   );
 
   const handleInsertDivider = useCallback(
     async (activeCaseId: string) => {
+      // Guard: Prevent adding divider if last entry is already a divider
+      if (indexEntries.length > 0) {
+        const lastEntry = indexEntries[indexEntries.length - 1];
+        if (lastEntry.rowType === "divider") {
+          toast.info("A blank page already exists at the end of the index");
+          return null;
+        }
+      }
+
       const dividerCount = indexEntries.filter(
         (e) => e.rowType === "divider",
       ).length;

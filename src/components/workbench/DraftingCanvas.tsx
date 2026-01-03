@@ -5,32 +5,32 @@
  * Detects page breaks and reports page count changes for pagination ripple.
  */
 
-import { useCallback } from "react";
-import { useEditor, EditorContent, Editor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
-import Placeholder from "@tiptap/extension-placeholder";
+import Placeholder from '@tiptap/extension-placeholder';
+import Underline from '@tiptap/extension-underline';
+import { Editor, EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 import {
-  FileEdit,
   Bold,
-  Italic,
-  Underline as UnderlineIcon,
+  FileEdit,
   Heading1,
   Heading2,
-} from "lucide-react";
+  Italic,
+  Underline as UnderlineIcon,
+} from 'lucide-react';
+import { useCallback } from 'react';
 
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { A4Page, A4PageContainer } from "./A4Page";
-import { usePageBreakDetection } from "./hooks/usePageBreakDetection";
-import { A4_DIMENSIONS } from "@/types/canvas";
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { A4_DIMENSIONS } from '@/types/canvas';
+import { A4Page, A4PageContainer } from './A4Page';
+import { usePageBreakDetection } from './hooks/usePageBreakDetection';
 
 interface DraftingCanvasProps {
   /** Serialized TipTap content (HTML string) */
   content?: string;
   /** Entry type for placeholder text */
-  entryType: "cover-page" | "divider";
+  entryType: 'cover-page' | 'divider';
   /** Callback when content changes */
   onContentChange?: (content: string, pageCount: number) => void;
   /** Additional CSS classes */
@@ -40,9 +40,9 @@ interface DraftingCanvasProps {
 }
 
 const placeholderText = {
-  "cover-page":
-    "Start typing your cover page content...\n\nTip: Include case number, parties, and document title.",
-  divider: "Section Title",
+  'cover-page':
+    'Start typing your cover page content...\n\nTip: Include case number, parties, and document title.',
+  divider: 'Section Title',
 };
 
 /**
@@ -64,8 +64,8 @@ function Toolbar({ editor }: ToolbarProps) {
         size="sm"
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={cn(
-          "h-8 w-8 p-0",
-          editor.isActive("bold") && "bg-accent text-accent-foreground",
+          'h-8 w-8 p-0',
+          editor.isActive('bold') && 'bg-accent text-accent-foreground'
         )}
         title="Bold (Ctrl+B)"
       >
@@ -76,8 +76,8 @@ function Toolbar({ editor }: ToolbarProps) {
         size="sm"
         onClick={() => editor.chain().focus().toggleItalic().run()}
         className={cn(
-          "h-8 w-8 p-0",
-          editor.isActive("italic") && "bg-accent text-accent-foreground",
+          'h-8 w-8 p-0',
+          editor.isActive('italic') && 'bg-accent text-accent-foreground'
         )}
         title="Italic (Ctrl+I)"
       >
@@ -88,8 +88,8 @@ function Toolbar({ editor }: ToolbarProps) {
         size="sm"
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         className={cn(
-          "h-8 w-8 p-0",
-          editor.isActive("underline") && "bg-accent text-accent-foreground",
+          'h-8 w-8 p-0',
+          editor.isActive('underline') && 'bg-accent text-accent-foreground'
         )}
         title="Underline (Ctrl+U)"
       >
@@ -103,9 +103,9 @@ function Toolbar({ editor }: ToolbarProps) {
         size="sm"
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         className={cn(
-          "h-8 w-8 p-0",
-          editor.isActive("heading", { level: 1 }) &&
-            "bg-accent text-accent-foreground",
+          'h-8 w-8 p-0',
+          editor.isActive('heading', { level: 1 }) &&
+            'bg-accent text-accent-foreground'
         )}
         title="Heading 1"
       >
@@ -116,9 +116,9 @@ function Toolbar({ editor }: ToolbarProps) {
         size="sm"
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         className={cn(
-          "h-8 w-8 p-0",
-          editor.isActive("heading", { level: 2 }) &&
-            "bg-accent text-accent-foreground",
+          'h-8 w-8 p-0',
+          editor.isActive('heading', { level: 2 }) &&
+            'bg-accent text-accent-foreground'
         )}
         title="Heading 2"
       >
@@ -129,7 +129,7 @@ function Toolbar({ editor }: ToolbarProps) {
 }
 
 export function DraftingCanvas({
-  content = "",
+  content = '',
   entryType,
   onContentChange,
   className,
@@ -151,11 +151,11 @@ export function DraftingCanvas({
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-sm max-w-none focus:outline-none",
+          'prose prose-sm max-w-none focus:outline-none',
           // A4 page styling
-          "p-8",
+          'p-8',
           // Minimum height to fill the A4 page
-          "min-h-full",
+          'min-h-full'
         ),
         style: `min-height: ${A4_DIMENSIONS.HEIGHT_PX - 96}px`,
       },
@@ -175,15 +175,15 @@ export function DraftingCanvas({
           onContentChange?.(editor.getHTML(), newPageCount);
         }
       },
-      [editor, onContentChange],
+      [editor, onContentChange]
     ),
   });
 
   // Get display name for header
-  const displayName = entryType === "cover-page" ? "Cover Page" : "Blank Page";
+  const displayName = entryType === 'cover-page' ? 'Cover Page' : 'Blank Page';
 
   return (
-    <div className={cn("flex flex-col", className)}>
+    <div className={cn('flex flex-col', className)}>
       {/* Header - sticky below section header (matches EvidenceCanvas pattern) */}
       <div
         className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky"
@@ -191,9 +191,9 @@ export function DraftingCanvas({
       >
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <FileEdit className="h-4 w-4" />
-          <span>{displayName}</span>
+          <span className="text-xs">{displayName}</span>
           <span className="text-xs opacity-70">
-            - {pageCount} page{pageCount > 1 ? "s" : ""}
+            - {pageCount} page{pageCount > 1 ? 's' : ''}
           </span>
         </div>
       </div>
@@ -203,7 +203,7 @@ export function DraftingCanvas({
 
       {/* Editor Content - single A4 page that grows with content */}
       <A4PageContainer>
-        <A4Page>
+        <A4Page className="a4-editor">
           <EditorContent editor={editor} className="h-full" />
         </A4Page>
       </A4PageContainer>

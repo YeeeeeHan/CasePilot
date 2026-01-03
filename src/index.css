@@ -193,3 +193,26 @@
   height: 0;
   pointer-events: none;
 }
+
+/**
+ * A4-relative font scaling for TipTap editors in bundle preview.
+ * Uses Times New Roman (legal standard) and scales relative to page width.
+ * At 96 DPI, 12pt = 16px, which is appropriate for A4 at 794px width.
+ */
+.a4-editor .ProseMirror {
+  font-family: var(--font-serif);
+  font-size: calc(12px * var(--page-scale, 1));
+  line-height: 1.5;
+}
+
+.a4-editor .ProseMirror h1 {
+  font-size: calc(18px * var(--page-scale, 1));
+}
+
+.a4-editor .ProseMirror h2 {
+  font-size: calc(16px * var(--page-scale, 1));
+}
+
+.a4-editor .ProseMirror h3 {
+  font-size: calc(14px * var(--page-scale, 1));
+}

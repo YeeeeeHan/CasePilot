@@ -112,7 +112,8 @@ function DraggableRow({
       className={cn(
         "cursor-grab active:cursor-grabbing transition-opacity group relative",
         isSelected && "bg-accent",
-        isSectionBreak && "bg-muted/50 font-semibold",
+        isSectionBreak &&
+          "bg-muted/50 font-semibold sticky top-[41px] z-[5] shadow-sm",
         "data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 data-[dragging=true]:bg-background data-[dragging=true]:shadow-lg data-[dragging=true]:cursor-grabbing",
       )}
       style={{
