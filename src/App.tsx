@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { save } from "@tauri-apps/plugin-dialog";
-import { AppLayout } from "./components/layout/AppLayout";
+import { AppLayout, type SidebarView } from "./components/layout/AppLayout";
 import {
   RepositoryPanel,
   type RepositoryFile,
@@ -20,7 +20,6 @@ import {
   type InspectorFile,
   type ProjectCase,
   type SelectionSource,
-  type SidebarView,
 } from "./components/zones";
 import {
   useInvoke,
@@ -1070,8 +1069,6 @@ function App() {
             onSelectCase={handleSelectCase}
             onCreateCase={handleCreateCase}
             onDeleteCase={handleDeleteCase}
-            sidebarView={sidebarView}
-            onSidebarViewChange={setSidebarView}
           />
         }
         sidebar={
@@ -1141,6 +1138,8 @@ function App() {
           />
         }
         inspectorOpen={inspectorOpen}
+        sidebarView={sidebarView}
+        onSidebarViewChange={setSidebarView}
       />
       <Toaster />
     </>

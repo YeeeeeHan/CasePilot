@@ -3,7 +3,6 @@ export { BundlePreview } from "./BundlePreview";
 export {
   ProjectSwitcher,
   type ProjectCase,
-  type SidebarView,
 } from "./ProjectSwitcher";
 export {
   Inspector,

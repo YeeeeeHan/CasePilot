@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, GitBranch, Files } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -7,7 +7,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +24,6 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
-export type SidebarView = "project-tree" | "files";
-
 export interface ProjectCase {
   id: string;
   name: string;
@@ -39,10 +36,6 @@ interface ProjectSwitcherProps {
   onSelectCase?: (caseId: string) => void;
   onCreateCase?: () => void;
   onDeleteCase?: (caseId: string) => void;
-  /** Current sidebar view */
-  sidebarView?: SidebarView;
-  /** Callback when sidebar view changes */
-  onSidebarViewChange?: (view: SidebarView) => void;
 }
 
 function getInitials(name: string): string {
@@ -66,8 +59,6 @@ export function ProjectSwitcher({
   onSelectCase,
   onCreateCase,
   onDeleteCase,
-  sidebarView = "project-tree",
-  onSidebarViewChange,
 }: ProjectSwitcherProps) {
   const [caseToDelete, setCaseToDelete] = useState<ProjectCase | null>(null);
 
@@ -136,47 +127,6 @@ export function ProjectSwitcher({
             </TooltipTrigger>
             <TooltipContent side="right">
               <p>New Case</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        {/* View toggle icons */}
-        <div className="flex flex-col gap-1 pb-2 border-t border-border pt-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-9 w-9",
-                  sidebarView === "project-tree" &&
-                    "bg-accent text-accent-foreground"
-                )}
-                onClick={() => onSidebarViewChange?.("project-tree")}
-              >
-                <GitBranch className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Project Tree</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-9 w-9",
-                  sidebarView === "files" && "bg-accent text-accent-foreground"
-                )}
-                onClick={() => onSidebarViewChange?.("files")}
-              >
-                <Files className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Files</p>
             </TooltipContent>
           </Tooltip>
         </div>
