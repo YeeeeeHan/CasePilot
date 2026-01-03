@@ -23,6 +23,7 @@
 ### 1. Affidavit Export
 
 **Output:** Two files
+
 - `Affidavit_TanAhKow.docx` (narrative with exhibit references)
 - `Affidavit_TanAhKow_Exhibits.pdf` (compiled exhibits with dividers)
 
@@ -44,6 +45,7 @@ async fn export_affidavit(artifact_id: String) -> Result<ExportResult, String> {
 ```
 
 **Libraries:**
+
 - `docx-rs`: Rust crate for generating .docx files
 - `genpdf`: Lightweight HTML/text → PDF for divider pages
 - `lopdf`: PDF merging and page numbering
@@ -53,6 +55,7 @@ async fn export_affidavit(artifact_id: String) -> Result<ExportResult, String> {
 ### 2. Bundle Export
 
 **Output:** One massive PDF
+
 - `Bundle_Vol1.pdf` (pages 1-1000)
 - `Bundle_Vol2.pdf` (pages 1001-2000)
 - ...
@@ -85,6 +88,7 @@ async fn export_bundle(artifact_id: String) -> Result<Vec<PathBuf>, String> {
 > **Index Page # == PDF Footer Page # == PDF Metadata Page #**
 
 **Implementation:**
+
 - When stamping page numbers, update BOTH:
   1. The visual stamp (drawn on the page)
   2. The PDF metadata (via lopdf's page tree)
@@ -120,16 +124,17 @@ Show validation errors in a modal. User must fix before export proceeds.
 
 ### TipTap JSON → Word XML Mapping
 
-| TipTap Node       | Word Element                     | Notes                                |
-| ----------------- | -------------------------------- | ------------------------------------ |
-| `paragraph`       | `<w:p>`                          | Line spacing: 1.5                    |
-| `heading`         | `<w:p>` with `<w:pStyle>Heading` | Font size: 14pt (vs 12pt body)       |
-| `bold`            | `<w:r><w:b/>`                    | Standard inline formatting           |
-| `exhibit` (node)  | `<w:hyperlink>` or plain text    | Depends on user preference           |
-| `ordered_list`    | `<w:numPr>`                      | Legal-style numbering (1., 2., 3...) |
+| TipTap Node      | Word Element                     | Notes                                |
+| ---------------- | -------------------------------- | ------------------------------------ |
+| `paragraph`      | `<w:p>`                          | Line spacing: 1.5                    |
+| `heading`        | `<w:p>` with `<w:pStyle>Heading` | Font size: 14pt (vs 12pt body)       |
+| `bold`           | `<w:r><w:b/>`                    | Standard inline formatting           |
+| `exhibit` (node) | `<w:hyperlink>` or plain text    | Depends on user preference           |
+| `ordered_list`   | `<w:numPr>`                      | Legal-style numbering (1., 2., 3...) |
 
 **Key Decision:**
 Exhibit references can be exported as:
+
 1. **Plain text**: "Exhibit TAK-1" (safer, more portable)
 2. **Internal hyperlinks**: Clickable in Word (fancier, but can break)
 
@@ -142,11 +147,13 @@ Default to plain text. Make hyperlinks opt-in.
 ### Cover Page Generation
 
 **User Edits in UI:**
+
 - Party name
 - Case number
 - Document type ("Bundle of Documents" vs "Agreed Bundle")
 
 **Stored in artifact_entries:**
+
 ```json
 {
   "row_type": "component",
@@ -174,11 +181,11 @@ Frontend sends rendered HTML to Rust → `genpdf` converts to PDF page.
 
 **Format (ePD Compliant):**
 
-| No  | Date       | Description                     | Page |
-| --- | ---------- | ------------------------------- | ---- |
-| 1   | 14 Feb 24  | Invoice from Acme Corp          | 1-4  |
-| 2   | 18 Mar 24  | Email re: Delayed Payment       | 5    |
-| 3   | 01 Apr 24  | Notice of Breach                | 6-12 |
+| No  | Date      | Description               | Page |
+| --- | --------- | ------------------------- | ---- |
+| 1   | 14 Feb 24 | Invoice from Acme Corp    | 1-4  |
+| 2   | 18 Mar 24 | Email re: Delayed Payment | 5    |
+| 3   | 01 Apr 24 | Notice of Breach          | 6-12 |
 
 **Implementation:**
 
@@ -212,6 +219,7 @@ fn generate_toc(entries: &[ArtifactEntry]) -> Vec<TocRow> {
 ### Progress Indication
 
 For large bundles (64k pages like Jun Hao's case), show:
+
 - "Merging PDFs... (42 of 82 volumes)"
 - "Generating Table of Contents..."
 - "Stamping page numbers... (Page 15,234 of 64,000)"

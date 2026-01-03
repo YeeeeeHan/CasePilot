@@ -108,7 +108,7 @@ function App() {
   const linkedFileIds = new Set(
     indexEntries
       .filter((e) => e.rowType === "document" && e.fileId)
-      .map((e) => e.fileId)
+      .map((e) => e.fileId),
   );
 
   // Unified selection state (drives Inspector)
@@ -127,7 +127,9 @@ function App() {
   const getOrCreateDefaultBundle = useCallback(
     async (caseId: string): Promise<string | null> => {
       const artifacts = await listArtifacts(caseId);
-      const existingBundle = artifacts.find((a) => a.artifact_type === "bundle");
+      const existingBundle = artifacts.find(
+        (a) => a.artifact_type === "bundle",
+      );
       if (existingBundle) {
         return existingBundle.id;
       }
@@ -290,7 +292,14 @@ function App() {
         toast.error("Failed to delete case");
       }
     },
-    [activeCaseId, cases, deleteCase, listFiles, loadMasterIndex, getOrCreateDefaultBundle],
+    [
+      activeCaseId,
+      cases,
+      deleteCase,
+      listFiles,
+      loadMasterIndex,
+      getOrCreateDefaultBundle,
+    ],
   );
 
   // Handle case selection
@@ -352,7 +361,12 @@ function App() {
       const results = await Promise.all(
         filePaths.map(async (path) => {
           const name = path.split(/[\\/]/).pop() || path;
-          console.log("[App] Calling createFile for:", path, "with name:", name);
+          console.log(
+            "[App] Calling createFile for:",
+            path,
+            "with name:",
+            name,
+          );
           const result = await createFile(activeCaseId, path, name);
           console.log("[App] createFile result:", result);
           return result;
@@ -406,7 +420,7 @@ function App() {
         // Partial success
         toast.warning(
           `Added ${successfulFiles.length} file(s), ${errors.length} failed`,
-          { description: errors[0] }
+          { description: errors[0] },
         );
       } else if (successfulFiles.length > 0) {
         // All succeeded
@@ -593,7 +607,7 @@ function App() {
       }
       return null;
     },
-    [artifacts]
+    [artifacts],
   );
 
   // Handle deleting a repository file
@@ -605,23 +619,21 @@ function App() {
       // Check if file is referenced in any affidavit (delete protection)
       const referencingAffidavit = isFileReferencedInAffidavit(fileId);
       if (referencingAffidavit) {
-        toast.error(
-          `Cannot delete: Referenced in "${referencingAffidavit}"`,
-          {
-            description: "Remove the exhibit reference first, then delete the file.",
-          }
-        );
+        toast.error(`Cannot delete: Referenced in "${referencingAffidavit}"`, {
+          description:
+            "Remove the exhibit reference first, then delete the file.",
+        });
         return;
       }
 
       // If it's linked to the bundle, also remove those entries
       const linkedEntries = indexEntries.filter(
-        (e) => e.rowType === "document" && e.fileId === file.path
+        (e) => e.rowType === "document" && e.fileId === file.path,
       );
       if (linkedEntries.length > 0) {
         // Remove from index entries and recalculate
         const updatedEntries = indexEntries.filter(
-          (e) => !(e.rowType === "document" && e.fileId === file.path)
+          (e) => !(e.rowType === "document" && e.fileId === file.path),
         );
         const recalculated = recalculatePageRanges(updatedEntries);
         setIndexEntries(recalculated);
@@ -641,7 +653,13 @@ function App() {
         toast.error("Failed to delete file");
       }
     },
-    [repositoryFiles, indexEntries, deleteFile, deleteEntry, isFileReferencedInAffidavit],
+    [
+      repositoryFiles,
+      indexEntries,
+      deleteFile,
+      deleteEntry,
+      isFileReferencedInAffidavit,
+    ],
   );
 
   // Handle removing an entry from master index (demote back to repository)
@@ -846,7 +864,7 @@ function App() {
         activeCaseId,
         type,
         name,
-        contentJson
+        contentJson,
       );
 
       if (newArtifact) {
@@ -857,7 +875,7 @@ function App() {
         toast.error(`Failed to create ${type}`);
       }
     },
-    [activeCaseId, createArtifact]
+    [activeCaseId, createArtifact],
   );
 
   // Handle artifact deletion (from Project Tree)
@@ -884,7 +902,7 @@ function App() {
         toast.error("Failed to delete artifact");
       }
     },
-    [artifacts, activeBundleId, activeArtifactId, deleteArtifact]
+    [artifacts, activeBundleId, activeArtifactId, deleteArtifact],
   );
 
   // Handle affidavit content change (from AffidavitEditor)
@@ -907,11 +925,11 @@ function App() {
       const updated = await updateArtifact(artifactId, undefined, contentJson);
       if (updated) {
         setArtifacts((prev) =>
-          prev.map((a) => (a.id === artifactId ? updated : a))
+          prev.map((a) => (a.id === artifactId ? updated : a)),
         );
       }
     },
-    [artifacts, updateArtifact]
+    [artifacts, updateArtifact],
   );
 
   // Handle affidavit initials change (from AffidavitEditor)
@@ -934,12 +952,12 @@ function App() {
       const updated = await updateArtifact(artifactId, undefined, contentJson);
       if (updated) {
         setArtifacts((prev) =>
-          prev.map((a) => (a.id === artifactId ? updated : a))
+          prev.map((a) => (a.id === artifactId ? updated : a)),
         );
         toast.success(`Initials updated to "${initials}"`);
       }
     },
-    [artifacts, updateArtifact]
+    [artifacts, updateArtifact],
   );
 
   // Convert cases to ProjectCase format
@@ -996,15 +1014,13 @@ function App() {
   };
 
   // Convert repository files to RepositoryFile format (v2.0 API)
-  const repoFilesForPanel: RepositoryFile[] = repositoryFiles.map(
-    (file) => ({
-      id: file.id,
-      name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
-      filePath: file.path,
-      pageCount: file.page_count ?? undefined,
-      isLinked: linkedFileIds.has(file.path),
-    }),
-  );
+  const repoFilesForPanel: RepositoryFile[] = repositoryFiles.map((file) => ({
+    id: file.id,
+    name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
+    filePath: file.path,
+    pageCount: file.page_count ?? undefined,
+    isLinked: linkedFileIds.has(file.path),
+  }));
 
   // Convert repository files to AvailableFile format for AffidavitEditor
   const availableFilesForEditor = repositoryFiles.map((file) => ({

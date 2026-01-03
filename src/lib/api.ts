@@ -45,8 +45,7 @@ const cases = {
 // ============================================================================
 
 const files = {
-  list: (caseId: string): Promise<File[]> =>
-    invoke("list_files", { caseId }),
+  list: (caseId: string): Promise<File[]> => invoke("list_files", { caseId }),
 
   get: (id: string): Promise<File> => invoke("get_file", { id }),
 

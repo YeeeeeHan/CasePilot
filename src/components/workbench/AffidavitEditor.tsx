@@ -95,10 +95,13 @@ export function AffidavitEditor({
     content: getInitialContent(),
     editorProps: {
       attributes: {
-        class: "prose prose-sm max-w-none focus:outline-none min-h-[400px] px-4 py-3",
+        class:
+          "prose prose-sm max-w-none focus:outline-none min-h-[400px] px-4 py-3",
       },
       handleDrop: (_view, event) => {
-        const data = event.dataTransfer?.getData("application/x-casepilot-file");
+        const data = event.dataTransfer?.getData(
+          "application/x-casepilot-file",
+        );
         if (data) {
           event.preventDefault();
           try {
@@ -299,7 +302,7 @@ export function AffidavitEditor({
             onClick={() => setIsEditingInitials(true)}
             className={cn(
               "group flex items-center gap-1 px-2 py-0.5 rounded text-xs",
-              "bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
             )}
           >
             <span className="font-mono font-medium">{initials || "---"}</span>
@@ -316,7 +319,7 @@ export function AffidavitEditor({
         ref={editorContainerRef}
         className={cn(
           "flex-1 overflow-auto relative",
-          isDragOver && "ring-2 ring-primary ring-inset bg-primary/5"
+          isDragOver && "ring-2 ring-primary ring-inset bg-primary/5",
         )}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}

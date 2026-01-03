@@ -98,19 +98,34 @@ function Node({ node, style, dragHandle, onDelete }: NodeProps) {
     // File double-click is handled via tree's onActivate
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    if (file && !isFolder) {
+      // Set custom MIME type with file data for cross-component drag-drop
+      const fileData = JSON.stringify({
+        id: file.id,
+        name: file.name,
+        path: file.filePath,
+        pageCount: file.pageCount,
+      });
+      e.dataTransfer.setData("application/x-casepilot-file", fileData);
+      e.dataTransfer.effectAllowed = "copy";
+    }
+  };
+
   return (
     <div
       ref={dragHandle}
       style={style}
+      draggable={!isFolder}
       className={cn(
         "group flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer select-none",
-        isSelected
-          ? "bg-accent text-accent-foreground"
-          : "hover:bg-muted/50",
-        file?.isLinked && "opacity-50"
+        isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50",
+        file?.isLinked && "opacity-50",
+        !isFolder && "cursor-grab active:cursor-grabbing",
       )}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onDragStart={handleDragStart}
     >
       {/* Expand/collapse for folders */}
       {isFolder ? (

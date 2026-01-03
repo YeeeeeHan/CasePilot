@@ -21,7 +21,7 @@ export function MetadataPane({ selectedFile, className }: MetadataPaneProps) {
       <div
         className={cn(
           "px-3 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground",
-          className
+          className,
         )}
       >
         No file selected
@@ -33,7 +33,7 @@ export function MetadataPane({ selectedFile, className }: MetadataPaneProps) {
     <div
       className={cn(
         "px-3 py-2 border-t border-border bg-muted/30 space-y-1",
-        className
+        className,
       )}
     >
       {/* File name */}

@@ -12,13 +12,7 @@
  */
 
 import { create } from "zustand";
-import type {
-  Case,
-  File,
-  Artifact,
-  ArtifactEntry,
-  Selection,
-} from "../types";
+import type { Case, File, Artifact, ArtifactEntry, Selection } from "../types";
 
 // ============================================================================
 // STATE INTERFACE
@@ -188,7 +182,7 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   addEntry: (entry) =>
     set((state) => ({
       entries: [...state.entries, entry].sort(
-        (a, b) => a.sequence_order - b.sequence_order
+        (a, b) => a.sequence_order - b.sequence_order,
       ),
     })),
 
@@ -265,12 +259,14 @@ export const selectArtifactsByType =
   (type: "affidavit" | "bundle") =>
   (state: ProjectState): Artifact[] =>
     Array.from(state.artifacts.values()).filter(
-      (a) => a.artifact_type === type
+      (a) => a.artifact_type === type,
     );
 
 /** Get the active artifact */
 export const selectActiveArtifact = (state: ProjectState): Artifact | null =>
-  state.activeArtifactId ? state.artifacts.get(state.activeArtifactId) ?? null : null;
+  state.activeArtifactId
+    ? (state.artifacts.get(state.activeArtifactId) ?? null)
+    : null;
 
 /** Get a file by ID */
 export const selectFileById =

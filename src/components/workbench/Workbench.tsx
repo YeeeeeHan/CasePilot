@@ -49,7 +49,7 @@ interface WorkbenchProps {
   onContentChange?: (
     entryId: string,
     content: string,
-    pageCount: number
+    pageCount: number,
   ) => void;
   /** Callback when affidavit content changes */
   onAffidavitContentChange?: (artifactId: string, content: string) => void;
@@ -71,7 +71,7 @@ export function Workbench({
 }: WorkbenchProps) {
   // Track focused exhibit for cursor-following preview
   const [focusedExhibitPath, setFocusedExhibitPath] = useState<string | null>(
-    null
+    null,
   );
 
   // Affidavit Mode

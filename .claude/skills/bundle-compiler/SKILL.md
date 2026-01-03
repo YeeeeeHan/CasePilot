@@ -64,15 +64,15 @@ interface BundleDocument {
 }
 
 interface TOCStyle {
-  format: 'tab' | 'exhibit' | 'numbered';
+  format: "tab" | "exhibit" | "numbered";
   prefix?: string; // For initials style: "JW-"
   includePageCount: boolean;
   includeDescription: boolean;
 }
 
 interface PaginationStyle {
-  format: 'Page X of Y' | 'Page X' | 'X';
-  position: 'top-right' | 'bottom-center' | 'top-center';
+  format: "Page X of Y" | "Page X" | "X";
+  position: "top-right" | "bottom-center" | "top-center";
   font: string;
   fontSize: number;
 }
@@ -137,7 +137,7 @@ async function compileBundle(bundle: Bundle): Promise<CompileResult> {
       doc.documentId,
       entry.startPage,
       totalPages,
-      bundle.paginationStyle
+      bundle.paginationStyle,
     );
     stampedDocs.push(stamped);
   }
@@ -184,7 +184,7 @@ interface TOCGeneratorOptions {
 
 async function generateTOCPdf(
   entries: TOCEntry[],
-  style: TOCStyle
+  style: TOCStyle,
 ): Promise<Buffer> {
   // Generate a PDF that looks like:
   //
@@ -207,11 +207,11 @@ async function generateTOCPdf(
 
 function formatLabel(label: string, style: TOCStyle): string {
   switch (style.format) {
-    case 'tab':
+    case "tab":
       return `Tab ${label}`;
-    case 'exhibit':
+    case "exhibit":
       return `Exhibit ${label}`;
-    case 'numbered':
+    case "numbered":
       return `${label}.`;
   }
 }
@@ -226,7 +226,7 @@ interface PaginationInjector {
     pdfBuffer: Buffer,
     startPage: number,
     totalPages: number,
-    style: PaginationStyle
+    style: PaginationStyle,
   ): Promise<Buffer>;
 }
 
@@ -237,7 +237,7 @@ async function injectPagination(
   documentId: string,
   startPage: number,
   totalPages: number,
-  style: PaginationStyle
+  style: PaginationStyle,
 ): Promise<Buffer> {
   const pdf = await loadDocument(documentId);
 
@@ -258,14 +258,14 @@ async function injectPagination(
 function formatStamp(
   page: number,
   total: number,
-  style: PaginationStyle
+  style: PaginationStyle,
 ): string {
   switch (style.format) {
-    case 'Page X of Y':
+    case "Page X of Y":
       return `Page ${page} of ${total}`;
-    case 'Page X':
+    case "Page X":
       return `Page ${page}`;
-    case 'X':
+    case "X":
       return `${page}`;
   }
 }
@@ -277,31 +277,31 @@ The "nightmare scenario": a document needs to be inserted after the bundle is as
 
 ```typescript
 interface LateInsertOptions {
-  mode: 'repaginate' | 'subnumber';
+  mode: "repaginate" | "subnumber";
   insertIndex: number;
   newDocument: BundleDocument;
 }
 
 async function handleLateInsert(
   bundle: Bundle,
-  options: LateInsertOptions
+  options: LateInsertOptions,
 ): Promise<CompileResult> {
   const { mode, insertIndex, newDocument } = options;
 
-  if (mode === 'repaginate') {
+  if (mode === "repaginate") {
     // Full re-pagination: all pages after insert point renumber
     // Tab 3 was page 15, now it's page 25
     bundle.documents.splice(insertIndex, 0, newDocument);
     return await compileBundle(bundle);
   }
 
-  if (mode === 'subnumber') {
+  if (mode === "subnumber") {
     // Sub-numbering: preserve existing pagination
     // Insert as pages 15A, 15B, 15C
     // This requires special handling in TOC
     newDocument.label = generateSubLabel(
       bundle.documents[insertIndex - 1].label,
-      newDocument.pageCount
+      newDocument.pageCount,
     );
     bundle.documents.splice(insertIndex, 0, newDocument);
     return await compileBundle(bundle);
@@ -330,7 +330,7 @@ interface PaginationValidation {
 
 async function validatePagination(
   pdf: Buffer,
-  expectedTOC: TOCEntry[]
+  expectedTOC: TOCEntry[],
 ): Promise<PaginationValidation> {
   const errors: PaginationError[] = [];
   const warnings: PaginationWarning[] = [];
@@ -340,7 +340,7 @@ async function validatePagination(
     const actualPage = findDocumentStartPage(pdf, entry.label);
     if (actualPage !== entry.startPage) {
       errors.push({
-        type: 'toc_page_mismatch',
+        type: "toc_page_mismatch",
         message: `TOC shows "${entry.label}" on page ${entry.startPage}, but actual position is page ${actualPage}`,
         expected: entry.startPage,
         actual: actualPage,
@@ -353,7 +353,7 @@ async function validatePagination(
   for (let i = 1; i < pageNumbers.length; i++) {
     if (pageNumbers[i] !== pageNumbers[i - 1] + 1) {
       errors.push({
-        type: 'pagination_gap',
+        type: "pagination_gap",
         message: `Pagination gap: page ${pageNumbers[i - 1]} jumps to ${
           pageNumbers[i]
         }`,
@@ -364,9 +364,9 @@ async function validatePagination(
   // 3. Check stamp positions
   const stamps = extractPaginationStamps(pdf);
   for (const stamp of stamps) {
-    if (stamp.position !== 'top-right') {
+    if (stamp.position !== "top-right") {
       warnings.push({
-        type: 'stamp_position_wrong',
+        type: "stamp_position_wrong",
         message: `Page ${stamp.page}: stamp is ${stamp.position}, ePD requires top-right`,
       });
     }
@@ -384,27 +384,27 @@ async function validatePagination(
 async function onCompileClick(bundleId: string) {
   // 1. Pre-flight check
   const preflightResult = await invoke<ValidationResult>(
-    'validate_bundle_preflight',
-    { bundleId }
+    "validate_bundle_preflight",
+    { bundleId },
   );
 
   if (preflightResult.errors.length > 0) {
-    showErrorModal('Cannot compile', preflightResult.errors);
+    showErrorModal("Cannot compile", preflightResult.errors);
     return;
   }
 
   // 2. Show progress
-  showProgressModal('Compiling bundle...');
+  showProgressModal("Compiling bundle...");
 
   // 3. Compile
-  const result = await invoke<CompileResult>('compile_bundle', { bundleId });
+  const result = await invoke<CompileResult>("compile_bundle", { bundleId });
 
   // 4. Handle result
   if (result.success) {
     showSuccessToast(`Bundle compiled: ${result.totalPages} pages, 0 errors`);
     openPdfPreview(result.pdfPath);
   } else {
-    showErrorModal('Compilation failed', result.errors);
+    showErrorModal("Compilation failed", result.errors);
   }
 }
 ```
@@ -416,23 +416,23 @@ async function onCompileClick(bundleId: string) {
 async function onDocumentReorder(
   bundleId: string,
   documentId: string,
-  newIndex: number
+  newIndex: number,
 ) {
   // 1. Update order in database
-  await invoke('reorder_bundle_document', {
+  await invoke("reorder_bundle_document", {
     bundleId,
     documentId,
     newIndex,
   });
 
   // 2. Recalculate TOC preview (instant feedback)
-  const preview = await invoke<TOCEntry[]>('preview_toc', { bundleId });
+  const preview = await invoke<TOCEntry[]>("preview_toc", { bundleId });
 
   // 3. Update UI
   updateTOCPreview(preview);
 
   // 4. Show toast
-  showInfoToast('TOC updated. Recompile to apply changes.');
+  showInfoToast("TOC updated. Recompile to apply changes.");
 }
 ```
 
@@ -515,13 +515,13 @@ Key requirements encoded:
 
 ```typescript
 const compileErrors = {
-  DOCUMENT_NOT_FOUND: 'Document not found: {documentId}',
-  DOCUMENT_CORRUPTED: 'Document is corrupted: {documentId}',
+  DOCUMENT_NOT_FOUND: "Document not found: {documentId}",
+  DOCUMENT_CORRUPTED: "Document is corrupted: {documentId}",
   TOC_PAGE_MISMATCH:
     'TOC shows "{label}" on page {expected}, but actual position is page {actual}',
-  PAGINATION_GAP: 'Pagination gap: page {prev} jumps to {next}',
-  STAMP_INJECTION_FAILED: 'Failed to inject pagination stamp on page {page}',
-  MERGE_FAILED: 'Failed to merge PDFs: {reason}',
-  VALIDATION_FAILED: 'Bundle validation failed: {count} error(s)',
+  PAGINATION_GAP: "Pagination gap: page {prev} jumps to {next}",
+  STAMP_INJECTION_FAILED: "Failed to inject pagination stamp on page {page}",
+  MERGE_FAILED: "Failed to merge PDFs: {reason}",
+  VALIDATION_FAILED: "Bundle validation failed: {count} error(s)",
 };
 ```

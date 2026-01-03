@@ -149,7 +149,7 @@ export function RepositoryPanel({
                             });
                             e.dataTransfer.setData(
                               "application/x-casepilot-file",
-                              fileData
+                              fileData,
                             );
                             e.dataTransfer.effectAllowed = "copy";
                           }}
