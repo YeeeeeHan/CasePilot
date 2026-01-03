@@ -49,10 +49,10 @@ export function PreviewPane({
 
     const updateDimensions = () => {
       const containerWidth = container.offsetWidth;
-      const availableWidth = containerWidth - 24;
-      const scale = availableWidth / A4_DIMENSIONS.WIDTH_PX;
+      // Use full container width (no padding subtraction) to maximize document space
+      const scale = containerWidth / A4_DIMENSIONS.WIDTH_PX;
 
-      container.style.setProperty("--page-width", `${availableWidth}px`);
+      container.style.setProperty("--page-width", `${containerWidth}px`);
       container.style.setProperty(
         "--page-height",
         `${A4_DIMENSIONS.HEIGHT_PX * scale}px`,
@@ -106,10 +106,7 @@ export function PreviewPane({
   return (
     <div
       ref={containerRef}
-      className={cn(
-        "h-full flex flex-col bg-muted/20 overflow-hidden",
-        className,
-      )}
+      className={cn("h-full flex flex-col bg-muted/20", className)}
     >
       <ScrollArea className="flex-1" ref={scrollRef}>
         {entries.map((entry) => (

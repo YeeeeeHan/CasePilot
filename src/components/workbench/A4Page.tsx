@@ -28,8 +28,8 @@ export const A4Page = forwardRef<HTMLDivElement, A4PageProps>(
       <div
         ref={ref}
         className={cn(
-          // A4 page styling - overflow-hidden prevents content from escaping
-          "relative bg-white shadow-md mx-auto overflow-hidden",
+          // A4 page styling - overflow visible to allow content to flow naturally
+          "relative bg-white shadow-md mx-auto",
           className,
         )}
         style={{
