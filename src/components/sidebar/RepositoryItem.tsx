@@ -2,18 +2,34 @@
  * RepositoryItem Component
  *
  * Individual file row in the Repository panel.
- * Handles drag-start logic and visual states.
+ * VS Code-style: compact, context menu actions, dynamic icons.
  */
 
-import { memo } from "react";
-import { Check, FileText, X } from "lucide-react";
+import { memo, useCallback, useRef } from "react";
+import {
+  Check,
+  FileText,
+  FileImage,
+  FileCode,
+  File,
+  FileSpreadsheet,
+  Trash2,
+  Pencil,
+  FolderPlus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 export interface RepositoryFile {
   id: string;
@@ -26,62 +42,146 @@ export interface RepositoryFile {
 interface RepositoryItemProps {
   file: RepositoryFile;
   isSelected: boolean;
+  depth?: number;
   onSelect?: (fileId: string) => void;
   onDoubleClick?: (fileId: string) => void;
   onDelete?: (fileId: string) => void;
+  onRename?: (fileId: string, newName: string) => void;
+  onCreateFolder?: (parentId: string | null) => void;
+}
+
+// Get file extension from filename
+function getFileExtension(filename: string): string {
+  const parts = filename.split(".");
+  return parts.length > 1 ? parts.pop()?.toLowerCase() || "" : "";
+}
+
+// Get appropriate icon based on file extension
+function getFileIcon(filename: string) {
+  const ext = getFileExtension(filename);
+
+  switch (ext) {
+    case "pdf":
+      return <FileText className="h-3.5 w-3.5 shrink-0 text-red-500" />;
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "gif":
+    case "webp":
+    case "svg":
+    case "bmp":
+      return <FileImage className="h-3.5 w-3.5 shrink-0 text-purple-500" />;
+    case "doc":
+    case "docx":
+      return <FileText className="h-3.5 w-3.5 shrink-0 text-blue-500" />;
+    case "xls":
+    case "xlsx":
+    case "csv":
+      return (
+        <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-green-500" />
+      );
+    case "json":
+    case "xml":
+    case "html":
+    case "js":
+    case "ts":
+    case "tsx":
+    case "jsx":
+      return <FileCode className="h-3.5 w-3.5 shrink-0 text-yellow-500" />;
+    default:
+      return <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+  }
+}
+
+// Create a transparent 1x1 pixel image for drag ghost
+function createTransparentDragImage(): HTMLImageElement {
+  const img = new Image();
+  img.src =
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  return img;
 }
 
 export const RepositoryItem = memo(function RepositoryItem({
   file,
   isSelected,
+  depth = 0,
   onSelect,
   onDoubleClick,
   onDelete,
+  onRename,
+  onCreateFolder,
 }: RepositoryItemProps) {
-  const handleDragStart = (e: React.DragEvent) => {
-    const fileData = JSON.stringify({
-      id: file.id,
-      name: file.name,
-      path: file.filePath,
-      pageCount: file.pageCount,
-    });
-    e.dataTransfer.setData("application/x-casepilot-file", fileData);
-    e.dataTransfer.effectAllowed = "copy";
-  };
+  const dragImageRef = useRef<HTMLImageElement | null>(null);
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      // Set custom MIME type with file data
+      const fileData = JSON.stringify({
+        id: file.id,
+        name: file.name,
+        path: file.filePath,
+        pageCount: file.pageCount,
+      });
+      e.dataTransfer.setData("application/x-casepilot-file", fileData);
+      e.dataTransfer.effectAllowed = "copy";
+
+      // Use transparent 1x1 pixel to hide default drag ghost
+      if (!dragImageRef.current) {
+        dragImageRef.current = createTransparentDragImage();
+      }
+      e.dataTransfer.setDragImage(dragImageRef.current, 0, 0);
+    },
+    [file],
+  );
+
+  const handleDelete = useCallback(() => {
+    onDelete?.(file.id);
+  }, [file.id, onDelete]);
+
+  const handleRename = useCallback(() => {
+    // TODO: Implement inline rename or dialog
+    const newName = prompt("Rename file:", file.name);
+    if (newName && newName !== file.name) {
+      onRename?.(file.id, newName);
+    }
+  }, [file.id, file.name, onRename]);
+
+  const handleCreateFolder = useCallback(() => {
+    onCreateFolder?.(null);
+  }, [onCreateFolder]);
 
   return (
-    <div className="group relative">
+    <ContextMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            draggable
-            onClick={() => onSelect?.(file.id)}
-            onDoubleClick={() => {
-              if (!file.isLinked) {
-                onDoubleClick?.(file.id);
-              }
-            }}
-            onDragStart={handleDragStart}
-            className={cn(
-              "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors pr-7 cursor-grab active:cursor-grabbing",
-              isSelected
-                ? "bg-accent text-accent-foreground"
-                : "hover:bg-muted",
-              file.isLinked && "opacity-50",
-            )}
-          >
-            {file.isLinked ? (
-              <Check className="h-3 w-3 shrink-0 text-green-500" />
-            ) : (
-              <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
-            )}
-            <span className="truncate flex-1">{file.name}</span>
-            {file.pageCount && (
-              <span className="text-muted-foreground shrink-0">
-                {file.pageCount}p
-              </span>
-            )}
-          </button>
+          <ContextMenuTrigger asChild>
+            <button
+              draggable
+              onClick={() => onSelect?.(file.id)}
+              onDoubleClick={() => {
+                if (!file.isLinked) {
+                  onDoubleClick?.(file.id);
+                }
+              }}
+              onDragStart={handleDragStart}
+              className={cn(
+                "w-full flex items-center gap-1.5 py-0.5 pr-2 text-left text-xs transition-colors cursor-grab active:cursor-grabbing",
+                isSelected
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-muted/80",
+                file.isLinked && "opacity-50",
+              )}
+              style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            >
+              {/* Linked indicator or file icon */}
+              {file.isLinked ? (
+                <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+              ) : (
+                getFileIcon(file.name)
+              )}
+              <span className="truncate flex-1">{file.name}</span>
+            </button>
+          </ContextMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="right" className="text-xs">
           <p className="font-medium">{file.name}</p>
@@ -96,19 +196,21 @@ export const RepositoryItem = memo(function RepositoryItem({
         </TooltipContent>
       </Tooltip>
 
-      {/* Delete button on hover */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete?.(file.id);
-        }}
-      >
-        <X className="h-3 w-3" />
-        <span className="sr-only">Delete file</span>
-      </Button>
-    </div>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={handleRename}>
+          <Pencil className="mr-2" />
+          Rename
+        </ContextMenuItem>
+        <ContextMenuItem onClick={handleCreateFolder}>
+          <FolderPlus className="mr-2" />
+          New Folder
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={handleDelete} variant="destructive">
+          <Trash2 className="mr-2" />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 });

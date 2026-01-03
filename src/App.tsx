@@ -140,6 +140,46 @@ function App() {
     [caseManager.activeCaseId, fileRepository],
   );
 
+  // Handle file rename (placeholder - future implementation)
+  const handleFileRename = useCallback(
+    async (fileId: string, newName: string) => {
+      // TODO: Implement file rename via Tauri command
+      toast.info(`Rename "${newName}" - Coming soon!`);
+      console.log("Rename file:", fileId, "to", newName);
+    },
+    [],
+  );
+
+  // Handle create folder
+  const handleCreateFolder = useCallback(
+    (parentId: string | null) => {
+      const folderName = prompt("Enter folder name:");
+      if (!folderName?.trim()) return;
+
+      const folder = fileRepository.createFolder(folderName.trim(), parentId);
+      toast.success(`Created folder "${folder.name}"`);
+    },
+    [fileRepository],
+  );
+
+  // Handle delete folder
+  const handleDeleteFolder = useCallback(
+    (folderId: string) => {
+      fileRepository.deleteFolder(folderId);
+      toast.success("Folder deleted");
+    },
+    [fileRepository],
+  );
+
+  // Handle rename folder
+  const handleRenameFolder = useCallback(
+    (folderId: string, newName: string) => {
+      fileRepository.renameFolder(folderId, newName);
+      toast.success(`Folder renamed to "${newName}"`);
+    },
+    [fileRepository],
+  );
+
   // Handle file deletion with linked entry cleanup
   const handleDeleteRepositoryFile = useCallback(
     async (fileId: string) => {
@@ -587,12 +627,18 @@ function App() {
         sidebar={
           <RepositoryPanel
             files={repoFilesForPanel}
+            folders={fileRepository.folders}
+            fileFolderAssignments={fileRepository.fileFolderAssignments}
             expanded={fileRepository.repositoryExpanded}
             onToggle={fileRepository.setRepositoryExpanded}
             onFileSelect={handleSelectRepositoryFile}
             onFileDelete={handleDeleteRepositoryFile}
             onFileDrop={handleFileDrop}
             onFileDoubleClick={handleFileDoubleClick}
+            onFileRename={handleFileRename}
+            onCreateFolder={handleCreateFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onRenameFolder={handleRenameFolder}
             selectedFileId={
               selectionSource === "repository" ? selectedFileId : null
             }
