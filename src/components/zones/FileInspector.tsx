@@ -2,13 +2,20 @@
  * FileInspector Component
  *
  * Inspector panel content for repository file selection.
+ * Compact, VS Code-like density with PDF thumbnail preview.
  */
 
-import { Check } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { Check, FileText } from "lucide-react";
+import { useState } from "react";
+import { Document, Page } from "react-pdf";
+
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import type { WorkbenchMode } from "@/types/domain";
+
+import "@/lib/pdfWorker";
 
 export interface InspectorFile {
   id: string;
@@ -32,17 +39,45 @@ export function FileInspector({
   const isAffidavit = mode === "affidavit";
   const addButtonLabel = isAffidavit ? "Link Exhibit" : "Add to Bundle";
   const linkedStatusLabel = isAffidavit ? "Linked" : "In Bundle";
+
+  const [thumbnailError, setThumbnailError] = useState(false);
+
+  // Get PDF URL for thumbnail
+  const pdfUrl = file.filePath ? convertFileSrc(file.filePath) : null;
+
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col p-4 space-y-4">
+      <div className="flex flex-col p-2 space-y-2">
+        {/* PDF Thumbnail Preview */}
+        {pdfUrl && !thumbnailError && (
+          <div className="rounded border border-border overflow-hidden bg-muted/30">
+            <Document
+              file={pdfUrl}
+              onLoadError={() => setThumbnailError(true)}
+              loading={
+                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                  <FileText className="h-8 w-8 opacity-30" />
+                </div>
+              }
+            >
+              <Page
+                pageNumber={1}
+                width={200}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
+            </Document>
+          </div>
+        )}
+
         {/* File Info */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <div className="space-y-1.5">
+          <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             File Info
           </h3>
 
-          <div className="space-y-2 text-sm">
-            <p>
+          <div className="space-y-1 text-[11px]">
+            <p className="truncate" title={file.name}>
               <span className="font-medium text-muted-foreground">Name:</span>{" "}
               {file.name}
             </p>
@@ -54,11 +89,11 @@ export function FileInspector({
                 {file.pageCount}
               </p>
             )}
-            <p className="flex items-center gap-1.5">
+            <p className="flex items-center gap-1">
               <span className="font-medium text-muted-foreground">Status:</span>
               {file.isLinked ? (
-                <span className="flex items-center gap-1 text-green-600">
-                  <Check className="h-3.5 w-3.5" /> {linkedStatusLabel}
+                <span className="flex items-center gap-0.5 text-green-600">
+                  <Check className="h-3 w-3" /> {linkedStatusLabel}
                 </span>
               ) : (
                 <span className="text-muted-foreground">Available</span>
@@ -67,19 +102,21 @@ export function FileInspector({
           </div>
         </div>
 
-        <Separator />
+        <Separator className="my-1" />
 
         {/* Actions */}
-        <div className="space-y-2">
-          {!file.isLinked && (
-            <Button className="w-full" onClick={() => onAddToBundle?.(file.id)}>
-              {addButtonLabel}
-            </Button>
-          )}
-        </div>
+        {!file.isLinked && (
+          <Button
+            size="sm"
+            className="w-full h-6 text-xs"
+            onClick={() => onAddToBundle?.(file.id)}
+          >
+            {addButtonLabel}
+          </Button>
+        )}
 
         {/* Path Footer */}
-        <div className="mt-auto pt-4 text-xs text-muted-foreground">
+        <div className="pt-1 text-[10px] text-muted-foreground">
           <p className="truncate" title={file.filePath}>
             <span className="font-medium">Path:</span>{" "}
             {file.filePath.split(/[\\/]/).pop()}

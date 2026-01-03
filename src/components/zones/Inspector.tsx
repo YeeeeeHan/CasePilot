@@ -47,10 +47,10 @@ export function Inspector({
     return (
       <div className="flex flex-col h-full">
         <InspectorHeader onClose={onClose} />
-        <div className="flex flex-col flex-1 items-center justify-center text-muted-foreground p-4">
-          <FileText className="h-12 w-12 mb-3 opacity-30" />
-          <p className="text-sm text-center">Select a file to inspect</p>
-          <p className="text-xs text-center mt-1 opacity-70">
+        <div className="flex flex-col flex-1 items-center justify-center text-muted-foreground p-2">
+          <FileText className="h-8 w-8 mb-2 opacity-30" />
+          <p className="text-[11px] text-center">Select a file to inspect</p>
+          <p className="text-[10px] text-center mt-0.5 opacity-70">
             Click a file from Repository or Master Index
           </p>
         </div>
@@ -92,18 +92,20 @@ export function Inspector({
   return null;
 }
 
-// Internal header component
+// Internal header component - compact VS Code-like style
 function InspectorHeader({ onClose }: { onClose?: () => void }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-      <h2 className="text-sm font-semibold">Inspector</h2>
+    <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Inspector
+      </h2>
       <Button
         variant="ghost"
         size="sm"
-        className="h-7 w-7 p-0"
+        className="h-5 w-5 p-0"
         onClick={onClose}
       >
-        <X className="h-4 w-4" />
+        <X className="h-3 w-3" />
       </Button>
     </div>
   );

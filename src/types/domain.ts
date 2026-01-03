@@ -37,6 +37,8 @@ export interface IndexEntry {
   pageStart: number;
   pageEnd: number;
   disputed: boolean;
+  // For affidavit mode:
+  exhibitLabel?: string;
 }
 
 /**

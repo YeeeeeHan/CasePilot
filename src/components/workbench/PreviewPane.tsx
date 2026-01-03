@@ -9,15 +9,15 @@
  * - Section headers persist through all items until next section
  */
 
-import { FileText, Layers, ZoomIn, ZoomOut } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FileText, Layers, ZoomIn, ZoomOut } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import type { IndexEntry } from '@/lib/pagination';
-import { cn } from '@/lib/utils';
-import { A4_DIMENSIONS } from '@/types/canvas';
-import { EntryPreviewFactory } from './EntryPreviewFactory';
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { IndexEntry } from "@/lib/pagination";
+import { cn } from "@/lib/utils";
+import { A4_DIMENSIONS } from "@/types/canvas";
+import { EntryPreviewFactory } from "./EntryPreviewFactory";
 
 /** Height of the section sticky header in pixels */
 const SECTION_HEADER_HEIGHT = 32;
@@ -37,22 +37,22 @@ interface SectionGroup {
 function groupEntriesBySections(entries: IndexEntry[]): SectionGroup[] {
   const sections: SectionGroup[] = [];
   let currentSection: SectionGroup = {
-    id: 'root',
-    label: '',
+    id: "root",
+    label: "",
     pageNumber: 0,
     entries: [],
   };
 
   for (const entry of entries) {
-    if (entry.rowType === 'section-break') {
+    if (entry.rowType === "section-break") {
       // Save current section if it has entries
-      if (currentSection.entries.length > 0 || currentSection.id !== 'root') {
+      if (currentSection.entries.length > 0 || currentSection.id !== "root") {
         sections.push(currentSection);
       }
       // Start new section
       currentSection = {
         id: entry.id,
-        label: entry.sectionLabel || 'Section Break',
+        label: entry.sectionLabel || "Section Break",
         pageNumber: entry.pageStart,
         entries: [entry], // Include the section break itself
       };
@@ -80,7 +80,7 @@ interface PreviewPaneProps {
   onContentChange?: (
     entryId: string,
     content: string,
-    pageCount: number
+    pageCount: number,
   ) => void;
   /** Additional CSS classes */
   className?: string;
@@ -133,16 +133,16 @@ export function PreviewPane({
 
       // Apply zoom: page width scales with zoom, may exceed container (scrollable)
       const pageWidth = containerWidth * zoomLevel;
-      container.style.setProperty('--page-width', `${pageWidth}px`);
+      container.style.setProperty("--page-width", `${pageWidth}px`);
       container.style.setProperty(
-        '--page-height',
-        `${A4_DIMENSIONS.HEIGHT_PX * scale}px`
+        "--page-height",
+        `${A4_DIMENSIONS.HEIGHT_PX * scale}px`,
       );
-      container.style.setProperty('--page-scale', `${scale}`);
+      container.style.setProperty("--page-scale", `${scale}`);
       // Pass section header height for item headers to offset
       container.style.setProperty(
-        '--section-header-height',
-        `${SECTION_HEADER_HEIGHT}px`
+        "--section-header-height",
+        `${SECTION_HEADER_HEIGHT}px`,
       );
     };
 
@@ -160,7 +160,7 @@ export function PreviewPane({
   useEffect(() => {
     if (selectedEntryId && entryRefs.current.has(selectedEntryId)) {
       const element = entryRefs.current.get(selectedEntryId);
-      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [selectedEntryId]);
 
@@ -168,7 +168,7 @@ export function PreviewPane({
   const scrollToEntry = useCallback((entryId: string) => {
     const element = entryRefs.current.get(entryId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, []);
 
@@ -176,8 +176,8 @@ export function PreviewPane({
     return (
       <div
         className={cn(
-          'h-full flex flex-col items-center justify-center bg-muted/20 text-muted-foreground',
-          className
+          "h-full flex flex-col items-center justify-center bg-muted/20 text-muted-foreground",
+          className,
         )}
       >
         <FileText className="h-12 w-12 mb-3 opacity-30" />
@@ -192,7 +192,7 @@ export function PreviewPane({
   return (
     <div
       ref={containerRef}
-      className={cn('h-full flex flex-col bg-muted/20', className)}
+      className={cn("h-full flex flex-col bg-muted/20", className)}
     >
       {/* Zoom Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 border-b bg-background/95 backdrop-blur-sm">
@@ -234,7 +234,7 @@ export function PreviewPane({
         {sections.map((section) => (
           <div key={section.id} className="relative">
             {/* Sticky Section Header (Tab) - persists through all items in section */}
-            {section.id !== 'root' && (
+            {section.id !== "root" && (
               <div
                 className="sticky top-0 z-20 flex items-center gap-2 px-4 bg-primary/90 text-primary-foreground backdrop-blur-sm border-b cursor-pointer hover:bg-primary transition-colors"
                 style={{ height: SECTION_HEADER_HEIGHT }}
@@ -242,7 +242,7 @@ export function PreviewPane({
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.key === "Enter" || e.key === " ") {
                     scrollToEntry(section.id);
                   }
                 }}
@@ -267,7 +267,7 @@ export function PreviewPane({
                   onContentChange={onContentChange}
                   onScrollToEntry={scrollToEntry}
                   stickyOffset={
-                    section.id !== 'root' ? SECTION_HEADER_HEIGHT : 0
+                    section.id !== "root" ? SECTION_HEADER_HEIGHT : 0
                   }
                 />
               </div>
