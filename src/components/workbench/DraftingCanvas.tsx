@@ -6,12 +6,22 @@
  */
 
 import { useCallback } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
-import { FileEdit } from "lucide-react";
+import {
+  FileEdit,
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Heading1,
+  Heading2,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { A4Page, A4PageContainer } from "./A4Page";
 import { usePageBreakDetection } from "./hooks/usePageBreakDetection";
 import { A4_DIMENSIONS } from "@/types/canvas";
@@ -30,8 +40,91 @@ interface DraftingCanvasProps {
 const placeholderText = {
   "cover-page":
     "Start typing your cover page content...\n\nTip: Include case number, parties, and document title.",
-  divider: "Enter section title...\n\nExample: PLAINTIFF'S DOCUMENTS",
+  divider: "Section Title",
 };
+
+/**
+ * Toolbar Component
+ *
+ * Formatting toolbar for TipTap editor with Bold, Italic, Underline, H1, H2.
+ */
+interface ToolbarProps {
+  editor: Editor | null;
+}
+
+function Toolbar({ editor }: ToolbarProps) {
+  if (!editor) return null;
+
+  return (
+    <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-muted/30">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={cn(
+          "h-8 w-8 p-0",
+          editor.isActive("bold") && "bg-accent text-accent-foreground",
+        )}
+        title="Bold (Ctrl+B)"
+      >
+        <Bold className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={cn(
+          "h-8 w-8 p-0",
+          editor.isActive("italic") && "bg-accent text-accent-foreground",
+        )}
+        title="Italic (Ctrl+I)"
+      >
+        <Italic className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        className={cn(
+          "h-8 w-8 p-0",
+          editor.isActive("underline") && "bg-accent text-accent-foreground",
+        )}
+        title="Underline (Ctrl+U)"
+      >
+        <UnderlineIcon className="h-4 w-4" />
+      </Button>
+
+      <Separator orientation="vertical" className="mx-1 h-6" />
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        className={cn(
+          "h-8 w-8 p-0",
+          editor.isActive("heading", { level: 1 }) &&
+            "bg-accent text-accent-foreground",
+        )}
+        title="Heading 1"
+      >
+        <Heading1 className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        className={cn(
+          "h-8 w-8 p-0",
+          editor.isActive("heading", { level: 2 }) &&
+            "bg-accent text-accent-foreground",
+        )}
+        title="Heading 2"
+      >
+        <Heading2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
 
 export function DraftingCanvas({
   content = "",
@@ -46,6 +139,7 @@ export function DraftingCanvas({
           levels: [1, 2, 3],
         },
       }),
+      Underline,
       Placeholder.configure({
         placeholder: placeholderText[entryType],
       }),
@@ -70,7 +164,7 @@ export function DraftingCanvas({
   });
 
   // Detect page breaks
-  const { pageCount, hasOverflow } = usePageBreakDetection({
+  const { pageCount } = usePageBreakDetection({
     editor,
     onPageCountChange: useCallback(
       (newPageCount: number) => {
@@ -96,26 +190,30 @@ export function DraftingCanvas({
         {/* Page count indicator */}
         <div className="text-sm text-muted-foreground">
           {pageCount} {pageCount === 1 ? "page" : "pages"}
-          {hasOverflow && (
-            <span className="ml-2 text-amber-600">(overflow)</span>
-          )}
         </div>
       </div>
 
-      {/* Editor Content */}
-      <A4PageContainer className="flex-1">
-        <A4Page showPageBreak={hasOverflow}>
-          <EditorContent editor={editor} className="h-full" />
-        </A4Page>
+      {/* TipTap Formatting Toolbar */}
+      <Toolbar editor={editor} />
 
-        {/* Show second page preview if overflow */}
-        {hasOverflow && (
-          <A4Page pageNumber={2} className="opacity-50">
-            <div className="p-8 text-muted-foreground text-sm">
-              Content continues...
-            </div>
+      {/* Editor Content - A4 pages that grow when content overflows */}
+      <A4PageContainer className="flex-1 overflow-auto">
+        {/* Render pages based on content */}
+        {Array.from({ length: pageCount }).map((_, index) => (
+          <A4Page
+            key={index}
+            pageNumber={index + 1}
+            showPageBreak={index < pageCount - 1}
+          >
+            {index === 0 ? (
+              <EditorContent editor={editor} className="h-full" />
+            ) : (
+              <div className="p-8 text-muted-foreground text-sm italic">
+                Content continues on this page...
+              </div>
+            )}
           </A4Page>
-        )}
+        ))}
       </A4PageContainer>
     </div>
   );

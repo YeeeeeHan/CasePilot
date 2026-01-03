@@ -44,10 +44,15 @@ export function usePageBreakDetection({
     // Calculate page count based on A4 height
     // Account for some padding (e.g., 40px top/bottom margins)
     const usableHeight = A4_DIMENSIONS.HEIGHT_PX - 80;
-    const calculatedPages = Math.max(
-      1,
-      Math.ceil(contentHeight / usableHeight),
-    );
+
+    // Minimum threshold: only consider overflow if content actually exceeds
+    // the first page. Empty editors have ~40-60px scrollHeight from default
+    // paragraph styling, so we need content to actually fill the page first.
+    if (contentHeight <= usableHeight) {
+      return 1;
+    }
+
+    const calculatedPages = Math.ceil(contentHeight / usableHeight);
 
     return calculatedPages;
   }, [editor]);
