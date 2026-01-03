@@ -10,15 +10,15 @@
  * - Cursor-following preview
  */
 
-import { EditorToolbar } from '@/components/editor/EditorToolbar';
-import { ExhibitNode } from '@/components/editor/ExhibitNode';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import Placeholder from '@tiptap/extension-placeholder';
-import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import { Check, Pencil, X } from 'lucide-react';
+import { EditorToolbar } from "@/components/editor/EditorToolbar";
+import { ExhibitNode } from "@/components/editor/ExhibitNode";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import Placeholder from "@tiptap/extension-placeholder";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { Check, Pencil, X } from "lucide-react";
 import {
   forwardRef,
   useCallback,
@@ -26,8 +26,8 @@ import {
   useImperativeHandle,
   useRef,
   useState,
-} from 'react';
-import { toast } from 'sonner';
+} from "react";
+import { toast } from "sonner";
 
 export interface AvailableFile {
   id: string;
@@ -74,7 +74,7 @@ export const AffidavitEditor = forwardRef<
     onInitialsChange,
     onExhibitFocus,
   },
-  ref
+  ref,
 ) {
   const [isEditingInitials, setIsEditingInitials] = useState(false);
   const [editedInitials, setEditedInitials] = useState(initials);
@@ -88,7 +88,7 @@ export const AffidavitEditor = forwardRef<
 
   // Parse initial content (could be JSON or HTML)
   const getInitialContent = useCallback(() => {
-    if (!content) return '';
+    if (!content) return "";
     try {
       const parsed = JSON.parse(content);
       if (parsed.content) {
@@ -106,7 +106,7 @@ export const AffidavitEditor = forwardRef<
         heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({
-        placeholder: 'Start drafting your affidavit...',
+        placeholder: "Start drafting your affidavit...",
       }),
       ExhibitNode,
     ],
@@ -114,35 +114,54 @@ export const AffidavitEditor = forwardRef<
     editorProps: {
       attributes: {
         class:
-          'prose prose-sm max-w-none focus:outline-none min-h-[400px] px-4 py-3',
+          "prose prose-sm max-w-none focus:outline-none min-h-[400px] px-4 py-3",
       },
       // Handle external drops via handleDOMEvents (not handleDrop which is for ProseMirror-level drops)
       handleDOMEvents: {
         dragover: (_view, event) => {
-          if (
-            event.dataTransfer?.types.includes('application/x-casepilot-file')
-          ) {
+          const hasType = event.dataTransfer?.types.includes(
+            "application/x-casepilot-file",
+          );
+          console.log(
+            "[AffidavitEditor dragover] Has casepilot type:",
+            hasType,
+            "Types:",
+            event.dataTransfer?.types,
+          );
+          if (hasType) {
             event.preventDefault();
-            event.dataTransfer.dropEffect = 'copy';
+            event.dataTransfer!.dropEffect = "copy";
             return true;
           }
           return false;
         },
         drop: (_view, event) => {
-          const data = event.dataTransfer?.getData(
-            'application/x-casepilot-file'
+          console.log("[AffidavitEditor drop] Event triggered");
+          console.log(
+            "[AffidavitEditor drop] Available types:",
+            event.dataTransfer?.types,
           );
+
+          const data = event.dataTransfer?.getData(
+            "application/x-casepilot-file",
+          );
+          console.log("[AffidavitEditor drop] Raw data:", data);
+
           if (data) {
             event.preventDefault();
-            event.stopPropagation(); // Prevent React handler from also firing
+            event.stopPropagation();
             try {
               const file = JSON.parse(data) as AvailableFile;
+              console.log("[AffidavitEditor drop] Parsed file:", file);
+              console.log("[AffidavitEditor drop] Calling insertExhibitRef");
               insertExhibitRef.current(file);
               return true;
-            } catch {
+            } catch (err) {
+              console.error("[AffidavitEditor drop] Parse error:", err);
               return false;
             }
           }
+          console.warn("[AffidavitEditor drop] No data found");
           return false;
         },
       },
@@ -171,7 +190,7 @@ export const AffidavitEditor = forwardRef<
         node?: { type: { name: string }; attrs: Record<string, unknown> };
       };
       if (
-        selection.node?.type.name === 'exhibitNode' &&
+        selection.node?.type.name === "exhibitNode" &&
         selection.node.attrs.filePath
       ) {
         foundExhibit = selection.node.attrs.filePath as string;
@@ -180,7 +199,7 @@ export const AffidavitEditor = forwardRef<
         const searchFrom = Math.max(0, from - 1);
         const searchTo = Math.min(ed.state.doc.content.size, to + 1);
         ed.state.doc.nodesBetween(searchFrom, searchTo, (n) => {
-          if (n.type.name === 'exhibitNode' && n.attrs.filePath) {
+          if (n.type.name === "exhibitNode" && n.attrs.filePath) {
             foundExhibit = n.attrs.filePath;
             return false;
           }
@@ -199,7 +218,7 @@ export const AffidavitEditor = forwardRef<
       // Check for duplicate
       const existingIds: string[] = [];
       editor.state.doc.descendants((node) => {
-        if (node.type.name === 'exhibitNode' && node.attrs.fileId) {
+        if (node.type.name === "exhibitNode" && node.attrs.fileId) {
           existingIds.push(node.attrs.fileId);
         }
       });
@@ -217,7 +236,7 @@ export const AffidavitEditor = forwardRef<
           fileName: file.name,
           filePath: file.path,
         })
-        .insertContent(' ')
+        .insertContent(" ")
         .run();
 
       toast.success(`Inserted exhibit: ${file.name}`);
@@ -230,7 +249,7 @@ export const AffidavitEditor = forwardRef<
     () => ({
       insertExhibit: (file: AvailableFile) => insertExhibitRef.current(file),
     }),
-    []
+    [],
   );
 
   // Sync content when artifactId changes
@@ -259,7 +278,7 @@ export const AffidavitEditor = forwardRef<
   // Handle drag events for visual feedback
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.types.includes('application/x-casepilot-file')) {
+    if (e.dataTransfer.types.includes("application/x-casepilot-file")) {
       setIsDragOver(true);
     }
   }, []);
@@ -273,8 +292,8 @@ export const AffidavitEditor = forwardRef<
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.types.includes('application/x-casepilot-file')) {
-      e.dataTransfer.dropEffect = 'copy';
+    if (e.dataTransfer.types.includes("application/x-casepilot-file")) {
+      e.dataTransfer.dropEffect = "copy";
     }
   }, []);
 
@@ -320,8 +339,8 @@ export const AffidavitEditor = forwardRef<
                 setEditedInitials(e.target.value.toUpperCase().slice(0, 5))
               }
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveInitials();
-                if (e.key === 'Escape') handleCancelInitials();
+                if (e.key === "Enter") handleSaveInitials();
+                if (e.key === "Escape") handleCancelInitials();
               }}
               className="h-6 w-16 text-xs uppercase px-1"
               maxLength={5}
@@ -348,11 +367,11 @@ export const AffidavitEditor = forwardRef<
           <button
             onClick={() => setIsEditingInitials(true)}
             className={cn(
-              'group flex items-center gap-1 px-2 py-0.5 rounded text-xs',
-              'bg-primary/10 text-primary hover:bg-primary/20 transition-colors'
+              "group flex items-center gap-1 px-2 py-0.5 rounded text-xs",
+              "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
             )}
           >
-            <span className="font-mono font-medium">{initials || '---'}</span>
+            <span className="font-mono font-medium">{initials || "---"}</span>
             <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
         )}
@@ -365,8 +384,8 @@ export const AffidavitEditor = forwardRef<
       <div
         ref={editorContainerRef}
         className={cn(
-          'flex-1 overflow-auto relative',
-          isDragOver && 'ring-2 ring-primary ring-inset bg-primary/5'
+          "flex-1 overflow-auto relative",
+          isDragOver && "ring-2 ring-primary ring-inset bg-primary/5",
         )}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}

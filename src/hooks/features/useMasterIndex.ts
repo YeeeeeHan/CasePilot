@@ -136,8 +136,8 @@ export function useMasterIndex() {
         return;
       }
 
-      toast.success(`Moved to position ${toIndex + 1}`, {
-        description: "All page numbers recalculated automatically.",
+      toast.success(`Moved to row ${toIndex + 1}`, {
+        description: "Page numbers updated automatically.",
         action: {
           label: "Undo",
           onClick: async () => {

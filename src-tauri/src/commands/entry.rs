@@ -1,7 +1,9 @@
 //! Entry commands - Artifact entry operations (linking files/components to cases)
 
 use crate::db;
-use crate::{AppState, ArtifactEntry, CreateEntryRequest, ReorderEntriesRequest, UpdateEntryRequest};
+use crate::{
+    AppState, ArtifactEntry, CreateEntryRequest, ReorderEntriesRequest, UpdateEntryRequest,
+};
 
 #[tauri::command]
 pub async fn list_entries(
@@ -65,4 +67,3 @@ pub async fn reorder_entries(
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
     db::reorder_entries(pool, &request.case_id, request.entry_ids).await
 }
-

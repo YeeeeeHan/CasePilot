@@ -73,7 +73,15 @@ export function useMasterIndexDnD(options: UseMasterIndexDnDOptions) {
   // Handle file drop from Repository (external drag)
   const handleFileDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.types.includes("application/x-casepilot-file")) {
+    e.stopPropagation();
+
+    // Check for our custom MIME type or any file being dragged
+    const hasCustomType = e.dataTransfer.types.includes(
+      "application/x-casepilot-file",
+    );
+    const hasFiles = e.dataTransfer.types.includes("Files");
+
+    if (hasCustomType || hasFiles) {
       e.dataTransfer.dropEffect = "copy";
       setIsDragOver(true);
     }
@@ -81,22 +89,66 @@ export function useMasterIndexDnD(options: UseMasterIndexDnDOptions) {
 
   const handleFileDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(false);
+    e.stopPropagation();
+
+    // Only set isDragOver to false if we're leaving the drop zone entirely
+    // Check if the related target is still within the drop zone
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    const currentTarget = e.currentTarget as HTMLElement;
+    if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+      setIsDragOver(false);
+    }
   }, []);
 
   const handleFileDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       setIsDragOver(false);
 
+      // Debug: log all available data types
+      console.log(
+        "[MasterIndex Drop] Available types:",
+        Array.from(e.dataTransfer.types),
+      );
+
+      // Try to get our custom data
       const data = e.dataTransfer.getData("application/x-casepilot-file");
-      if (data && onFileDropped) {
-        try {
-          const fileData = JSON.parse(data);
+      console.log("[MasterIndex Drop] Raw data:", data);
+
+      if (!data) {
+        console.warn(
+          "[MasterIndex Drop] No data found for application/x-casepilot-file",
+        );
+        return;
+      }
+
+      if (!onFileDropped) {
+        console.warn("[MasterIndex Drop] No onFileDropped handler provided");
+        return;
+      }
+
+      try {
+        const fileData = JSON.parse(data);
+        console.log("[MasterIndex Drop] Parsed data:", fileData);
+
+        if (fileData.id && fileData.name && fileData.path) {
+          console.log(
+            "[MasterIndex Drop] Calling onFileDropped with:",
+            fileData,
+          );
           onFileDropped(fileData);
-        } catch (error) {
-          console.error("Failed to parse dropped file data:", error);
+        } else {
+          console.error(
+            "[MasterIndex Drop] Invalid file data structure:",
+            fileData,
+          );
         }
+      } catch (error) {
+        console.error(
+          "[MasterIndex Drop] Failed to parse dropped file data:",
+          error,
+        );
       }
     },
     [onFileDropped],

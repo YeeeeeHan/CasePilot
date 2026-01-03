@@ -102,12 +102,30 @@ function getFileIcon(filename: string) {
   }
 }
 
-// Create a transparent 1x1 pixel image for drag ghost
-function createTransparentDragImage(): HTMLImageElement {
-  const img = new Image();
-  img.src =
-    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-  return img;
+// Create an exact clone of the dragged element for drag preview
+function createDragPreviewFromElement(element: HTMLElement): HTMLElement {
+  const clone = element.cloneNode(true) as HTMLElement;
+
+  // Style the clone for drag preview
+  clone.style.cssText = `
+    position: absolute;
+    top: -1000px;
+    left: -1000px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    opacity: 0.9;
+    max-width: 220px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  `;
+
+  document.body.appendChild(clone);
+  return clone;
 }
 
 export const RepositoryItem = memo(function RepositoryItem({
@@ -124,7 +142,8 @@ export const RepositoryItem = memo(function RepositoryItem({
   onDeleteMultiple,
   addActionLabel = "Add to Bundle",
 }: RepositoryItemProps) {
-  const dragImageRef = useRef<HTMLImageElement | null>(null);
+  const dragPreviewRef = useRef<HTMLElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -135,14 +154,32 @@ export const RepositoryItem = memo(function RepositoryItem({
         path: file.filePath,
         pageCount: file.pageCount,
       });
+
+      console.log("[Repository DragStart] Setting data:", fileData);
       e.dataTransfer.setData("application/x-casepilot-file", fileData);
       e.dataTransfer.effectAllowed = "copy";
+      console.log(
+        "[Repository DragStart] Data types after set:",
+        Array.from(e.dataTransfer.types),
+      );
 
-      // Use transparent 1x1 pixel to hide default drag ghost
-      if (!dragImageRef.current) {
-        dragImageRef.current = createTransparentDragImage();
+      // Create exact clone of the element as drag preview
+      if (dragPreviewRef.current && dragPreviewRef.current.parentNode) {
+        document.body.removeChild(dragPreviewRef.current);
       }
-      e.dataTransfer.setDragImage(dragImageRef.current, 0, 0);
+
+      const targetElement =
+        buttonRef.current || (e.currentTarget as HTMLElement);
+      dragPreviewRef.current = createDragPreviewFromElement(targetElement);
+      e.dataTransfer.setDragImage(dragPreviewRef.current, 10, 10);
+
+      // Clean up the preview element after browser captures it
+      requestAnimationFrame(() => {
+        if (dragPreviewRef.current && dragPreviewRef.current.parentNode) {
+          document.body.removeChild(dragPreviewRef.current);
+          dragPreviewRef.current = null;
+        }
+      });
     },
     [file],
   );
@@ -169,6 +206,7 @@ export const RepositoryItem = memo(function RepositoryItem({
         <TooltipTrigger asChild>
           <ContextMenuTrigger asChild>
             <button
+              ref={buttonRef}
               draggable
               onClick={(e) =>
                 onSelect?.(file.id, {
@@ -186,8 +224,8 @@ export const RepositoryItem = memo(function RepositoryItem({
               className={cn(
                 "w-full flex items-center gap-1.5 py-0.5 pr-2 text-left text-xs transition-colors cursor-grab active:cursor-grabbing",
                 isSelected
-                  ? "bg-neutral-200 dark:bg-neutral-700 text-foreground"
-                  : "hover:bg-muted/80",
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent/50",
                 file.isLinked && "opacity-50",
               )}
               style={{ paddingLeft: `${depth * 12 + 8}px` }}

@@ -15,7 +15,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import type { IndexEntry } from "@/lib/pagination";
 import type { WorkbenchMode } from "@/types/domain";
 
@@ -98,9 +97,19 @@ export function EntryInspector({
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col p-2 space-y-2">
+        {/* Primary Action - at the top */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full h-7 text-xs"
+          onClick={() => onRemoveFromBundle?.(entry.id)}
+        >
+          {removeButtonLabel}
+        </Button>
+
         {/* PDF Thumbnail Preview */}
         {!isSectionBreak && pdfUrl && !thumbnailError && (
-          <div className="rounded border border-border overflow-hidden bg-muted/30">
+          <div className="rounded border border-border overflow-hidden bg-muted/30 flex items-center justify-center p-2">
             <Document
               file={pdfUrl}
               onLoadError={() => setThumbnailError(true)}
@@ -109,12 +118,14 @@ export function EntryInspector({
                   <FileText className="h-8 w-8 opacity-30" />
                 </div>
               }
+              className="flex items-center justify-center"
             >
               <Page
                 pageNumber={1}
-                width={200}
+                width={180}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
+                className="shadow-sm"
               />
             </Document>
           </div>
@@ -221,18 +232,6 @@ export function EntryInspector({
             </div>
           )}
         </div>
-
-        <Separator className="my-1" />
-
-        {/* Actions */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full h-6 text-xs"
-          onClick={() => onRemoveFromBundle?.(entry.id)}
-        >
-          {removeButtonLabel}
-        </Button>
       </div>
     </ScrollArea>
   );

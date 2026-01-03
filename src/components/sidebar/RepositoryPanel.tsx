@@ -272,7 +272,7 @@ export function RepositoryPanel({
               <button
                 onClick={() => toggleFolder(folder.id)}
                 className={cn(
-                  "w-full flex items-center gap-1 py-0.5 text-left text-xs hover:bg-muted/50 transition-colors",
+                  "w-full flex items-center gap-1 py-0.5 text-left text-xs hover:bg-accent transition-colors",
                 )}
                 style={{ paddingLeft: `${depth * 12 + 4}px` }}
               >
@@ -358,8 +358,7 @@ export function RepositoryPanel({
         {/* Static Header */}
         <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/50">
           <div className="flex items-center gap-1.5">
-            <FolderOpen className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Repository
             </span>
             {selectedFileIds.size > 1 && (

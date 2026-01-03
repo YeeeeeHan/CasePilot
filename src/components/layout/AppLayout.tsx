@@ -36,19 +36,25 @@ export function AppLayout({
         <ResizablePanelGroup orientation="horizontal" className="h-full">
           {/* Left Column: Sidebar (Repository + Inspector stacked vertically) */}
           <ResizablePanel defaultSize={20} minSize={15}>
-            <div className="h-full flex flex-col overflow-hidden">
-              {/* Repository section - shares space with Inspector, scrolls internally */}
-              <div className="flex-1 min-h-[80px] p-2 border-b border-border overflow-y-auto">
-                {sidebar}
-              </div>
+            {inspectorOpen ? (
+              <ResizablePanelGroup orientation="vertical" className="h-full">
+                {/* Repository section - resizable when inspector is open */}
+                <ResizablePanel defaultSize={50} minSize={15}>
+                  <div className="h-full p-2 overflow-y-auto">{sidebar}</div>
+                </ResizablePanel>
 
-              {/* Inspector section - takes priority with larger min height */}
-              {inspectorOpen && (
-                <div className="flex-1 min-h-[280px] overflow-hidden">
-                  {inspector}
-                </div>
-              )}
-            </div>
+                <ResizableHandle />
+
+                {/* Inspector section - resizable */}
+                <ResizablePanel defaultSize={50} minSize={20}>
+                  <div className="h-full overflow-hidden border-t border-border">
+                    {inspector}
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : (
+              <div className="h-full p-2 overflow-y-auto">{sidebar}</div>
+            )}
           </ResizablePanel>
 
           <ResizableHandle />

@@ -12,7 +12,6 @@ import { Document, Page } from "react-pdf";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import type { WorkbenchMode } from "@/types/domain";
 
 import "@/lib/pdfWorker";
@@ -48,9 +47,20 @@ export function FileInspector({
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col p-2 space-y-2">
+        {/* Primary Action - at the top */}
+        {!file.isLinked && (
+          <Button
+            size="sm"
+            className="w-full h-7 text-xs"
+            onClick={() => onAddToBundle?.(file.id)}
+          >
+            {addButtonLabel}
+          </Button>
+        )}
+
         {/* PDF Thumbnail Preview */}
         {pdfUrl && !thumbnailError && (
-          <div className="rounded border border-border overflow-hidden bg-muted/30">
+          <div className="rounded border border-border overflow-hidden bg-muted/30 flex items-center justify-center p-2">
             <Document
               file={pdfUrl}
               onLoadError={() => setThumbnailError(true)}
@@ -59,12 +69,14 @@ export function FileInspector({
                   <FileText className="h-8 w-8 opacity-30" />
                 </div>
               }
+              className="flex items-center justify-center"
             >
               <Page
                 pageNumber={1}
-                width={200}
+                width={180}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
+                className="shadow-sm"
               />
             </Document>
           </div>
@@ -102,22 +114,9 @@ export function FileInspector({
           </div>
         </div>
 
-        <Separator className="my-1" />
-
-        {/* Actions */}
-        {!file.isLinked && (
-          <Button
-            size="sm"
-            className="w-full h-6 text-xs"
-            onClick={() => onAddToBundle?.(file.id)}
-          >
-            {addButtonLabel}
-          </Button>
-        )}
-
         {/* Path Footer */}
-        <div className="pt-1 text-[10px] text-muted-foreground">
-          <p className="truncate" title={file.filePath}>
+        <div className="pt-1 text-[10px] text-muted-foreground border-t border-border/50 mt-2">
+          <p className="truncate pt-1" title={file.filePath}>
             <span className="font-medium">Path:</span>{" "}
             {file.filePath.split(/[\\/]/).pop()}
           </p>

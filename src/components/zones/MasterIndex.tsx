@@ -104,22 +104,30 @@ function DraggableRow({
     return `${start} - ${end}`;
   };
 
+  // Only apply transform when actually dragging - transform breaks sticky positioning
+  const style: React.CSSProperties = isDragging
+    ? {
+        transform: CSS.Transform.toString(transform),
+        transition: transition,
+      }
+    : {};
+
   return (
     <TableRow
       ref={setNodeRef}
       data-state={isSelected ? "selected" : undefined}
       data-dragging={isDragging}
       className={cn(
-        "cursor-grab active:cursor-grabbing transition-opacity group relative",
+        "cursor-grab active:cursor-grabbing group relative",
         isSelected && "bg-accent",
+        // Section breaks: sticky below header, solid background, high z-index
         isSectionBreak &&
-          "bg-muted/50 font-semibold sticky top-[41px] z-[5] shadow-sm",
-        "data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 data-[dragging=true]:bg-background data-[dragging=true]:shadow-lg data-[dragging=true]:cursor-grabbing",
+          "bg-muted font-semibold sticky top-[41px] z-20 shadow-sm border-y border-border",
+        // Dragging state
+        isDragging &&
+          "z-50 opacity-90 bg-background shadow-lg cursor-grabbing border border-border rounded-sm",
       )}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition: transition,
-      }}
+      style={style}
       onClick={() => onSelectEntry?.(entry.id)}
       {...attributes}
       {...listeners}
@@ -312,6 +320,7 @@ export function MasterIndex({
       {/* Floating Toolbar */}
       <div className="mt-3 flex items-center justify-between">
         <div className="flex gap-2 flex-wrap">
+          {/* Structure Actions */}
           <Button
             variant="outline"
             size="sm"
