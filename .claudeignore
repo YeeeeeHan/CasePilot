@@ -1,0 +1,73 @@
+# Claude Code Ignore File
+# Excludes files from being read by Claude Code to reduce token consumption
+
+# Dependencies and lock files (MAJOR token consumers)
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lockb
+
+# Tauri/Rust build artifacts and locks
+src-tauri/target/
+src-tauri/Cargo.lock
+src-tauri/WixTools/
+
+# Auto-generated Tauri schema files (MAJOR token consumers - ~100k tokens)
+src-tauri/gen/schemas/
+src-tauri/gen/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+out/
+.next/
+
+# Test fixtures (PDFs, images, large binary files)
+test-fixtures/
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.icns
+*.svg
+
+# AI Models
+*.gguf
+*.bin
+*.safetensors
+
+# IDE and OS files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.cert
+
+# Testing and coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Misc large or generated files
+bundle-sample.md
+llmchat.md
