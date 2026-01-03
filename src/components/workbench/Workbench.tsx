@@ -22,7 +22,7 @@ import { FileText } from "lucide-react";
 
 export type WorkbenchMode = "bundle" | "affidavit";
 
-interface ActiveArtifact {
+interface ActiveCase {
   id: string;
   name: string;
   type: "affidavit" | "bundle";
@@ -33,8 +33,8 @@ interface ActiveArtifact {
 interface WorkbenchProps {
   /** Current mode (bundle or affidavit) */
   mode?: WorkbenchMode;
-  /** The active artifact (for affidavit mode) */
-  activeArtifact?: ActiveArtifact | null;
+  /** The active case (for affidavit mode) */
+  activeCase?: ActiveCase | null;
   /** Available files for exhibit insertion */
   availableFiles?: AvailableFile[];
   /** The Master Index component (for bundle mode) */
@@ -52,14 +52,14 @@ interface WorkbenchProps {
     pageCount: number,
   ) => void;
   /** Callback when affidavit content changes */
-  onAffidavitContentChange?: (artifactId: string, content: string) => void;
+  onAffidavitContentChange?: (caseId: string, content: string) => void;
   /** Callback when affidavit initials change */
-  onAffidavitInitialsChange?: (artifactId: string, initials: string) => void;
+  onAffidavitInitialsChange?: (caseId: string, initials: string) => void;
 }
 
 export function Workbench({
   mode = "bundle",
-  activeArtifact,
+  activeCase,
   availableFiles = [],
   masterIndex,
   entries = [],
@@ -75,16 +75,16 @@ export function Workbench({
   );
 
   // Affidavit Mode
-  if (mode === "affidavit" && activeArtifact) {
+  if (mode === "affidavit" && activeCase) {
     return (
       <ResizablePanelGroup orientation="horizontal" className="h-full">
         {/* Left: Affidavit Editor */}
         <ResizablePanel defaultSize={50} minSize={30}>
           <AffidavitEditor
-            artifactId={activeArtifact.id}
-            name={activeArtifact.name}
-            initials={activeArtifact.initials || ""}
-            content={activeArtifact.content || ""}
+            artifactId={activeCase.id}
+            name={activeCase.name}
+            initials={activeCase.initials || ""}
+            content={activeCase.content || ""}
             availableFiles={availableFiles}
             onContentChange={onAffidavitContentChange}
             onInitialsChange={onAffidavitInitialsChange}

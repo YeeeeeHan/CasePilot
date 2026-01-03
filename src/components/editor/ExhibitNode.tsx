@@ -87,6 +87,11 @@ export const ExhibitNode = Node.create({
     return [
       {
         tag: "span[data-exhibit-node]",
+        getAttrs: (dom: HTMLElement) => ({
+          fileId: dom.getAttribute("data-file-id"),
+          fileName: dom.getAttribute("data-file-name"),
+          filePath: dom.getAttribute("data-file-path"),
+        }),
       },
     ];
   },
@@ -94,7 +99,12 @@ export const ExhibitNode = Node.create({
   renderHTML({ HTMLAttributes }) {
     return [
       "span",
-      mergeAttributes(HTMLAttributes, { "data-exhibit-node": "" }),
+      mergeAttributes(HTMLAttributes, {
+        "data-exhibit-node": "",
+        "data-file-id": HTMLAttributes.fileId,
+        "data-file-name": HTMLAttributes.fileName,
+        "data-file-path": HTMLAttributes.filePath,
+      }),
       HTMLAttributes.fileName || "Exhibit",
     ];
   },

@@ -98,7 +98,7 @@ export function AffidavitEditor({
         class:
           "prose prose-sm max-w-none focus:outline-none min-h-[400px] px-4 py-3",
       },
-      // Accept custom MIME type drops by calling preventDefault on dragover
+      // Handle external drops via handleDOMEvents (not handleDrop which is for ProseMirror-level drops)
       handleDOMEvents: {
         dragover: (_view, event) => {
           if (
@@ -110,23 +110,23 @@ export function AffidavitEditor({
           }
           return false;
         },
-      },
-      handleDrop: (_view, event) => {
-        const data = event.dataTransfer?.getData(
-          "application/x-casepilot-file",
-        );
-        if (data) {
-          event.preventDefault();
-          try {
-            const file = JSON.parse(data) as AvailableFile;
-            // Insert immediately - setTimeout can cause timing issues with editor state
-            insertExhibitRef.current(file);
-            return true;
-          } catch {
-            return false;
+        drop: (_view, event) => {
+          const data = event.dataTransfer?.getData(
+            "application/x-casepilot-file",
+          );
+          if (data) {
+            event.preventDefault();
+            event.stopPropagation(); // Prevent React handler from also firing
+            try {
+              const file = JSON.parse(data) as AvailableFile;
+              insertExhibitRef.current(file);
+              return true;
+            } catch {
+              return false;
+            }
           }
-        }
-        return false;
+          return false;
+        },
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -144,15 +144,30 @@ export function AffidavitEditor({
       }, 2000);
     },
     onSelectionUpdate: ({ editor: ed }) => {
-      const { from } = ed.state.selection;
+      const { from, to } = ed.state.selection;
       let foundExhibit: string | null = null;
 
-      ed.state.doc.nodesBetween(from, from, (node) => {
-        if (node.type.name === "exhibitNode" && node.attrs.filePath) {
-          foundExhibit = node.attrs.filePath;
-          return false;
-        }
-      });
+      // Check for NodeSelection (clicking directly on an exhibit)
+      // NodeSelection has a 'node' property, TextSelection does not
+      const selection = ed.state.selection as {
+        node?: { type: { name: string }; attrs: Record<string, unknown> };
+      };
+      if (
+        selection.node?.type.name === "exhibitNode" &&
+        selection.node.attrs.filePath
+      ) {
+        foundExhibit = selection.node.attrs.filePath as string;
+      } else {
+        // Check nodes around cursor position (from-1 to to+1) to catch adjacent exhibits
+        const searchFrom = Math.max(0, from - 1);
+        const searchTo = Math.min(ed.state.doc.content.size, to + 1);
+        ed.state.doc.nodesBetween(searchFrom, searchTo, (n) => {
+          if (n.type.name === "exhibitNode" && n.attrs.filePath) {
+            foundExhibit = n.attrs.filePath;
+            return false;
+          }
+        });
+      }
 
       onExhibitFocus?.(foundExhibit);
     },
@@ -237,18 +252,9 @@ export function AffidavitEditor({
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
+    // Only handle visual state - TipTap's handleDOMEvents.drop handles insertion
     e.preventDefault();
     setIsDragOver(false);
-
-    const data = e.dataTransfer.getData("application/x-casepilot-file");
-    if (data) {
-      try {
-        const file = JSON.parse(data) as AvailableFile;
-        insertExhibitRef.current(file);
-      } catch {
-        // Ignore parse errors
-      }
-    }
   }, []);
 
   const handleSaveInitials = () => {

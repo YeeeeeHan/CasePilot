@@ -12,6 +12,8 @@
 export interface Case {
   id: string;
   name: string;
+  case_type: ArtifactType; // "affidavit" | "bundle"
+  content_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,24 +28,13 @@ export interface File {
   created_at: string;
 }
 
-export interface Artifact {
-  id: string;
-  case_id: string;
-  artifact_type: ArtifactType;
-  name: string;
-  content_json: string | null; // TipTap JSON for affidavits
-  created_at: string;
-  updated_at: string;
-}
-
 export interface ArtifactEntry {
   id: string;
-  artifact_id: string;
+  case_id: string;
   sequence_order: number;
   row_type: RowType;
   file_id: string | null;
   config_json: string | null; // For components (cover, divider)
-  ref_artifact_id: string | null; // For nested artifacts
   label_override: string | null; // e.g., "TAK-1"
   created_at: string;
 }
@@ -53,7 +44,7 @@ export interface ArtifactEntry {
 // ============================================================================
 
 export type ArtifactType = "affidavit" | "bundle";
-export type RowType = "file" | "component" | "artifact";
+export type RowType = "file" | "component";
 
 // ============================================================================
 // REQUEST TYPES (for Tauri commands)
@@ -61,6 +52,8 @@ export type RowType = "file" | "component" | "artifact";
 
 export interface CreateCaseRequest {
   name: string;
+  case_type: ArtifactType;
+  content_json?: string;
 }
 
 export interface CreateFileRequest {
@@ -77,26 +70,12 @@ export interface UpdateFileRequest {
   metadata_json?: string;
 }
 
-export interface CreateArtifactRequest {
-  case_id: string;
-  artifact_type: ArtifactType;
-  name: string;
-  content_json?: string;
-}
-
-export interface UpdateArtifactRequest {
-  id: string;
-  name?: string;
-  content_json?: string;
-}
-
 export interface CreateEntryRequest {
-  artifact_id: string;
+  case_id: string;
   sequence_order: number;
   row_type: RowType;
   file_id?: string;
   config_json?: string;
-  ref_artifact_id?: string;
   label_override?: string;
 }
 
@@ -108,7 +87,7 @@ export interface UpdateEntryRequest {
 }
 
 export interface ReorderEntriesRequest {
-  artifact_id: string;
+  case_id: string;
   entry_ids: string[];
 }
 

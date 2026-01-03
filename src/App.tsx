@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { save } from "@tauri-apps/plugin-dialog";
-import { AppLayout, type SidebarView } from "./components/layout/AppLayout";
+import { AppLayout } from "./components/layout/AppLayout";
 import {
   RepositoryPanel,
   type RepositoryFile,
 } from "./components/sidebar/RepositoryPanel";
-import {
-  ProjectTree,
-  type ProjectArtifact,
-} from "./components/sidebar/ProjectTree";
 import { Toaster } from "./components/ui/sonner";
 import { Workbench, type WorkbenchMode } from "./components/workbench";
 import {
@@ -21,12 +17,12 @@ import {
   type ProjectCase,
   type SelectionSource,
 } from "./components/zones";
+import { Onboarding } from "./components/views/Onboarding";
 import {
   useInvoke,
   type Case as DbCase,
   type Document as DbDocument,
   type CaseFile,
-  type Artifact,
 } from "./hooks/useInvoke";
 import {
   getTotalPages,
@@ -43,6 +39,8 @@ export interface Document {
 export interface Case {
   id: string;
   name: string;
+  case_type: "affidavit" | "bundle";
+  content_json: string | null;
   documents: Document[];
 }
 
@@ -58,10 +56,6 @@ function App() {
     createFile,
     updateFile,
     deleteFile,
-    listArtifacts,
-    createArtifact,
-    updateArtifact,
-    deleteArtifact,
     listEntries,
     createEntry,
     deleteEntry,
@@ -78,24 +72,14 @@ function App() {
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Sidebar view state (project-tree or files)
-  const [sidebarView, setSidebarView] = useState<SidebarView>("project-tree");
-
   // Repository state (source files bucket)
   const [repositoryFiles, setRepositoryFiles] = useState<CaseFile[]>([]);
   const [repositoryExpanded, setRepositoryExpanded] = useState(true);
 
-  // Artifacts state (affidavits and bundles)
-  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
-
-  // Active bundle artifact ID (auto-created per case)
-  const [activeBundleId, setActiveBundleId] = useState<string | null>(null);
-
-  // Derive workbench mode from active artifact
-  const activeArtifact = artifacts.find((a) => a.id === activeArtifactId);
+  // Derive workbench mode from active case
+  const activeCase = cases.find((c) => c.id === activeCaseId);
   const workbenchMode: WorkbenchMode =
-    activeArtifact?.artifact_type === "affidavit" ? "affidavit" : "bundle";
+    activeCase?.case_type === "affidavit" ? "affidavit" : "bundle";
 
   // Zone C: Master index state
   const [indexEntries, setIndexEntries] = useState<IndexEntry[]>([]);
@@ -116,27 +100,10 @@ function App() {
   // Store previous index entries for undo functionality
   const previousIndexEntriesRef = useRef<IndexEntry[]>([]);
 
-  // Helper to get or create the default bundle artifact for a case
-  const getOrCreateDefaultBundle = useCallback(
-    async (caseId: string): Promise<string | null> => {
-      const artifacts = await listArtifacts(caseId);
-      const existingBundle = artifacts.find(
-        (a) => a.artifact_type === "bundle",
-      );
-      if (existingBundle) {
-        return existingBundle.id;
-      }
-      // Create default bundle
-      const newBundle = await createArtifact(caseId, "bundle", "Master Bundle");
-      return newBundle?.id ?? null;
-    },
-    [listArtifacts, createArtifact],
-  );
-
   // Helper to load entries from DB and convert to IndexEntry format
   const loadEntriesFromDb = useCallback(
-    async (bundleId: string, files: CaseFile[]): Promise<IndexEntry[]> => {
-      const dbEntries = await listEntries(bundleId);
+    async (caseId: string, files: CaseFile[]): Promise<IndexEntry[]> => {
+      const dbEntries = await listEntries(caseId);
       if (dbEntries.length === 0) return [];
 
       // Build file lookup map
@@ -246,6 +213,8 @@ function App() {
           return {
             id: c.id,
             name: c.name,
+            case_type: (c.case_type || "bundle") as "affidavit" | "bundle",
+            content_json: c.content_json || null,
             documents: docs.map((d: DbDocument) => ({
               id: d.id,
               name: d.name,
@@ -266,23 +235,9 @@ function App() {
         const repoFiles = await listFiles(firstCaseId);
         setRepositoryFiles(repoFiles);
 
-        // Load artifacts for the first case
-        const caseArtifacts = await listArtifacts(firstCaseId);
-        setArtifacts(caseArtifacts);
-
-        // Get or create default bundle
-        const bundleId = await getOrCreateDefaultBundle(firstCaseId);
-        setActiveBundleId(bundleId);
-        // Set default active artifact to bundle
-        setActiveArtifactId(bundleId);
-
-        // Load entries from database
-        if (bundleId) {
-          const entries = await loadEntriesFromDb(bundleId, repoFiles);
-          setIndexEntries(entries);
-        } else {
-          setIndexEntries([]);
-        }
+        // Load entries from database (cases now directly contain entries)
+        const entries = await loadEntriesFromDb(firstCaseId, repoFiles);
+        setIndexEntries(entries);
       }
 
       setIsLoading(false);
@@ -293,26 +248,28 @@ function App() {
   }, []); // Run only once on mount
 
   // Handle case creation
-  const handleCreateCase = useCallback(async () => {
-    const newCase = await createCase("New Case");
-    if (newCase) {
-      setCases((prev) => [
-        ...prev,
-        { id: newCase.id, name: newCase.name, documents: [] },
-      ]);
-      setActiveCaseId(newCase.id);
-      // Create default bundle for the new case
-      const bundleId = await getOrCreateDefaultBundle(newCase.id);
-      setActiveBundleId(bundleId);
-      setActiveArtifactId(bundleId);
-      // Reload artifacts (will now include the new bundle)
-      const caseArtifacts = await listArtifacts(newCase.id);
-      setArtifacts(caseArtifacts);
-      // Clear state for new case
-      setRepositoryFiles([]);
-      setIndexEntries([]);
-    }
-  }, [createCase, getOrCreateDefaultBundle, listArtifacts]);
+  const handleCreateCase = useCallback(
+    async (caseType: "bundle" | "affidavit") => {
+      const newCase = await createCase("New Case", caseType);
+      if (newCase) {
+        setCases((prev) => [
+          ...prev,
+          {
+            id: newCase.id,
+            name: newCase.name,
+            case_type: newCase.case_type as "affidavit" | "bundle",
+            content_json: newCase.content_json,
+            documents: [],
+          },
+        ]);
+        setActiveCaseId(newCase.id);
+        // Clear state for new case
+        setRepositoryFiles([]);
+        setIndexEntries([]);
+      }
+    },
+    [createCase],
+  );
 
   // Handle case deletion
   const handleDeleteCase = useCallback(
@@ -331,18 +288,11 @@ function App() {
             // Load repository files for the new active case (v2.0 API)
             const repoFiles = await listFiles(nextCaseId);
             setRepositoryFiles(repoFiles);
-            // Get or create bundle and load entries from database
-            const bundleId = await getOrCreateDefaultBundle(nextCaseId);
-            setActiveBundleId(bundleId);
-            if (bundleId) {
-              const entries = await loadEntriesFromDb(bundleId, repoFiles);
-              setIndexEntries(entries);
-            } else {
-              setIndexEntries([]);
-            }
+            // Load entries from database
+            const entries = await loadEntriesFromDb(nextCaseId, repoFiles);
+            setIndexEntries(entries);
           } else {
             setActiveCaseId(null);
-            setActiveBundleId(null);
             setRepositoryFiles([]);
             setIndexEntries([]);
           }
@@ -358,7 +308,6 @@ function App() {
       deleteCase,
       listFiles,
       loadEntriesFromDb,
-      getOrCreateDefaultBundle,
     ],
   );
 
@@ -374,24 +323,11 @@ function App() {
       const repoFiles = await listFiles(caseId);
       setRepositoryFiles(repoFiles);
 
-      // Load artifacts for the case
-      const caseArtifacts = await listArtifacts(caseId);
-      setArtifacts(caseArtifacts);
-
-      // Get or create bundle
-      const bundleId = await getOrCreateDefaultBundle(caseId);
-      setActiveBundleId(bundleId);
-      setActiveArtifactId(bundleId);
-
       // Load entries from database
-      if (bundleId) {
-        const entries = await loadEntriesFromDb(bundleId, repoFiles);
-        setIndexEntries(entries);
-      } else {
-        setIndexEntries([]);
-      }
+      const entries = await loadEntriesFromDb(caseId, repoFiles);
+      setIndexEntries(entries);
     },
-    [listFiles, listArtifacts, loadEntriesFromDb, getOrCreateDefaultBundle],
+    [listFiles, loadEntriesFromDb],
   );
 
   // Handle file drop in repository
@@ -487,7 +423,7 @@ function App() {
   const handleAddToIndex = useCallback(
     async (fileId: string) => {
       const file = repositoryFiles.find((f) => f.id === fileId);
-      if (!file || !activeCaseId || !activeBundleId) return;
+      if (!file || !activeCaseId) return;
 
       // Calculate page numbers - find last document entry (skip section breaks)
       let lastDocPageEnd = 0;
@@ -511,14 +447,13 @@ function App() {
         disputed: false,
       });
 
-      // Create entry in v2.0 API (link file to bundle)
+      // Create entry in v2.0 API (link file to case)
       const entry = await createEntry(
-        activeBundleId,
+        activeCaseId,
         sequenceOrder,
         "file",
         file.id,
         configJson,
-        undefined, // no ref_artifact_id
         `Tab ${sequenceOrder + 1}`, // label override
       );
 
@@ -545,7 +480,7 @@ function App() {
       // Note: linkedFileIds is derived from indexEntries, so it will update automatically
       toast.success(`Added "${file.original_name}" to bundle`);
     },
-    [repositoryFiles, indexEntries, activeCaseId, activeBundleId, createEntry],
+    [repositoryFiles, indexEntries, activeCaseId, createEntry],
   );
 
   // Handle entry selection in Master Index
@@ -598,7 +533,7 @@ function App() {
   // Handle drag-to-reorder in Master Index
   const handleReorderEntries = useCallback(
     async (fromIndex: number, toIndex: number) => {
-      if (!activeCaseId || !activeBundleId) return;
+      if (!activeCaseId) return;
 
       // Store current state for potential undo
       previousIndexEntriesRef.current = indexEntries;
@@ -616,7 +551,7 @@ function App() {
       const entryIds = reordered
         .filter((e) => e.rowType === "document")
         .map((e) => e.id);
-      const result = await reorderEntries(activeBundleId, entryIds);
+      const result = await reorderEntries(activeCaseId, entryIds);
 
       if (result.length === 0 && entryIds.length > 0) {
         // Revert on failure
@@ -635,7 +570,7 @@ function App() {
               const previousIds = previousIndexEntriesRef.current
                 .filter((e) => e.rowType === "document")
                 .map((e) => e.id);
-              await reorderEntries(activeBundleId, previousIds);
+              await reorderEntries(activeCaseId, previousIds);
               setIndexEntries(previousIndexEntriesRef.current);
               previousIndexEntriesRef.current = [];
               toast.info("Reorder undone");
@@ -645,22 +580,20 @@ function App() {
         duration: 5000,
       });
     },
-    [indexEntries, activeCaseId, activeBundleId, reorderEntries],
+    [indexEntries, activeCaseId, reorderEntries],
   );
 
   // Check if a file is referenced in any affidavit (for delete protection)
   const isFileReferencedInAffidavit = useCallback(
     (fileId: string): string | null => {
-      for (const artifact of artifacts) {
-        if (artifact.artifact_type !== "affidavit" || !artifact.content_json) {
-          continue;
-        }
+      // Check if current case is an affidavit and contains the file reference
+      if (activeCase?.case_type === "affidavit" && activeCase.content_json) {
         try {
-          const parsed = JSON.parse(artifact.content_json);
+          const parsed = JSON.parse(activeCase.content_json);
           const content = parsed.content || "";
           const fileIdRegex = new RegExp(`fileId["\s:]+["']?${fileId}`, "i");
           if (fileIdRegex.test(content)) {
-            return artifact.name;
+            return activeCase.name;
           }
         } catch {
           // Ignore parse errors
@@ -668,7 +601,7 @@ function App() {
       }
       return null;
     },
-    [artifacts],
+    [activeCase],
   );
 
   // Handle deleting a repository file
@@ -829,8 +762,8 @@ function App() {
 
   // Handle inserting a section break
   const handleInsertSectionBreak = useCallback(async () => {
-    if (!activeBundleId) {
-      toast.error("No active bundle");
+    if (!activeCaseId) {
+      toast.error("No active case");
       return;
     }
 
@@ -849,7 +782,7 @@ function App() {
 
     // Persist to database
     const dbEntry = await createEntry(
-      activeBundleId,
+      activeCaseId,
       indexEntries.length,
       "component",
       undefined,
@@ -875,12 +808,12 @@ function App() {
       recalculatePageRanges([...prev, newSectionBreak]),
     );
     toast.success(`Added section break: ${defaultLabel}`);
-  }, [indexEntries, activeBundleId, createEntry]);
+  }, [indexEntries, activeCaseId, createEntry]);
 
   // Handle inserting a cover page
   const handleInsertCoverPage = useCallback(async () => {
-    if (!activeBundleId) {
-      toast.error("No active bundle");
+    if (!activeCaseId) {
+      toast.error("No active case");
       return;
     }
 
@@ -893,7 +826,7 @@ function App() {
 
     // Persist to database (at sequence 0 for cover page)
     const dbEntry = await createEntry(
-      activeBundleId,
+      activeCaseId,
       0,
       "component",
       undefined,
@@ -924,12 +857,12 @@ function App() {
     setSelectedFileId(newCoverPage.id);
     setSelectionSource("master-index");
     toast.success("Added cover page");
-  }, [activeBundleId, createEntry]);
+  }, [activeCaseId, createEntry]);
 
   // Handle inserting a blank page
   const handleInsertDivider = useCallback(async () => {
-    if (!activeBundleId) {
-      toast.error("No active bundle");
+    if (!activeCaseId) {
+      toast.error("No active case");
       return;
     }
 
@@ -947,7 +880,7 @@ function App() {
 
     // Persist to database
     const dbEntry = await createEntry(
-      activeBundleId,
+      activeCaseId,
       indexEntries.length,
       "component",
       undefined,
@@ -977,7 +910,7 @@ function App() {
     setSelectedFileId(newDivider.id);
     setSelectionSource("master-index");
     toast.success(`Added blank page: ${defaultTitle}`);
-  }, [indexEntries, activeBundleId, createEntry]);
+  }, [indexEntries, activeCaseId, createEntry]);
 
   // Handle inserting a table of contents
   const handleInsertTableOfContents = useCallback(() => {
@@ -993,8 +926,8 @@ function App() {
       path: string;
       pageCount?: number;
     }) => {
-      if (!activeBundleId) {
-        toast.error("No active bundle");
+      if (!activeCaseId) {
+        toast.error("No active case");
         return;
       }
 
@@ -1019,12 +952,11 @@ function App() {
 
       // Persist to database
       const dbEntry = await createEntry(
-        activeBundleId,
+        activeCaseId,
         sequenceOrder,
         "file",
         fileData.id,
         configJson,
-        undefined,
         `Tab ${sequenceOrder + 1}`,
       );
 
@@ -1057,7 +989,7 @@ function App() {
       setSelectionSource("master-index");
       toast.success(`Added "${fileData.name}" to Master Index`);
     },
-    [indexEntries, activeBundleId, createEntry],
+    [indexEntries, activeCaseId, createEntry],
   );
 
   // Handle file double-click from Repository
@@ -1093,129 +1025,67 @@ function App() {
   );
 
   // ============================================================================
-  // ARTIFACT HANDLERS (Phase 4A)
+  // CASE CONTENT HANDLERS (replacing artifact handlers)
   // ============================================================================
 
-  // Handle artifact selection (from Project Tree)
-  const handleSelectArtifact = useCallback((artifactId: string) => {
-    setActiveArtifactId(artifactId);
-    // Clear selection when switching artifacts
-    setSelectedFileId(null);
-    setSelectionSource(null);
-  }, []);
-
-  // Handle artifact creation (from Project Tree)
-  const handleCreateArtifact = useCallback(
-    async (type: "affidavit" | "bundle", name: string, initials?: string) => {
-      if (!activeCaseId) {
-        toast.error("No active case selected");
-        return;
-      }
-
-      // Store initials in content_json for affidavits
-      const contentJson =
-        type === "affidavit" && initials
-          ? JSON.stringify({ initials, content: "" })
-          : undefined;
-
-      const newArtifact = await createArtifact(
-        activeCaseId,
-        type,
-        name,
-        contentJson,
-      );
-
-      if (newArtifact) {
-        setArtifacts((prev) => [...prev, newArtifact]);
-        setActiveArtifactId(newArtifact.id);
-        toast.success(`Created ${type}: ${name}`);
-      } else {
-        toast.error(`Failed to create ${type}`);
-      }
-    },
-    [activeCaseId, createArtifact],
-  );
-
-  // Handle artifact deletion (from Project Tree)
-  const handleDeleteArtifact = useCallback(
-    async (artifactId: string) => {
-      const artifact = artifacts.find((a) => a.id === artifactId);
-      if (!artifact) return;
-
-      // Don't allow deleting the default bundle
-      if (artifact.id === activeBundleId) {
-        toast.error("Cannot delete the default bundle");
-        return;
-      }
-
-      const success = await deleteArtifact(artifactId);
-      if (success) {
-        setArtifacts((prev) => prev.filter((a) => a.id !== artifactId));
-        // If deleted artifact was active, switch to bundle
-        if (activeArtifactId === artifactId) {
-          setActiveArtifactId(activeBundleId);
-        }
-        toast.success(`Deleted ${artifact.artifact_type}: ${artifact.name}`);
-      } else {
-        toast.error("Failed to delete artifact");
-      }
-    },
-    [artifacts, activeBundleId, activeArtifactId, deleteArtifact],
-  );
-
   // Handle affidavit content change (from AffidavitEditor)
-  const handleAffidavitContentChange = useCallback(
-    async (artifactId: string, content: string) => {
-      const artifact = artifacts.find((a) => a.id === artifactId);
-      if (!artifact) return;
+  const handleCaseContentChange = useCallback(
+    async (caseId: string, content: string) => {
+      const caseToUpdate = cases.find((c) => c.id === caseId);
+      if (!caseToUpdate) return;
 
       // Preserve initials when updating content
       let contentJson: string;
       try {
-        const existing = artifact.content_json
-          ? JSON.parse(artifact.content_json)
+        const existing = caseToUpdate.content_json
+          ? JSON.parse(caseToUpdate.content_json)
           : {};
         contentJson = JSON.stringify({ ...existing, content });
       } catch {
         contentJson = JSON.stringify({ content });
       }
 
-      const updated = await updateArtifact(artifactId, undefined, contentJson);
-      if (updated) {
-        setArtifacts((prev) =>
-          prev.map((a) => (a.id === artifactId ? updated : a)),
-        );
-      }
+      // Update local state (Note: we don't have an updateCase command yet, 
+      // so this is just local state for now)
+      setCases((prev) =>
+        prev.map((c) => 
+          c.id === caseId 
+            ? { ...c, content_json: contentJson } 
+            : c
+        ),
+      );
     },
-    [artifacts, updateArtifact],
+    [cases],
   );
 
   // Handle affidavit initials change (from AffidavitEditor)
-  const handleAffidavitInitialsChange = useCallback(
-    async (artifactId: string, initials: string) => {
-      const artifact = artifacts.find((a) => a.id === artifactId);
-      if (!artifact) return;
+  const handleCaseInitialsChange = useCallback(
+    async (caseId: string, initials: string) => {
+      const caseToUpdate = cases.find((c) => c.id === caseId);
+      if (!caseToUpdate) return;
 
       // Preserve content when updating initials
       let contentJson: string;
       try {
-        const existing = artifact.content_json
-          ? JSON.parse(artifact.content_json)
+        const existing = caseToUpdate.content_json
+          ? JSON.parse(caseToUpdate.content_json)
           : {};
         contentJson = JSON.stringify({ ...existing, initials });
       } catch {
         contentJson = JSON.stringify({ initials });
       }
 
-      const updated = await updateArtifact(artifactId, undefined, contentJson);
-      if (updated) {
-        setArtifacts((prev) =>
-          prev.map((a) => (a.id === artifactId ? updated : a)),
-        );
-        toast.success(`Initials updated to "${initials}"`);
-      }
+      // Update local state
+      setCases((prev) =>
+        prev.map((c) => 
+          c.id === caseId 
+            ? { ...c, content_json: contentJson } 
+            : c
+        ),
+      );
+      toast.success(`Initials updated to "${initials}"`);
     },
-    [artifacts, updateArtifact],
+    [cases],
   );
 
   // Convert cases to ProjectCase format
@@ -1225,47 +1095,28 @@ function App() {
     initials: "", // Will be auto-generated by ProjectSwitcher
   }));
 
-  // Convert artifacts to ProjectArtifact format
-  const projectArtifacts: ProjectArtifact[] = artifacts.map((a) => {
-    let initials: string | undefined;
-    if (a.artifact_type === "affidavit" && a.content_json) {
-      try {
-        const parsed = JSON.parse(a.content_json);
-        initials = parsed.initials;
-      } catch {
-        // Ignore parse errors
-      }
-    }
-    return {
-      id: a.id,
-      name: a.name,
-      type: a.artifact_type,
-      initials,
-    };
-  });
-
-  // Get active artifact data for Workbench
-  const getActiveArtifactForWorkbench = () => {
-    if (!activeArtifact) return null;
+  // Get active case data for Workbench
+  const getActiveCaseForWorkbench = () => {
+    if (!activeCase) return null;
 
     let initials: string | undefined;
     let content: string | undefined;
 
-    if (activeArtifact.content_json) {
+    if (activeCase.content_json) {
       try {
-        const parsed = JSON.parse(activeArtifact.content_json);
+        const parsed = JSON.parse(activeCase.content_json);
         initials = parsed.initials;
         content = parsed.content;
       } catch {
         // If not JSON, treat as raw content
-        content = activeArtifact.content_json;
+        content = activeCase.content_json;
       }
     }
 
     return {
-      id: activeArtifact.id,
-      name: activeArtifact.name,
-      type: activeArtifact.artifact_type,
+      id: activeCase.id,
+      name: activeCase.name,
+      type: activeCase.case_type,
       content,
       initials,
     };
@@ -1348,59 +1199,53 @@ function App() {
           />
         }
         sidebar={
-          sidebarView === "project-tree" ? (
-            <ProjectTree
-              artifacts={projectArtifacts}
-              activeArtifactId={activeArtifactId}
-              onSelectArtifact={handleSelectArtifact}
-              onCreateArtifact={handleCreateArtifact}
-              onDeleteArtifact={handleDeleteArtifact}
-            />
-          ) : (
-            <RepositoryPanel
-              files={repoFilesForPanel}
-              expanded={repositoryExpanded}
-              onToggle={setRepositoryExpanded}
-              onFileSelect={handleSelectRepositoryFile}
-              onFileDelete={handleDeleteRepositoryFile}
-              onFileDrop={handleFileDrop}
-              onFileDoubleClick={handleFileDoubleClick}
-              selectedFileId={
-                selectionSource === "repository" ? selectedFileId : null
-              }
-            />
-          )
+          <RepositoryPanel
+            files={repoFilesForPanel}
+            expanded={repositoryExpanded}
+            onToggle={setRepositoryExpanded}
+            onFileSelect={handleSelectRepositoryFile}
+            onFileDelete={handleDeleteRepositoryFile}
+            onFileDrop={handleFileDrop}
+            onFileDoubleClick={handleFileDoubleClick}
+            selectedFileId={
+              selectionSource === "repository" ? selectedFileId : null
+            }
+          />
         }
         workbench={
-          <Workbench
-            mode={workbenchMode}
-            activeArtifact={getActiveArtifactForWorkbench()}
-            availableFiles={availableFilesForEditor}
-            masterIndex={
-              <MasterIndex
-                entries={indexEntries}
-                selectedEntryId={
-                  selectionSource === "master-index" ? selectedFileId : null
-                }
-                onSelectEntry={handleSelectEntry}
-                onReorder={handleReorderEntries}
-                onDeleteEntry={handleDeleteEntry}
-                onCompileBundle={handleCompileBundle}
-                onInsertSectionBreak={handleInsertSectionBreak}
-                onInsertCoverPage={handleInsertCoverPage}
-                onInsertDivider={handleInsertDivider}
-                onInsertTableOfContents={handleInsertTableOfContents}
-                onFileDropped={handleAddFileToIndex}
-                isCompiling={isCompiling}
-              />
-            }
-            entries={indexEntries}
-            selectedEntry={getSelectedEntry()}
-            totalBundlePages={getTotalPages(indexEntries)}
-            onContentChange={handleTiptapContentChange}
-            onAffidavitContentChange={handleAffidavitContentChange}
-            onAffidavitInitialsChange={handleAffidavitInitialsChange}
-          />
+          cases.length === 0 ? (
+            <Onboarding onCreateCase={handleCreateCase} />
+          ) : (
+            <Workbench
+              mode={workbenchMode}
+              activeCase={getActiveCaseForWorkbench()}
+              availableFiles={availableFilesForEditor}
+              masterIndex={
+                <MasterIndex
+                  entries={indexEntries}
+                  selectedEntryId={
+                    selectionSource === "master-index" ? selectedFileId : null
+                  }
+                  onSelectEntry={handleSelectEntry}
+                  onReorder={handleReorderEntries}
+                  onDeleteEntry={handleDeleteEntry}
+                  onCompileBundle={handleCompileBundle}
+                  onInsertSectionBreak={handleInsertSectionBreak}
+                  onInsertCoverPage={handleInsertCoverPage}
+                  onInsertDivider={handleInsertDivider}
+                  onInsertTableOfContents={handleInsertTableOfContents}
+                  onFileDropped={handleAddFileToIndex}
+                  isCompiling={isCompiling}
+                />
+              }
+              entries={indexEntries}
+              selectedEntry={getSelectedEntry()}
+              totalBundlePages={getTotalPages(indexEntries)}
+              onContentChange={handleTiptapContentChange}
+              onAffidavitContentChange={handleCaseContentChange}
+              onAffidavitInitialsChange={handleCaseInitialsChange}
+            />
+          )
         }
         inspector={
           <Inspector
@@ -1416,8 +1261,6 @@ function App() {
           />
         }
         inspectorOpen={inspectorOpen}
-        sidebarView={sidebarView}
-        onSidebarViewChange={setSidebarView}
       />
       <Toaster />
     </>

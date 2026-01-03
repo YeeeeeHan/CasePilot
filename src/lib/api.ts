@@ -13,15 +13,12 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   Case,
   File,
-  Artifact,
   ArtifactEntry,
   PdfMetadata,
   ExtractedDocumentInfo,
   CreateCaseRequest,
   CreateFileRequest,
   UpdateFileRequest,
-  CreateArtifactRequest,
-  UpdateArtifactRequest,
   CreateEntryRequest,
   UpdateEntryRequest,
   ReorderEntriesRequest,
@@ -34,8 +31,8 @@ import type {
 const cases = {
   list: (): Promise<Case[]> => invoke("list_cases"),
 
-  create: (name: string): Promise<Case> =>
-    invoke("create_case", { request: { name } satisfies CreateCaseRequest }),
+  create: (request: CreateCaseRequest): Promise<Case> =>
+    invoke("create_case", { request }),
 
   delete: (id: string): Promise<void> => invoke("delete_case", { id }),
 };
@@ -59,29 +56,7 @@ const files = {
 };
 
 // ============================================================================
-// ARTIFACT API
-// ============================================================================
-
-const artifacts = {
-  list: (caseId: string): Promise<Artifact[]> =>
-    invoke("list_artifacts", { caseId }),
-
-  listByType: (caseId: string, artifactType: string): Promise<Artifact[]> =>
-    invoke("list_artifacts_by_type", { caseId, artifactType }),
-
-  get: (id: string): Promise<Artifact> => invoke("get_artifact", { id }),
-
-  create: (request: CreateArtifactRequest): Promise<Artifact> =>
-    invoke("create_artifact", { request }),
-
-  update: (request: UpdateArtifactRequest): Promise<Artifact> =>
-    invoke("update_artifact", { request }),
-
-  delete: (id: string): Promise<void> => invoke("delete_artifact", { id }),
-};
-
-// ============================================================================
-// ARTIFACT ENTRY API
+// ENTRY API
 // ============================================================================
 
 const entries = {
@@ -122,7 +97,6 @@ const pdf = {
 export const api = {
   cases,
   files,
-  artifacts,
   entries,
   pdf,
 };

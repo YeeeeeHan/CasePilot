@@ -1,10 +1,9 @@
 //! CasePilot v2.0 - Tauri Commands
 //!
 //! Core entities:
-//! - Case: Top-level container for a legal matter
+//! - Case: A legal matter (IS an Affidavit or Bundle)
 //! - File: Raw PDF asset in the repository
-//! - Artifact: Container (affidavit or bundle)
-//! - ArtifactEntry: Polymorphic link (file | component | nested artifact)
+//! - ArtifactEntry: Polymorphic link (file | component)
 
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, Pool, Sqlite};
@@ -31,6 +30,8 @@ pub struct AppState {
 pub struct Case {
     pub id: String,
     pub name: String,
+    pub case_type: String, // "affidavit" | "bundle"
+    pub content_json: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -47,25 +48,13 @@ pub struct File {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
-pub struct Artifact {
-    pub id: String,
-    pub case_id: String,
-    pub artifact_type: String, // "affidavit" | "bundle"
-    pub name: String,
-    pub content_json: Option<String>, // TipTap JSON for affidavits
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct ArtifactEntry {
     pub id: String,
-    pub artifact_id: String,
+    pub case_id: String,
     pub sequence_order: i32,
-    pub row_type: String, // "file" | "component" | "artifact"
+    pub row_type: String, // "file" | "component"
     pub file_id: Option<String>,
     pub config_json: Option<String>,    // For components (cover, divider)
-    pub ref_artifact_id: Option<String>, // For nested artifacts
     pub label_override: Option<String>,  // e.g., "TAK-1"
     pub created_at: String,
 }
@@ -77,6 +66,8 @@ pub struct ArtifactEntry {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateCaseRequest {
     pub name: String,
+    pub case_type: String, // "affidavit" | "bundle"
+    pub content_json: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -96,28 +87,12 @@ pub struct UpdateFileRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateArtifactRequest {
-    pub case_id: String,
-    pub artifact_type: String,
-    pub name: String,
-    pub content_json: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateArtifactRequest {
-    pub id: String,
-    pub name: Option<String>,
-    pub content_json: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateEntryRequest {
-    pub artifact_id: String,
+    pub case_id: String,
     pub sequence_order: i32,
     pub row_type: String,
     pub file_id: Option<String>,
     pub config_json: Option<String>,
-    pub ref_artifact_id: Option<String>,
     pub label_override: Option<String>,
 }
 
@@ -131,7 +106,7 @@ pub struct UpdateEntryRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReorderEntriesRequest {
-    pub artifact_id: String,
+    pub case_id: String,
     pub entry_ids: Vec<String>,
 }
 
@@ -164,7 +139,7 @@ async fn create_case(
 ) -> Result<Case, String> {
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::create_case(pool, &request.name).await
+    db::create_case(pool, &request.name, &request.case_type, request.content_json.as_deref()).await
 }
 
 #[tauri::command]
@@ -237,89 +212,17 @@ async fn delete_file(id: String, state: tauri::State<'_, AppState>) -> Result<()
 }
 
 // ============================================================================
-// ARTIFACT COMMANDS
-// ============================================================================
-
-#[tauri::command]
-async fn list_artifacts(
-    case_id: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<Artifact>, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::list_artifacts(pool, &case_id).await
-}
-
-#[tauri::command]
-async fn list_artifacts_by_type(
-    case_id: String,
-    artifact_type: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<Artifact>, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::list_artifacts_by_type(pool, &case_id, &artifact_type).await
-}
-
-#[tauri::command]
-async fn create_artifact(
-    request: CreateArtifactRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<Artifact, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::create_artifact(
-        pool,
-        &request.case_id,
-        &request.artifact_type,
-        &request.name,
-        request.content_json.as_deref(),
-    )
-    .await
-}
-
-#[tauri::command]
-async fn get_artifact(id: String, state: tauri::State<'_, AppState>) -> Result<Artifact, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::get_artifact(pool, &id).await
-}
-
-#[tauri::command]
-async fn update_artifact(
-    request: UpdateArtifactRequest,
-    state: tauri::State<'_, AppState>,
-) -> Result<Artifact, String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::update_artifact(
-        pool,
-        &request.id,
-        request.name.as_deref(),
-        request.content_json.as_deref(),
-    )
-    .await
-}
-
-#[tauri::command]
-async fn delete_artifact(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let db_guard = state.db.lock().await;
-    let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::delete_artifact(pool, &id).await
-}
-
-// ============================================================================
-// ARTIFACT ENTRY COMMANDS
+// CASE ENTRY COMMANDS
 // ============================================================================
 
 #[tauri::command]
 async fn list_entries(
-    artifact_id: String,
+    case_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<ArtifactEntry>, String> {
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::list_entries(pool, &artifact_id).await
+    db::list_entries(pool, &case_id).await
 }
 
 #[tauri::command]
@@ -331,12 +234,11 @@ async fn create_entry(
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
     db::create_entry(
         pool,
-        &request.artifact_id,
+        &request.case_id,
         request.sequence_order,
         &request.row_type,
         request.file_id.as_deref(),
         request.config_json.as_deref(),
-        request.ref_artifact_id.as_deref(),
         request.label_override.as_deref(),
     )
     .await
@@ -373,7 +275,7 @@ async fn reorder_entries(
 ) -> Result<Vec<ArtifactEntry>, String> {
     let db_guard = state.db.lock().await;
     let pool = db_guard.as_ref().ok_or("Database not initialized")?;
-    db::reorder_entries(pool, &request.artifact_id, request.entry_ids).await
+    db::reorder_entries(pool, &request.case_id, request.entry_ids).await
 }
 
 // ============================================================================
@@ -456,13 +358,6 @@ pub fn run() {
             get_file,
             update_file,
             delete_file,
-            // Artifact commands
-            list_artifacts,
-            list_artifacts_by_type,
-            create_artifact,
-            get_artifact,
-            update_artifact,
-            delete_artifact,
             // Entry commands
             list_entries,
             create_entry,

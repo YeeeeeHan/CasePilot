@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { FileStack, FileText, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -23,6 +23,12 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface ProjectCase {
   id: string;
@@ -34,7 +40,7 @@ interface ProjectSwitcherProps {
   cases: ProjectCase[];
   activeCaseId?: string | null;
   onSelectCase?: (caseId: string) => void;
-  onCreateCase?: () => void;
+  onCreateCase?: (caseType: "bundle" | "affidavit") => void;
   onDeleteCase?: (caseId: string) => void;
 }
 
@@ -115,20 +121,31 @@ export function ProjectSwitcher({
             );
           })}
 
-          {/* Add case button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={onCreateCase}
-                className="w-9 h-9 rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>New Case</p>
-            </TooltipContent>
-          </Tooltip>
+          {/* Add case button with dropdown */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-9 h-9 rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 text-muted-foreground hover:text-foreground transition-colors">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>New Case</p>
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent side="right" align="start">
+              <DropdownMenuItem onClick={() => onCreateCase?.("bundle")}>
+                <FileStack className="h-4 w-4 mr-2" />
+                New Bundle
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onCreateCase?.("affidavit")}>
+                <FileText className="h-4 w-4 mr-2" />
+                New Affidavit
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

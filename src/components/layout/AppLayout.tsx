@@ -1,13 +1,8 @@
-import { GitBranch, Files } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "../ui/resizable";
-
-export type SidebarView = "project-tree" | "files";
 
 interface AppLayoutProps {
   /** Zone A: Project switcher icons */
@@ -20,10 +15,6 @@ interface AppLayoutProps {
   inspector: React.ReactNode;
   /** Whether the inspector panel is open */
   inspectorOpen?: boolean;
-  /** Current sidebar view */
-  sidebarView?: SidebarView;
-  /** Callback when sidebar view changes */
-  onSidebarViewChange?: (view: SidebarView) => void;
 }
 
 export function AppLayout({
@@ -32,8 +23,6 @@ export function AppLayout({
   workbench,
   inspector,
   inspectorOpen = false,
-  sidebarView = "project-tree",
-  onSidebarViewChange,
 }: AppLayoutProps) {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
@@ -48,36 +37,6 @@ export function AppLayout({
           {/* Left Column: Sidebar (Repository + Inspector stacked vertically) */}
           <ResizablePanel defaultSize={20} minSize={15}>
             <div className="h-full flex flex-col overflow-hidden">
-              {/* Horizontal view toggle bar */}
-              <div className="h-10 border-b border-border bg-muted/30 flex items-center px-2 gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-8 gap-2",
-                    sidebarView === "project-tree" &&
-                      "bg-accent text-accent-foreground",
-                  )}
-                  onClick={() => onSidebarViewChange?.("project-tree")}
-                >
-                  <GitBranch className="h-4 w-4" />
-                  <span className="text-sm">Project</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-8 gap-2",
-                    sidebarView === "files" &&
-                      "bg-accent text-accent-foreground",
-                  )}
-                  onClick={() => onSidebarViewChange?.("files")}
-                >
-                  <Files className="h-4 w-4" />
-                  <span className="text-sm">Files</span>
-                </Button>
-              </div>
-
               {/* Repository section - shares space with Inspector, scrolls internally */}
               <div className="flex-1 min-h-[80px] p-2 border-b border-border overflow-y-auto">
                 {sidebar}

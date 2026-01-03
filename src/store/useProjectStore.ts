@@ -12,7 +12,19 @@
  */
 
 import { create } from "zustand";
-import type { Case, File, Artifact, ArtifactEntry, Selection } from "../types";
+import type { Case, File, ArtifactEntry, Selection } from "../types";
+
+// Legacy Artifact type for backward compatibility with store
+// TODO: Remove once store is fully migrated to use Case directly
+interface Artifact {
+  id: string;
+  case_id: string;
+  artifact_type: "affidavit" | "bundle";
+  name: string;
+  content_json: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 // ============================================================================
 // STATE INTERFACE
