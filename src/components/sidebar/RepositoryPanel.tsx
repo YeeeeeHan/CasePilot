@@ -26,6 +26,16 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { RepositoryItem, type RepositoryFile } from "./RepositoryItem";
 import type {
   RepositoryFolder,
@@ -54,7 +64,7 @@ interface RepositoryPanelProps {
   onFileDrop?: (filePaths: string[]) => void;
   onFileDoubleClick?: (fileId: string) => void;
   onFileRename?: (fileId: string, newName: string) => void;
-  onCreateFolder?: (parentId: string | null) => void;
+  onCreateFolder?: (name: string, parentId: string | null) => void;
   onDeleteFolder?: (folderId: string) => void;
   onRenameFolder?: (folderId: string, newName: string) => void;
   // Multi-select support
@@ -93,6 +103,18 @@ export function RepositoryPanel({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
+
+  // Folder creation dialog state
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [folderDialogParentId, setFolderDialogParentId] = useState<
+    string | null
+  >(null);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  // Folder rename dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameFolderId, setRenameFolderId] = useState<string | null>(null);
+  const [renameFolderName, setRenameFolderName] = useState("");
 
   // Ref for keyboard focus
   const containerRef = useRef<HTMLDivElement>(null);
@@ -187,22 +209,50 @@ export function RepositoryPanel({
     return buildFolderSubtree(null);
   }, [files, folders, fileFolderAssignments]);
 
-  // Handler for folder rename
+  // Open folder creation dialog
+  const openFolderDialog = useCallback((parentId: string | null) => {
+    setFolderDialogParentId(parentId);
+    setNewFolderName("");
+    setFolderDialogOpen(true);
+  }, []);
+
+  // Handle folder creation from dialog
+  const handleFolderDialogConfirm = useCallback(() => {
+    const trimmedName = newFolderName.trim();
+    if (trimmedName) {
+      onCreateFolder?.(trimmedName, folderDialogParentId);
+    }
+    setFolderDialogOpen(false);
+    setNewFolderName("");
+  }, [newFolderName, folderDialogParentId, onCreateFolder]);
+
+  // Handler for folder rename - open dialog
   const handleFolderRename = useCallback(
     (folderId: string) => {
       const folder = folders.find((f) => f.id === folderId);
       if (!folder) return;
-      const newName = prompt("Rename folder:", folder.name);
-      if (newName && newName !== folder.name) {
-        onRenameFolder?.(folderId, newName);
-      }
+      setRenameFolderId(folderId);
+      setRenameFolderName(folder.name);
+      setRenameDialogOpen(true);
     },
-    [folders, onRenameFolder],
+    [folders],
   );
+
+  // Handle rename dialog confirm
+  const handleRenameDialogConfirm = useCallback(() => {
+    const trimmedName = renameFolderName.trim();
+    if (trimmedName && renameFolderId) {
+      onRenameFolder?.(renameFolderId, trimmedName);
+    }
+    setRenameDialogOpen(false);
+    setRenameFolderId(null);
+    setRenameFolderName("");
+  }, [renameFolderName, renameFolderId, onRenameFolder]);
 
   // Handler for folder delete
   const handleFolderDelete = useCallback(
     (folderId: string) => {
+      // Using native confirm is fine for destructive actions - Tauri's webview supports it
       if (confirm("Delete this folder? Files will be moved to root.")) {
         onDeleteFolder?.(folderId);
       }
@@ -241,7 +291,7 @@ export function RepositoryPanel({
                 <Pencil className="mr-2" />
                 Rename
               </ContextMenuItem>
-              <ContextMenuItem onClick={() => onCreateFolder?.(folder.id)}>
+              <ContextMenuItem onClick={() => openFolderDialog(folder.id)}>
                 <FolderPlus className="mr-2" />
                 New Subfolder
               </ContextMenuItem>
@@ -273,7 +323,7 @@ export function RepositoryPanel({
         onDoubleClick={onFileDoubleClick}
         onDelete={onFileDelete}
         onRename={onFileRename}
-        onCreateFolder={onCreateFolder}
+        onCreateFolder={() => openFolderDialog(null)}
         // Multi-select support
         selectedCount={selectedFileIds.size}
         onAddMultipleToBundle={() =>
@@ -324,7 +374,7 @@ export function RepositoryPanel({
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5"
-                onClick={() => onCreateFolder?.(null)}
+                onClick={() => openFolderDialog(null)}
               >
                 <FolderPlus className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="sr-only">New Folder</span>
@@ -358,7 +408,7 @@ export function RepositoryPanel({
           </ContextMenuTrigger>
           <ContextMenuContent>
             {/* Always show New Folder option */}
-            <ContextMenuItem onClick={() => onCreateFolder?.(null)}>
+            <ContextMenuItem onClick={() => openFolderDialog(null)}>
               <FolderPlus className="mr-2 h-4 w-4" />
               New Folder
             </ContextMenuItem>
@@ -388,6 +438,98 @@ export function RepositoryPanel({
             )}
           </ContextMenuContent>
         </ContextMenu>
+
+        {/* Folder Creation Dialog */}
+        <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FolderPlus className="h-5 w-5" />
+                Create New Folder
+              </DialogTitle>
+              <DialogDescription>
+                Enter a name for the new folder.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="folder-name">Folder Name</Label>
+                <Input
+                  id="folder-name"
+                  placeholder="New Folder"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleFolderDialogConfirm();
+                    } else if (e.key === "Escape") {
+                      setFolderDialogOpen(false);
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setFolderDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleFolderDialogConfirm}
+                disabled={!newFolderName.trim()}
+              >
+                Create Folder
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Folder Rename Dialog */}
+        <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5" />
+                Rename Folder
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="rename-folder">Folder Name</Label>
+                <Input
+                  id="rename-folder"
+                  value={renameFolderName}
+                  onChange={(e) => setRenameFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleRenameDialogConfirm();
+                    } else if (e.key === "Escape") {
+                      setRenameDialogOpen(false);
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setRenameDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRenameDialogConfirm}
+                disabled={!renameFolderName.trim()}
+              >
+                Rename
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

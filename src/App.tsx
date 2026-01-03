@@ -1,6 +1,7 @@
-import { save } from "@tauri-apps/plugin-dialog";
+import { confirm, save } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { extractExhibitFileIds } from "./components/editor/ExhibitNode";
 import { AppLayout } from "./components/layout/AppLayout";
 import {
   RepositoryPanel,
@@ -65,7 +66,6 @@ function App() {
 
   // Derive referenced file IDs from affidavit content (affidavit mode)
   const referencedFileIds = useMemo(() => {
-    const ids = new Set<string>();
     if (
       caseManager.activeCase?.case_type === "affidavit" &&
       caseManager.activeCase.content_json
@@ -73,23 +73,19 @@ function App() {
       try {
         const parsed = JSON.parse(caseManager.activeCase.content_json);
         // Content could be a string (TipTap JSON) or an object
-        let contentStr =
+        const contentStr =
           typeof parsed.content === "string"
             ? parsed.content
             : JSON.stringify(parsed.content || "");
 
-        // Find all fileId references in the TipTap JSON content
-        // Handle various JSON formatting: "fileId":"uuid", "fileId": "uuid", 'fileId': 'uuid'
-        const fileIdRegex = /["']?fileId["']?\s*:\s*["']([^"']+)["']/gi;
-        let match;
-        while ((match = fileIdRegex.exec(contentStr)) !== null) {
-          ids.add(match[1]);
-        }
+        // Use the proper helper function that handles both JSON and HTML formats
+        const fileIds = extractExhibitFileIds(contentStr);
+        return new Set(fileIds);
       } catch {
         // Ignore parse errors
       }
     }
-    return ids;
+    return new Set<string>();
   }, [caseManager.activeCase?.case_type, caseManager.activeCase?.content_json]);
 
   // Derive workbench mode from active case
@@ -189,13 +185,9 @@ function App() {
               ? parsed.content
               : JSON.stringify(parsed.content || "");
 
-          // Check if fileId exists in the content
-          // Match patterns like: "fileId":"uuid", "fileId": "uuid"
-          const fileIdRegex = new RegExp(
-            `["']?fileId["']?\\s*:\\s*["']${fileId}["']`,
-            "i",
-          );
-          if (fileIdRegex.test(contentStr)) {
+          // Use the proper helper function that handles both JSON and HTML formats
+          const fileIds = extractExhibitFileIds(contentStr);
+          if (fileIds.includes(fileId)) {
             return caseManager.activeCase.name;
           }
         } catch {
@@ -227,11 +219,8 @@ function App() {
 
   // Handle create folder
   const handleCreateFolder = useCallback(
-    (parentId: string | null) => {
-      const folderName = prompt("Enter folder name:");
-      if (!folderName?.trim()) return;
-
-      const folder = fileRepository.createFolder(folderName.trim(), parentId);
+    (name: string, parentId: string | null) => {
+      const folder = fileRepository.createFolder(name, parentId);
       toast.success(`Created folder "${folder.name}"`);
     },
     [fileRepository],
@@ -569,7 +558,7 @@ function App() {
     async (fileIds: string[]) => {
       if (fileIds.length === 0) return;
 
-      // Check for protected files
+      // Check for protected files (referenced in affidavit)
       const protectedFiles: string[] = [];
       const deletableIds: string[] = [];
 
@@ -598,17 +587,40 @@ function App() {
 
       if (deletableIds.length === 0) return;
 
-      // Delete each file
+      // Check which files are in the master index
+      const filesInIndex = deletableIds.filter((fileId) =>
+        masterIndex.indexEntries.some(
+          (e) => e.rowType === "document" && e.fileId === fileId,
+        ),
+      );
+
+      // Build confirmation message
+      let confirmMessage = `Delete ${deletableIds.length} file(s) from the repository?`;
+      if (filesInIndex.length > 0) {
+        confirmMessage += `\n\n${filesInIndex.length} file(s) will also be removed from the Master Index.`;
+      }
+
+      // Show confirmation dialog
+      const confirmed = await confirm(confirmMessage, {
+        title: "Confirm Delete",
+        kind: "warning",
+      });
+
+      if (!confirmed) return;
+
+      // Delete each file (this also removes from master index)
       for (const fileId of deletableIds) {
         await handleDeleteRepositoryFile(fileId);
       }
 
       setSelectedFileIds(new Set());
+      toast.success(`Deleted ${deletableIds.length} file(s)`);
     },
     [
       isFileReferencedInAffidavit,
       fileRepository.repositoryFiles,
       handleDeleteRepositoryFile,
+      masterIndex.indexEntries,
     ],
   );
 

@@ -6,9 +6,10 @@
  * Extracted from App.tsx to reduce component complexity.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
-import { useInvoke, type CaseFile } from '../useInvoke';
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { useInvoke, type CaseFile } from "../useInvoke";
 
 // Folder structure for Repository organization (not in DB)
 export interface RepositoryFolder {
@@ -58,7 +59,7 @@ export function useFileRepository() {
         }
 
         const storedAssignments = localStorage.getItem(
-          getAssignmentStorageKey(caseId)
+          getAssignmentStorageKey(caseId),
         );
         if (storedAssignments) {
           setFileFolderAssignments(JSON.parse(storedAssignments));
@@ -72,7 +73,7 @@ export function useFileRepository() {
 
       return files;
     },
-    [listFiles]
+    [listFiles],
   );
 
   // Persist folders to localStorage whenever they change
@@ -80,7 +81,7 @@ export function useFileRepository() {
     if (currentCaseId) {
       localStorage.setItem(
         getFolderStorageKey(currentCaseId),
-        JSON.stringify(folders)
+        JSON.stringify(folders),
       );
     }
   }, [folders, currentCaseId]);
@@ -90,7 +91,7 @@ export function useFileRepository() {
     if (currentCaseId) {
       localStorage.setItem(
         getAssignmentStorageKey(currentCaseId),
-        JSON.stringify(fileFolderAssignments)
+        JSON.stringify(fileFolderAssignments),
       );
     }
   }, [fileFolderAssignments, currentCaseId]);
@@ -106,7 +107,7 @@ export function useFileRepository() {
       setFolders((prev) => [...prev, newFolder]);
       return newFolder;
     },
-    []
+    [],
   );
 
   // Delete a folder (moves files to root, deletes nested folders)
@@ -114,7 +115,7 @@ export function useFileRepository() {
     // Get all descendant folder IDs
     const getDescendantIds = (
       parentId: string,
-      allFolders: RepositoryFolder[]
+      allFolders: RepositoryFolder[],
     ): string[] => {
       const children = allFolders.filter((f) => f.parentId === parentId);
       return children.flatMap((c) => [
@@ -144,7 +145,7 @@ export function useFileRepository() {
   // Rename a folder
   const renameFolder = useCallback((folderId: string, newName: string) => {
     setFolders((prev) =>
-      prev.map((f) => (f.id === folderId ? { ...f, name: newName } : f))
+      prev.map((f) => (f.id === folderId ? { ...f, name: newName } : f)),
     );
   }, []);
 
@@ -156,7 +157,7 @@ export function useFileRepository() {
         [fileId]: folderId,
       }));
     },
-    []
+    [],
   );
 
   // Get folder ID for a file
@@ -164,7 +165,7 @@ export function useFileRepository() {
     (fileId: string): string | null => {
       return fileFolderAssignments[fileId] ?? null;
     },
-    [fileFolderAssignments]
+    [fileFolderAssignments],
   );
 
   // Generate a unique filename by appending (1), (2), etc.
@@ -175,10 +176,10 @@ export function useFileRepository() {
       }
 
       // Split into name and extension
-      const lastDotIndex = baseName.lastIndexOf('.');
+      const lastDotIndex = baseName.lastIndexOf(".");
       const nameWithoutExt =
         lastDotIndex > 0 ? baseName.substring(0, lastDotIndex) : baseName;
-      const ext = lastDotIndex > 0 ? baseName.substring(lastDotIndex) : '';
+      const ext = lastDotIndex > 0 ? baseName.substring(lastDotIndex) : "";
 
       // Find the next available number
       let counter = 1;
@@ -189,21 +190,21 @@ export function useFileRepository() {
       }
       return newName;
     },
-    []
+    [],
   );
 
   const handleFileDrop = useCallback(
     async (activeCaseId: string | null, filePaths: string[]) => {
       if (!activeCaseId) {
-        toast.error('No active case selected');
+        toast.error("No active case selected");
         return;
       }
 
       // Build set of existing file names
       const existingNames = new Set(
         repositoryFiles.map(
-          (f) => f.original_name || f.path.split(/[\\/]/).pop() || ''
-        )
+          (f) => f.original_name || f.path.split(/[\\/]/).pop() || "",
+        ),
       );
 
       // Check for duplicates
@@ -215,16 +216,17 @@ export function useFileRepository() {
         }
       }
 
-      // If there are duplicates, ask for confirmation
+      // If there are duplicates, ask for confirmation using Tauri's native dialog
       if (duplicates.length > 0) {
         const duplicateList =
           duplicates.length <= 3
-            ? duplicates.join(', ')
-            : `${duplicates.slice(0, 3).join(', ')} and ${
+            ? duplicates.join(", ")
+            : `${duplicates.slice(0, 3).join(", ")} and ${
                 duplicates.length - 3
               } more`;
-        const confirmed = window.confirm(
-          `The following file(s) already exist:\n${duplicateList}\n\nDo you want to add them with numbered suffixes?`
+        const confirmed = await confirm(
+          `The following file(s) already exist:\n${duplicateList}\n\nDo you want to add them with numbered suffixes?`,
+          { title: "Duplicate Files", kind: "warning" },
         );
         if (!confirmed) {
           return;
@@ -240,7 +242,7 @@ export function useFileRepository() {
           const uniqueName = generateUniqueName(originalName, namesInBatch);
           namesInBatch.add(uniqueName);
           return await createFile(activeCaseId, path, uniqueName);
-        })
+        }),
       );
 
       const successfulFiles: CaseFile[] = [];
@@ -265,7 +267,7 @@ export function useFileRepository() {
           const updated = await updateFile(file.id, metadata.page_count);
           if (updated) {
             setRepositoryFiles((prev) =>
-              prev.map((f) => (f.id === file.id ? updated : f))
+              prev.map((f) => (f.id === file.id ? updated : f)),
             );
           }
         }
@@ -276,7 +278,7 @@ export function useFileRepository() {
       } else if (errors.length > 0) {
         toast.warning(
           `Added ${successfulFiles.length} file(s), ${errors.length} failed`,
-          { description: errors[0] }
+          { description: errors[0] },
         );
       } else if (successfulFiles.length > 0) {
         toast.success(`Added ${successfulFiles.length} file(s) to repository`);
@@ -288,7 +290,7 @@ export function useFileRepository() {
       updateFile,
       repositoryFiles,
       generateUniqueName,
-    ]
+    ],
   );
 
   const handleDeleteRepositoryFile = useCallback(
@@ -296,14 +298,14 @@ export function useFileRepository() {
       const success = await deleteFile(fileId);
       if (success) {
         setRepositoryFiles((prev) => prev.filter((f) => f.id !== fileId));
-        toast.success('File deleted');
+        toast.success("File deleted");
         return true;
       } else {
-        toast.error('Failed to delete file');
+        toast.error("Failed to delete file");
         return false;
       }
     },
-    [deleteFile]
+    [deleteFile],
   );
 
   const clearFiles = useCallback(() => {
