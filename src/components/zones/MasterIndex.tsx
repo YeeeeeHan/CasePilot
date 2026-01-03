@@ -60,19 +60,12 @@ interface MasterIndexProps {
   isCompiling?: boolean;
 }
 
-// Drag handle component using useSortable
-function DragHandle({ id }: { id: string }) {
-  const { attributes, listeners } = useSortable({ id });
-
+// Visual drag handle indicator (non-functional, just visual)
+function DragHandleIcon() {
   return (
-    <button
-      {...attributes}
-      {...listeners}
-      className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded text-muted-foreground"
-      aria-label="Drag to reorder"
-    >
+    <div className="p-1 text-muted-foreground">
       <GripVertical className="h-3 w-3" />
-    </button>
+    </div>
   );
 }
 
@@ -93,7 +86,14 @@ function DraggableRow({
   onSelectEntry,
   onDeleteEntry,
 }: DraggableRowProps) {
-  const { transform, transition, setNodeRef, isDragging } = useSortable({
+  const {
+    transform,
+    transition,
+    setNodeRef,
+    isDragging,
+    attributes,
+    listeners,
+  } = useSortable({
     id: entry.id,
   });
 
@@ -110,19 +110,21 @@ function DraggableRow({
       data-state={isSelected ? "selected" : undefined}
       data-dragging={isDragging}
       className={cn(
-        "cursor-pointer transition-opacity group relative",
+        "cursor-grab active:cursor-grabbing transition-opacity group relative",
         isSelected && "bg-accent",
         isSectionBreak && "bg-muted/50 font-semibold",
-        "data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 data-[dragging=true]:bg-background data-[dragging=true]:shadow-lg",
+        "data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 data-[dragging=true]:bg-background data-[dragging=true]:shadow-lg data-[dragging=true]:cursor-grabbing",
       )}
       style={{
         transform: CSS.Transform.toString(transform),
         transition: transition,
       }}
       onClick={() => onSelectEntry?.(entry.id)}
+      {...attributes}
+      {...listeners}
     >
       <TableCell className="px-1 w-[40px]">
-        <DragHandle id={entry.id} />
+        <DragHandleIcon />
       </TableCell>
 
       <TableCell

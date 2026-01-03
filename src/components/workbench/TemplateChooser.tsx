@@ -37,6 +37,98 @@ const COVER_PAGE_TEMPLATES: Template[] = [
     icon: "file",
   },
   {
+    id: "cover-supreme-court",
+    name: "Supreme Court Cover",
+    description: "ePD 2021 compliant cover for High Court bundles",
+    content: JSON.stringify({
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [] },
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "IN THE GENERAL DIVISION OF THE HIGH COURT",
+              marks: [{ type: "bold" }],
+            },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "OF THE REPUBLIC OF SINGAPORE",
+              marks: [{ type: "bold" }],
+            },
+          ],
+        },
+        { type: "paragraph", content: [] },
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "HC/OC [Number]/[Year]",
+              marks: [{ type: "bold" }],
+            },
+          ],
+        },
+        { type: "paragraph", content: [] },
+        { type: "paragraph", content: [] },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Between" }],
+        },
+        { type: "paragraph", content: [] },
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "[CLAIMANT NAME]",
+              marks: [{ type: "bold" }],
+            },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "... Claimant" }],
+        },
+        { type: "paragraph", content: [] },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "And" }],
+        },
+        { type: "paragraph", content: [] },
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "[DEFENDANT NAME]",
+              marks: [{ type: "bold" }],
+            },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "... Defendant" }],
+        },
+        { type: "paragraph", content: [] },
+        { type: "paragraph", content: [] },
+        { type: "paragraph", content: [] },
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "BUNDLE OF DOCUMENTS" }],
+        },
+      ],
+    }),
+    icon: "file-check",
+  },
+  {
     id: "cover-affidavit",
     name: "Affidavit Cover",
     description: "Standard affidavit cover with title and case details",

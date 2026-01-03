@@ -125,9 +125,9 @@ export function useMasterIndex() {
       reordered = recalculatePageRanges(reordered);
       setIndexEntries(reordered);
 
-      const entryIds = reordered
-        .filter((e) => e.rowType === "document")
-        .map((e) => e.id);
+      // Include ALL entry types (documents, section-breaks, cover-pages, dividers)
+      // to persist the complete order including tabs
+      const entryIds = reordered.map((e) => e.id);
       const result = await reorderEntries(activeCaseId, entryIds);
 
       if (result.length === 0 && entryIds.length > 0) {
@@ -142,9 +142,10 @@ export function useMasterIndex() {
           label: "Undo",
           onClick: async () => {
             if (previousIndexEntriesRef.current.length > 0) {
-              const previousIds = previousIndexEntriesRef.current
-                .filter((e) => e.rowType === "document")
-                .map((e) => e.id);
+              // Undo also needs all entry IDs
+              const previousIds = previousIndexEntriesRef.current.map(
+                (e) => e.id,
+              );
               await reorderEntries(activeCaseId, previousIds);
               setIndexEntries(previousIndexEntriesRef.current);
               previousIndexEntriesRef.current = [];

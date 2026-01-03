@@ -45,6 +45,10 @@ interface EvidenceCanvasProps {
   className?: string;
   /** Callback when header is clicked to scroll to top of PDF */
   onScrollToTop?: () => void;
+  /** Offset for sticky header to account for section header */
+  stickyOffset?: number;
+  /** Document description for the header */
+  description?: string;
 }
 
 /**
@@ -234,6 +238,8 @@ export function EvidenceCanvas({
   totalBundlePages,
   className,
   onScrollToTop,
+  stickyOffset = 0,
+  description: _description,
 }: EvidenceCanvasProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -269,17 +275,20 @@ export function EvidenceCanvas({
       onOpenChange={(open) => setIsCollapsed(!open)}
       className={cn("flex flex-col", className)}
     >
-      {/* Header with locked indicator and collapse toggle - sticky for scroll tracking */}
-      <div className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky top-0">
-        {/* Locked indicator - click to scroll to top */}
+      {/* Header with locked indicator and collapse toggle - sticky below section header */}
+      <div
+        className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky"
+        style={{ top: stickyOffset }}
+      >
+        {/* Document info - click to scroll to top */}
         <div
-          className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+          className="flex items-center gap-2 text-sm cursor-pointer hover:text-foreground transition-colors"
           onClick={() => onScrollToTop?.()}
         >
-          <Lock className="h-4 w-4" />
-          <span>Evidence (Read-only)</span>
+          <Lock className="h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Description (Read-only)</span>
           {numPages && (
-            <span className="text-xs opacity-70">
+            <span className="text-xs text-muted-foreground opacity-70">
               - {numPages} page{numPages > 1 ? "s" : ""}
             </span>
           )}

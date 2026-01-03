@@ -88,8 +88,8 @@ export function A4PageContainer({ children, className }: A4PageContainerProps) {
     <div
       className={cn(
         // Vertical stacking with consistent gap (like PDF readers)
-        // Balanced padding: py-3 for top/bottom, px-3 for left/right
-        "flex flex-col items-center gap-3 py-3 px-3",
+        // Minimal top padding (sticky headers provide separation), normal bottom/side padding
+        "flex flex-col items-center gap-3 pt-1 pb-3 px-3",
         // Gray background to contrast white pages
         "bg-muted/50",
         className,

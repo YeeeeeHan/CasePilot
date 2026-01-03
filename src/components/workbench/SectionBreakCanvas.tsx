@@ -29,6 +29,20 @@ interface SectionBreakCanvasProps {
   totalBundlePages: number;
   /** Additional CSS classes */
   className?: string;
+  /** Offset for sticky header to account for section header */
+  stickyOffset?: number;
+  /** Hide the header (when section header is managed by parent) */
+  hideHeader?: boolean;
+}
+
+/**
+ * Extracts only the "Tab X" portion from a label like "Tab A - Pleadings"
+ * Returns the full label if no delimiter is found.
+ */
+function extractTabLabel(label: string): string {
+  // Match "Tab X" pattern (case-insensitive) and return just that portion
+  const match = label.match(/^(Tab\s+[A-Z0-9]+)/i);
+  return match ? match[1] : label;
 }
 
 export function SectionBreakCanvas({
@@ -36,6 +50,8 @@ export function SectionBreakCanvas({
   globalPageNumber,
   totalBundlePages,
   className,
+  stickyOffset = 0,
+  hideHeader = false,
 }: SectionBreakCanvasProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -45,41 +61,47 @@ export function SectionBreakCanvas({
       onOpenChange={(open) => setIsCollapsed(!open)}
       className={cn("flex flex-col", className)}
     >
-      {/* Header with section label and collapse toggle - sticky for scroll tracking */}
-      <div className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky top-0">
-        {/* Section label indicator */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Layers className="h-4 w-4" />
-          <span className="font-medium">{sectionLabel || "Section Break"}</span>
-          <span className="text-xs opacity-70">- 1 page</span>
-        </div>
+      {/* Header with section label and collapse toggle - only show if not hidden */}
+      {!hideHeader && (
+        <div
+          className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky"
+          style={{ top: stickyOffset }}
+        >
+          {/* Section label indicator */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Layers className="h-4 w-4" />
+            <span className="font-medium">
+              {sectionLabel || "Section Break"}
+            </span>
+            <span className="text-xs opacity-70">- 1 page</span>
+          </div>
 
-        {/* Collapse toggle */}
-        <CollapsibleTrigger asChild>
-          <button
-            className="p-1 rounded hover:bg-muted transition-colors"
-            aria-label="Toggle collapse"
-          >
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                isCollapsed && "-rotate-90",
-              )}
-            />
-          </button>
-        </CollapsibleTrigger>
-      </div>
+          {/* Collapse toggle */}
+          <CollapsibleTrigger asChild>
+            <button
+              className="p-1 rounded hover:bg-muted transition-colors"
+              aria-label="Toggle collapse"
+            >
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                  isCollapsed && "-rotate-90",
+                )}
+              />
+            </button>
+          </CollapsibleTrigger>
+        </div>
+      )}
 
       {/* Section Break Page Content */}
       <CollapsibleContent>
         <A4PageContainer>
           <A4Page>
-            {/* Centered section label */}
+            {/* Centered tab label only (e.g., "Tab A" without description) */}
             <div className="flex items-center justify-center h-full min-h-[400px]">
               <div className="text-center">
-                <Layers className="h-16 w-16 mx-auto mb-6 text-muted-foreground/30" />
                 <h1 className="text-3xl font-bold tracking-wide text-foreground">
-                  {sectionLabel || "Section Break"}
+                  {extractTabLabel(sectionLabel) || "Section Break"}
                 </h1>
               </div>
             </div>

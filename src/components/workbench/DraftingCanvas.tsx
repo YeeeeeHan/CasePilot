@@ -35,6 +35,8 @@ interface DraftingCanvasProps {
   onContentChange?: (content: string, pageCount: number) => void;
   /** Additional CSS classes */
   className?: string;
+  /** Offset for sticky header to account for section header */
+  stickyOffset?: number;
 }
 
 const placeholderText = {
@@ -131,6 +133,7 @@ export function DraftingCanvas({
   entryType,
   onContentChange,
   className,
+  stickyOffset = 0,
 }: DraftingCanvasProps) {
   const editor = useEditor({
     extensions: [
@@ -154,7 +157,7 @@ export function DraftingCanvas({
           // Minimum height to fill the A4 page
           "min-h-full",
         ),
-        style: `min-height: ${A4_DIMENSIONS.HEIGHT_PX - 64}px`,
+        style: `min-height: ${A4_DIMENSIONS.HEIGHT_PX - 96}px`,
       },
     },
     onUpdate: ({ editor }) => {
@@ -163,7 +166,7 @@ export function DraftingCanvas({
     },
   });
 
-  // Detect page breaks
+  // Detect page breaks (pageCount used for header display)
   const { pageCount } = usePageBreakDetection({
     editor,
     onPageCountChange: useCallback(
@@ -176,44 +179,33 @@ export function DraftingCanvas({
     ),
   });
 
+  // Get display name for header
+  const displayName = entryType === "cover-page" ? "Cover Page" : "Blank Page";
+
   return (
-    <div className={cn("flex flex-col h-full", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
+    <div className={cn("flex flex-col", className)}>
+      {/* Header - sticky below section header (matches EvidenceCanvas pattern) */}
+      <div
+        className="z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/95 backdrop-blur-sm rounded-t-lg sticky"
+        style={{ top: stickyOffset }}
+      >
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <FileEdit className="h-4 w-4" />
-          <span>
-            {entryType === "cover-page" ? "Cover Page" : "Blank Page"}
+          <span>{displayName}</span>
+          <span className="text-xs opacity-70">
+            - {pageCount} page{pageCount > 1 ? "s" : ""}
           </span>
-        </div>
-
-        {/* Page count indicator */}
-        <div className="text-sm text-muted-foreground">
-          {pageCount} {pageCount === 1 ? "page" : "pages"}
         </div>
       </div>
 
       {/* TipTap Formatting Toolbar */}
       <Toolbar editor={editor} />
 
-      {/* Editor Content - A4 pages that grow when content overflows */}
-      <A4PageContainer className="flex-1 overflow-auto">
-        {/* Render pages based on content */}
-        {Array.from({ length: pageCount }).map((_, index) => (
-          <A4Page
-            key={index}
-            pageNumber={index + 1}
-            showPageBreak={index < pageCount - 1}
-          >
-            {index === 0 ? (
-              <EditorContent editor={editor} className="h-full" />
-            ) : (
-              <div className="p-8 text-muted-foreground text-sm italic">
-                Content continues on this page...
-              </div>
-            )}
-          </A4Page>
-        ))}
+      {/* Editor Content - single A4 page that grows with content */}
+      <A4PageContainer>
+        <A4Page>
+          <EditorContent editor={editor} className="h-full" />
+        </A4Page>
       </A4PageContainer>
     </div>
   );

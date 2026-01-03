@@ -22,6 +22,8 @@ interface EntryPreviewFactoryProps {
     pageCount: number,
   ) => void;
   onScrollToEntry: (entryId: string) => void;
+  /** Offset for sticky header to account for section header */
+  stickyOffset?: number;
 }
 
 export function EntryPreviewFactory({
@@ -29,12 +31,14 @@ export function EntryPreviewFactory({
   totalBundlePages,
   onContentChange,
   onScrollToEntry,
+  stickyOffset = 0,
 }: EntryPreviewFactoryProps) {
   const handleContentChange = (content: string, pageCount: number) => {
     onContentChange?.(entry.id, content, pageCount);
   };
 
-  // Section break - render as full page with sticky header
+  // Section break - skip rendering here since section headers are managed by PreviewPane
+  // Only render the page content (without duplicate header)
   if (entry.rowType === "section-break") {
     return (
       <SectionBreakCanvas
@@ -42,6 +46,8 @@ export function EntryPreviewFactory({
         globalPageNumber={entry.pageStart}
         totalBundlePages={totalBundlePages}
         className="border rounded-lg bg-white"
+        stickyOffset={stickyOffset}
+        hideHeader={true} // Header is now in PreviewPane
       />
     );
   }
@@ -55,20 +61,23 @@ export function EntryPreviewFactory({
         totalBundlePages={totalBundlePages}
         className="border rounded-lg bg-white"
         onScrollToTop={() => onScrollToEntry(entry.id)}
+        stickyOffset={stickyOffset}
+        description={entry.description}
       />
     );
   }
 
   // Cover page or Divider - render TipTap editor
+  // Note: No overflow-hidden here - it breaks sticky positioning
   if (isEditableEntry(entry)) {
     return (
-      <div className="border rounded-lg overflow-hidden bg-white">
-        <DraftingCanvas
-          content={entry.tiptapContent}
-          entryType={entry.rowType as "cover-page" | "divider"}
-          onContentChange={handleContentChange}
-        />
-      </div>
+      <DraftingCanvas
+        content={entry.tiptapContent}
+        entryType={entry.rowType as "cover-page" | "divider"}
+        onContentChange={handleContentChange}
+        stickyOffset={stickyOffset}
+        className="border rounded-lg bg-white"
+      />
     );
   }
 

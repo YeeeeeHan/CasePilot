@@ -35,9 +35,19 @@ export function useMasterIndexDnD(options: UseMasterIndexDnDOptions) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Sensors for dnd-kit
+  // Use activation constraint to distinguish between clicks and drags
   const sensors = useSensors(
-    useSensor(MouseSensor, {}),
-    useSensor(TouchSensor, {}),
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before drag activates
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150, // 150ms delay for touch to avoid scroll conflicts
+        tolerance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {}),
   );
 
