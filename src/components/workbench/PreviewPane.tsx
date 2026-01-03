@@ -177,10 +177,10 @@ function EntryPreview({
 
   // Document (PDF) - render embedded preview
   // Note: No overflow-hidden here - it breaks sticky positioning on the header
-  if (isEvidenceEntry(entry) && entry.fileId) {
+  if (isEvidenceEntry(entry) && entry.filePath) {
     return (
       <EvidenceCanvas
-        filePath={entry.fileId}
+        filePath={entry.filePath}
         globalPageStart={entry.pageStart}
         totalBundlePages={totalBundlePages}
         className="border rounded-lg bg-white"

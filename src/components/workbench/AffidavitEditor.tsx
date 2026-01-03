@@ -98,6 +98,19 @@ export function AffidavitEditor({
         class:
           "prose prose-sm max-w-none focus:outline-none min-h-[400px] px-4 py-3",
       },
+      // Accept custom MIME type drops by calling preventDefault on dragover
+      handleDOMEvents: {
+        dragover: (_view, event) => {
+          if (
+            event.dataTransfer?.types.includes("application/x-casepilot-file")
+          ) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            return true;
+          }
+          return false;
+        },
+      },
       handleDrop: (_view, event) => {
         const data = event.dataTransfer?.getData(
           "application/x-casepilot-file",
@@ -106,7 +119,8 @@ export function AffidavitEditor({
           event.preventDefault();
           try {
             const file = JSON.parse(data) as AvailableFile;
-            setTimeout(() => insertExhibitRef.current(file), 0);
+            // Insert immediately - setTimeout can cause timing issues with editor state
+            insertExhibitRef.current(file);
             return true;
           } catch {
             return false;

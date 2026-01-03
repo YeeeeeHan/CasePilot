@@ -29,10 +29,6 @@ import {
   type Artifact,
 } from "./hooks/useInvoke";
 import {
-  createCoverPage,
-  createDividerPage,
-  createDocumentEntry,
-  createSectionBreak,
   getTotalPages,
   recalculatePageRanges,
   reorderArray,
@@ -66,13 +62,12 @@ function App() {
     createArtifact,
     updateArtifact,
     deleteArtifact,
+    listEntries,
     createEntry,
     deleteEntry,
     reorderEntries,
     // Legacy (still needed for some features)
     compileBundle,
-    saveMasterIndex,
-    loadMasterIndex,
   } = useInvoke();
 
   // Compile state
@@ -121,9 +116,6 @@ function App() {
   // Store previous index entries for undo functionality
   const previousIndexEntriesRef = useRef<IndexEntry[]>([]);
 
-  // Debounce timer ref for saving master index
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-
   // Helper to get or create the default bundle artifact for a case
   const getOrCreateDefaultBundle = useCallback(
     async (caseId: string): Promise<string | null> => {
@@ -139,6 +131,106 @@ function App() {
       return newBundle?.id ?? null;
     },
     [listArtifacts, createArtifact],
+  );
+
+  // Helper to load entries from DB and convert to IndexEntry format
+  const loadEntriesFromDb = useCallback(
+    async (bundleId: string, files: CaseFile[]): Promise<IndexEntry[]> => {
+      const dbEntries = await listEntries(bundleId);
+      if (dbEntries.length === 0) return [];
+
+      // Build file lookup map
+      const fileMap = new Map(files.map((f) => [f.id, f]));
+
+      // Convert ArtifactEntry to IndexEntry
+      const indexEntries: IndexEntry[] = dbEntries
+        .sort((a, b) => a.sequence_order - b.sequence_order)
+        .map((entry) => {
+          // Parse config_json for stored metadata
+          let config: Record<string, unknown> = {};
+          if (entry.config_json) {
+            try {
+              config = JSON.parse(entry.config_json);
+            } catch {
+              // Ignore parse errors
+            }
+          }
+
+          if (entry.row_type === "file" && entry.file_id) {
+            const file = fileMap.get(entry.file_id);
+            const pageCount = file?.page_count || 1;
+            return {
+              id: entry.id,
+              rowType: "document" as const,
+              fileId: entry.file_id,
+              filePath: file?.path || "",
+              description:
+                (config.description as string) ||
+                file?.original_name ||
+                "Unknown",
+              date: (config.date as string) || "",
+              pageStart: 1,
+              pageEnd: pageCount,
+              disputed: (config.disputed as boolean) || false,
+            };
+          }
+
+          if (entry.row_type === "component") {
+            const template = config.template as string;
+            if (template === "section-break") {
+              return {
+                id: entry.id,
+                rowType: "section-break" as const,
+                sectionLabel: (config.sectionLabel as string) || "Section",
+                description: "",
+                pageStart: 1,
+                pageEnd: 1,
+                disputed: false,
+              };
+            }
+            if (template === "cover-page") {
+              return {
+                id: entry.id,
+                rowType: "cover-page" as const,
+                description: (config.description as string) || "Cover Page",
+                tiptapContent: config.tiptapContent as string | undefined,
+                generatedPageCount: (config.generatedPageCount as number) || 1,
+                pageStart: 1,
+                pageEnd: 1,
+                disputed: false,
+              };
+            }
+            if (template === "divider") {
+              return {
+                id: entry.id,
+                rowType: "divider" as const,
+                description: (config.description as string) || "Blank Page",
+                tiptapContent: config.tiptapContent as string | undefined,
+                generatedPageCount: (config.generatedPageCount as number) || 1,
+                pageStart: 1,
+                pageEnd: 1,
+                disputed: false,
+              };
+            }
+          }
+
+          // Fallback for unknown types
+          return {
+            id: entry.id,
+            rowType: "document" as const,
+            fileId: entry.file_id,
+            description: "Unknown",
+            date: "",
+            pageStart: 1,
+            pageEnd: 1,
+            disputed: false,
+          };
+        });
+
+      // Recalculate page ranges
+      return recalculatePageRanges(indexEntries);
+    },
+    [listEntries],
   );
 
   // Load cases on mount (run only once)
@@ -184,16 +276,10 @@ function App() {
         // Set default active artifact to bundle
         setActiveArtifactId(bundleId);
 
-        // Try to load saved master index first
-        const savedIndexJson = await loadMasterIndex(firstCaseId);
-        if (savedIndexJson) {
-          try {
-            const savedEntries = JSON.parse(savedIndexJson) as IndexEntry[];
-            setIndexEntries(savedEntries);
-          } catch (e) {
-            console.error("Failed to parse saved master index:", e);
-            setIndexEntries([]);
-          }
+        // Load entries from database
+        if (bundleId) {
+          const entries = await loadEntriesFromDb(bundleId, repoFiles);
+          setIndexEntries(entries);
         } else {
           setIndexEntries([]);
         }
@@ -205,28 +291,6 @@ function App() {
     loadCasesOnMount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
-
-  // Auto-save master index when entries change (debounced)
-  useEffect(() => {
-    if (!activeCaseId || indexEntries.length === 0) return;
-
-    // Clear previous timer
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-    }
-
-    // Debounce save by 500ms
-    saveTimerRef.current = setTimeout(() => {
-      const json = JSON.stringify(indexEntries);
-      saveMasterIndex(activeCaseId, json);
-    }, 500);
-
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-      }
-    };
-  }, [indexEntries, activeCaseId, saveMasterIndex]);
 
   // Handle case creation
   const handleCreateCase = useCallback(async () => {
@@ -267,17 +331,12 @@ function App() {
             // Load repository files for the new active case (v2.0 API)
             const repoFiles = await listFiles(nextCaseId);
             setRepositoryFiles(repoFiles);
-            // Get or create bundle and load saved index
+            // Get or create bundle and load entries from database
             const bundleId = await getOrCreateDefaultBundle(nextCaseId);
             setActiveBundleId(bundleId);
-            const savedIndexJson = await loadMasterIndex(nextCaseId);
-            if (savedIndexJson) {
-              try {
-                const savedEntries = JSON.parse(savedIndexJson) as IndexEntry[];
-                setIndexEntries(savedEntries);
-              } catch {
-                setIndexEntries([]);
-              }
+            if (bundleId) {
+              const entries = await loadEntriesFromDb(bundleId, repoFiles);
+              setIndexEntries(entries);
             } else {
               setIndexEntries([]);
             }
@@ -298,7 +357,7 @@ function App() {
       cases,
       deleteCase,
       listFiles,
-      loadMasterIndex,
+      loadEntriesFromDb,
       getOrCreateDefaultBundle,
     ],
   );
@@ -324,22 +383,15 @@ function App() {
       setActiveBundleId(bundleId);
       setActiveArtifactId(bundleId);
 
-      // Try to load saved master index first
-      const savedIndexJson = await loadMasterIndex(caseId);
-      if (savedIndexJson) {
-        try {
-          const savedEntries = JSON.parse(savedIndexJson) as IndexEntry[];
-          setIndexEntries(savedEntries);
-          return; // Successfully loaded from saved index
-        } catch (e) {
-          console.error("Failed to parse saved master index:", e);
-        }
+      // Load entries from database
+      if (bundleId) {
+        const entries = await loadEntriesFromDb(bundleId, repoFiles);
+        setIndexEntries(entries);
+      } else {
+        setIndexEntries([]);
       }
-
-      // No saved index
-      setIndexEntries([]);
     },
-    [listFiles, listArtifacts, loadMasterIndex, getOrCreateDefaultBundle],
+    [listFiles, listArtifacts, loadEntriesFromDb, getOrCreateDefaultBundle],
   );
 
   // Handle file drop in repository
@@ -452,13 +504,20 @@ function App() {
         (e) => e.rowType === "document",
       ).length;
 
+      // Store metadata in config_json
+      const configJson = JSON.stringify({
+        description: file.original_name,
+        date: "",
+        disputed: false,
+      });
+
       // Create entry in v2.0 API (link file to bundle)
       const entry = await createEntry(
         activeBundleId,
         sequenceOrder,
         "file",
         file.id,
-        undefined, // no config_json for files
+        configJson,
         undefined, // no ref_artifact_id
         `Tab ${sequenceOrder + 1}`, // label override
       );
@@ -472,7 +531,8 @@ function App() {
       const newEntry: IndexEntry = {
         id: entry.id,
         rowType: "document",
-        fileId: file.path,
+        fileId: file.id, // Use file UUID consistently
+        filePath: file.path,
         description: file.original_name,
         date: "",
         pageStart,
@@ -629,12 +689,12 @@ function App() {
 
       // If it's linked to the bundle, also remove those entries
       const linkedEntries = indexEntries.filter(
-        (e) => e.rowType === "document" && e.fileId === file.path,
+        (e) => e.rowType === "document" && e.fileId === file.id,
       );
       if (linkedEntries.length > 0) {
         // Remove from index entries and recalculate
         const updatedEntries = indexEntries.filter(
-          (e) => !(e.rowType === "document" && e.fileId === file.path),
+          (e) => !(e.rowType === "document" && e.fileId === file.id),
         );
         const recalculated = recalculatePageRanges(updatedEntries);
         setIndexEntries(recalculated);
@@ -768,7 +828,12 @@ function App() {
   }, [activeCaseId, indexEntries, cases, compileBundle]);
 
   // Handle inserting a section break
-  const handleInsertSectionBreak = useCallback(() => {
+  const handleInsertSectionBreak = useCallback(async () => {
+    if (!activeBundleId) {
+      toast.error("No active bundle");
+      return;
+    }
+
     // Generate next section label (A, B, C...)
     const sectionCount = indexEntries.filter(
       (e) => e.rowType === "section-break",
@@ -776,14 +841,80 @@ function App() {
     const nextLetter = String.fromCharCode(65 + sectionCount); // A, B, C...
     const defaultLabel = `TAB ${nextLetter}`;
 
-    const newSectionBreak: IndexEntry = createSectionBreak(defaultLabel);
-    setIndexEntries((prev) => [...prev, newSectionBreak]);
+    // Store config in config_json
+    const configJson = JSON.stringify({
+      template: "section-break",
+      sectionLabel: defaultLabel,
+    });
+
+    // Persist to database
+    const dbEntry = await createEntry(
+      activeBundleId,
+      indexEntries.length,
+      "component",
+      undefined,
+      configJson,
+    );
+
+    if (!dbEntry) {
+      toast.error("Failed to add section break");
+      return;
+    }
+
+    const newSectionBreak: IndexEntry = {
+      id: dbEntry.id,
+      rowType: "section-break",
+      sectionLabel: defaultLabel,
+      description: "",
+      pageStart: 1,
+      pageEnd: 1,
+      disputed: false,
+    };
+
+    setIndexEntries((prev) =>
+      recalculatePageRanges([...prev, newSectionBreak]),
+    );
     toast.success(`Added section break: ${defaultLabel}`);
-  }, [indexEntries]);
+  }, [indexEntries, activeBundleId, createEntry]);
 
   // Handle inserting a cover page
-  const handleInsertCoverPage = useCallback(() => {
-    const newCoverPage: IndexEntry = createCoverPage();
+  const handleInsertCoverPage = useCallback(async () => {
+    if (!activeBundleId) {
+      toast.error("No active bundle");
+      return;
+    }
+
+    // Store config in config_json
+    const configJson = JSON.stringify({
+      template: "cover-page",
+      description: "Cover Page",
+      generatedPageCount: 1,
+    });
+
+    // Persist to database (at sequence 0 for cover page)
+    const dbEntry = await createEntry(
+      activeBundleId,
+      0,
+      "component",
+      undefined,
+      configJson,
+    );
+
+    if (!dbEntry) {
+      toast.error("Failed to add cover page");
+      return;
+    }
+
+    const newCoverPage: IndexEntry = {
+      id: dbEntry.id,
+      rowType: "cover-page",
+      description: "Cover Page",
+      generatedPageCount: 1,
+      pageStart: 1,
+      pageEnd: 1,
+      disputed: false,
+    };
+
     setIndexEntries((prev) => {
       // Insert cover page at the beginning
       const updated = [newCoverPage, ...prev];
@@ -793,16 +924,51 @@ function App() {
     setSelectedFileId(newCoverPage.id);
     setSelectionSource("master-index");
     toast.success("Added cover page");
-  }, []);
+  }, [activeBundleId, createEntry]);
 
   // Handle inserting a blank page
-  const handleInsertDivider = useCallback(() => {
+  const handleInsertDivider = useCallback(async () => {
+    if (!activeBundleId) {
+      toast.error("No active bundle");
+      return;
+    }
+
     const dividerCount = indexEntries.filter(
       (e) => e.rowType === "divider",
     ).length;
     const defaultTitle = `Blank Page ${dividerCount + 1}`;
 
-    const newDivider: IndexEntry = createDividerPage(defaultTitle);
+    // Store config in config_json
+    const configJson = JSON.stringify({
+      template: "divider",
+      description: defaultTitle,
+      generatedPageCount: 1,
+    });
+
+    // Persist to database
+    const dbEntry = await createEntry(
+      activeBundleId,
+      indexEntries.length,
+      "component",
+      undefined,
+      configJson,
+    );
+
+    if (!dbEntry) {
+      toast.error("Failed to add blank page");
+      return;
+    }
+
+    const newDivider: IndexEntry = {
+      id: dbEntry.id,
+      rowType: "divider",
+      description: defaultTitle,
+      generatedPageCount: 1,
+      pageStart: 1,
+      pageEnd: 1,
+      disputed: false,
+    };
+
     setIndexEntries((prev) => {
       const updated = [...prev, newDivider];
       return recalculatePageRanges(updated);
@@ -811,7 +977,7 @@ function App() {
     setSelectedFileId(newDivider.id);
     setSelectionSource("master-index");
     toast.success(`Added blank page: ${defaultTitle}`);
-  }, [indexEntries]);
+  }, [indexEntries, activeBundleId, createEntry]);
 
   // Handle inserting a table of contents
   const handleInsertTableOfContents = useCallback(() => {
@@ -821,12 +987,17 @@ function App() {
 
   // Handle adding a file to the Master Index (via drag-drop or double-click)
   const handleAddFileToIndex = useCallback(
-    (fileData: {
+    async (fileData: {
       id: string;
       name: string;
       path: string;
       pageCount?: number;
     }) => {
+      if (!activeBundleId) {
+        toast.error("No active bundle");
+        return;
+      }
+
       // Check if file is already in the index
       const isAlreadyInIndex = indexEntries.some(
         (e) => e.fileId === fileData.id,
@@ -836,12 +1007,44 @@ function App() {
         return;
       }
 
-      // Create a new document entry
-      const newEntry = createDocumentEntry(
+      // Calculate sequence order
+      const sequenceOrder = indexEntries.length;
+
+      // Store metadata in config_json
+      const configJson = JSON.stringify({
+        description: fileData.name,
+        date: "",
+        disputed: false,
+      });
+
+      // Persist to database
+      const dbEntry = await createEntry(
+        activeBundleId,
+        sequenceOrder,
+        "file",
         fileData.id,
-        fileData.name,
-        fileData.pageCount || 1,
+        configJson,
+        undefined,
+        `Tab ${sequenceOrder + 1}`,
       );
+
+      if (!dbEntry) {
+        toast.error("Failed to add document to bundle");
+        return;
+      }
+
+      // Create IndexEntry using the database entry ID
+      const newEntry: IndexEntry = {
+        id: dbEntry.id,
+        rowType: "document",
+        fileId: fileData.id,
+        filePath: fileData.path,
+        description: fileData.name,
+        date: "",
+        pageStart: 1,
+        pageEnd: fileData.pageCount || 1,
+        disputed: false,
+      };
 
       // Add to index and recalculate page ranges
       setIndexEntries((prev) => {
@@ -854,7 +1057,7 @@ function App() {
       setSelectionSource("master-index");
       toast.success(`Added "${fileData.name}" to Master Index`);
     },
-    [indexEntries],
+    [indexEntries, activeBundleId, createEntry],
   );
 
   // Handle file double-click from Repository
@@ -1074,7 +1277,7 @@ function App() {
     name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
     filePath: file.path,
     pageCount: file.page_count ?? undefined,
-    isLinked: linkedFileIds.has(file.path),
+    isLinked: linkedFileIds.has(file.id),
   }));
 
   // Convert repository files to AvailableFile format for AffidavitEditor
@@ -1097,17 +1300,19 @@ function App() {
         name: file.original_name || file.path.split(/[\\/]/).pop() || "Unknown",
         filePath: file.path,
         pageCount: file.page_count ?? undefined,
-        isLinked: linkedFileIds.has(file.path),
+        isLinked: linkedFileIds.has(file.id),
       };
     }
 
     if (selectionSource === "master-index") {
       const entry = indexEntries.find((e) => e.id === selectedFileId);
       if (!entry || entry.rowType === "section-break") return null;
+      // Look up actual file path from repository
+      const file = repositoryFiles.find((f) => f.id === entry.fileId);
       return {
         id: entry.id,
         name: entry.description,
-        filePath: entry.fileId || "",
+        filePath: file?.path || "",
         pageCount: entry.pageEnd - entry.pageStart + 1,
         isLinked: true,
       };

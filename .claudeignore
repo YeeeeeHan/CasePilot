@@ -71,3 +71,4 @@ yarn-error.log*
 # Misc large or generated files
 bundle-sample.md
 llmchat.md
+casepilot_flattened.txt

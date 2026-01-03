@@ -17,6 +17,7 @@ export interface IndexEntry {
   sectionLabel?: string;
   // For documents (imported PDFs):
   fileId?: string;
+  filePath?: string;
   // For cover-page and divider (TipTap-editable):
   tiptapContent?: string;
   generatedPageCount?: number;

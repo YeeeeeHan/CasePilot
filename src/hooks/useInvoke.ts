@@ -239,39 +239,6 @@ export function useInvoke() {
     }
   }, []);
 
-  const saveMasterIndex = useCallback(
-    async (caseId: string, masterIndexJson: string): Promise<boolean> => {
-      try {
-        await invoke("save_master_index", {
-          caseId,
-          masterIndexJson,
-        });
-        return true;
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        console.error("[useInvoke] Failed to save master index:", message);
-        return false;
-      }
-    },
-    [],
-  );
-
-  const loadMasterIndex = useCallback(
-    async (caseId: string): Promise<string | null> => {
-      try {
-        const json = await invoke<string | null>("load_master_index", {
-          caseId,
-        });
-        return json;
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        console.error("[useInvoke] Failed to load master index:", message);
-        return null;
-      }
-    },
-    [],
-  );
-
   const deleteDocument = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
     setError(null);
@@ -870,8 +837,6 @@ export function useInvoke() {
     saveDocument,
     deleteCase,
     deleteDocument,
-    saveMasterIndex,
-    loadMasterIndex,
     extractPdfMetadata,
     // v2.0 File API
     listFiles,
