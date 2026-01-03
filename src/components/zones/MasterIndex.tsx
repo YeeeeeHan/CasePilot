@@ -1,14 +1,7 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo } from "react";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
@@ -45,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { IndexEntry, RowType } from "@/lib/pagination";
+import { useMasterIndexDnD, getDisplayNumber } from "./hooks/useMasterIndexDnD";
 
 // Re-export for consumers
 export type { IndexEntry, RowType };
@@ -67,17 +61,6 @@ interface MasterIndexProps {
     pageCount?: number;
   }) => void;
   isCompiling?: boolean;
-}
-
-// Generate alphabetical section labels: A, B, C, ... Z, AA, AB, etc.
-function generateSectionLabel(index: number): string {
-  let label = "";
-  let n = index;
-  do {
-    label = String.fromCharCode(65 + (n % 26)) + label;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
-  return label;
 }
 
 // Drag handle component using useSortable
@@ -119,7 +102,6 @@ function DraggableRow({
 
   const isSectionBreak = entry.rowType === "section-break";
 
-  // Format page range like "6 - 98" or single page
   const formatPageRange = (start: number, end: number) => {
     if (start === end) return `${start}`;
     return `${start} - ${end}`;
@@ -142,28 +124,24 @@ function DraggableRow({
       }}
       onClick={() => onSelectEntry?.(entry.id)}
     >
-      {/* Grip Handle */}
       <TableCell className="px-1 w-[40px]">
         <DragHandle id={entry.id} />
       </TableCell>
 
-      {/* No. Column */}
       <TableCell
         className={cn("font-medium w-[50px]", isSectionBreak && "font-bold")}
       >
         {displayNumber}
       </TableCell>
 
-      {/* Date Column (read-only display) */}
       <TableCell className="w-[100px] text-xs">
         {isSectionBreak ? (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         ) : (
-          <span className="text-muted-foreground">{entry.date || "—"}</span>
+          <span className="text-muted-foreground">{entry.date || "-"}</span>
         )}
       </TableCell>
 
-      {/* Description Column (read-only display) */}
       <TableCell className={cn("text-xs", isSectionBreak && "font-bold")}>
         <span className="truncate block">
           {isSectionBreak
@@ -172,12 +150,10 @@ function DraggableRow({
         </span>
       </TableCell>
 
-      {/* Page Column */}
       <TableCell className="text-right text-muted-foreground w-[80px]">
         {formatPageRange(entry.pageStart, entry.pageEnd)}
       </TableCell>
 
-      {/* Delete Button */}
       <TableCell className="px-1 w-[40px]">
         <Button
           variant="ghost"
@@ -210,103 +186,30 @@ export function MasterIndex({
   onFileDropped,
   isCompiling = false,
 }: MasterIndexProps) {
-  // State for drag-drop visual feedback
-  const [isDragOver, setIsDragOver] = useState(false);
+  // Use the extracted DnD hook
+  const dnd = useMasterIndexDnD({
+    entries,
+    onReorder,
+    onFileDropped,
+  });
 
-  // Sensors for drag and drop
-  const sensors = useSensors(
-    useSensor(MouseSensor, {}),
-    useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {}),
-  );
-
-  // Memoize the list of IDs for SortableContext
-  const entryIds = useMemo<UniqueIdentifier[]>(
-    () => entries.map((entry) => entry.id),
-    [entries],
-  );
-
-  // Calculate display numbers: section breaks get A., B., C.; documents get continuous 1., 2., 3.
-  const getDisplayNumber = (entry: IndexEntry, index: number): string => {
-    if (entry.rowType === "section-break") {
-      // Count section breaks up to this point
-      let sectionCount = 0;
-      for (let i = 0; i <= index; i++) {
-        if (entries[i].rowType === "section-break") sectionCount++;
-      }
-      return `${generateSectionLabel(sectionCount - 1)}.`;
-    } else {
-      // Count all numbered entries (documents, cover pages, dividers) up to this point
-      let docCount = 0;
-      for (let i = 0; i <= index; i++) {
-        const rowType = entries[i].rowType;
-        if (
-          rowType === "document" ||
-          rowType === "cover-page" ||
-          rowType === "divider"
-        ) {
-          docCount++;
-        }
-      }
-      return `${docCount}.`;
-    }
-  };
-
-  // Handle drag end
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (active && over && active.id !== over.id) {
-      const oldIndex = entryIds.indexOf(active.id);
-      const newIndex = entryIds.indexOf(over.id);
-      onReorder?.(oldIndex, newIndex);
-    }
-  }
-
-  // Handle file drop from Explorer
-  const handleFileDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.types.includes("application/x-casepilot-file")) {
-      e.dataTransfer.dropEffect = "copy";
-      setIsDragOver(true);
-    }
-  }, []);
-
-  const handleFileDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  const handleFileDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
-
-      const data = e.dataTransfer.getData("application/x-casepilot-file");
-      if (data && onFileDropped) {
-        try {
-          const fileData = JSON.parse(data);
-          onFileDropped(fileData);
-        } catch (error) {
-          console.error("Failed to parse dropped file data:", error);
-        }
-      }
-    },
-    [onFileDropped],
-  );
-
-  // Calculate total pages from last entry (all entry types now have pages)
+  // Calculate total pages from last entry
   const getTotalPages = (): number => {
     if (entries.length === 0) return 0;
     return entries[entries.length - 1].pageEnd;
   };
 
-  // Count all entries with page content (documents, cover pages, dividers)
-  const documentCount = entries.filter(
-    (e) =>
-      e.rowType === "document" ||
-      e.rowType === "cover-page" ||
-      e.rowType === "divider",
-  ).length;
+  // Count all entries with page content
+  const documentCount = useMemo(
+    () =>
+      entries.filter(
+        (e) =>
+          e.rowType === "document" ||
+          e.rowType === "cover-page" ||
+          e.rowType === "divider",
+      ).length,
+    [entries],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -323,20 +226,20 @@ export function MasterIndex({
         <div
           className={cn(
             "flex-1 flex items-center justify-center border-2 border-dashed rounded-lg transition-colors relative",
-            isDragOver
+            dnd.isDragOver
               ? "border-primary bg-primary/5"
               : "border-muted-foreground/25",
           )}
-          onDragOver={handleFileDragOver}
-          onDragLeave={handleFileDragLeave}
-          onDrop={handleFileDrop}
+          onDragOver={dnd.handleFileDragOver}
+          onDragLeave={dnd.handleFileDragLeave}
+          onDrop={dnd.handleFileDrop}
         >
           <p className="text-xs text-muted-foreground text-center px-4">
             Use the toolbar below to add documents
             <br />
             or drag files from the Repository
           </p>
-          {isDragOver && (
+          {dnd.isDragOver && (
             <div className="absolute inset-0 flex items-center justify-center bg-primary/10 pointer-events-none">
               <div className="bg-background rounded-lg px-4 py-2 shadow-lg border border-primary">
                 <p className="text-sm font-medium text-primary">
@@ -350,17 +253,17 @@ export function MasterIndex({
         <div
           className={cn(
             "flex-1 overflow-auto border rounded-lg transition-colors relative",
-            isDragOver && "ring-2 ring-primary ring-inset bg-primary/5",
+            dnd.isDragOver && "ring-2 ring-primary ring-inset bg-primary/5",
           )}
-          onDragOver={handleFileDragOver}
-          onDragLeave={handleFileDragLeave}
-          onDrop={handleFileDrop}
+          onDragOver={dnd.handleFileDragOver}
+          onDragLeave={dnd.handleFileDragLeave}
+          onDrop={dnd.handleFileDrop}
         >
           <DndContext
             collisionDetection={closestCenter}
             modifiers={[restrictToVerticalAxis]}
-            onDragEnd={handleDragEnd}
-            sensors={sensors}
+            onDragEnd={dnd.handleDragEnd}
+            sensors={dnd.sensors}
           >
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
@@ -375,7 +278,7 @@ export function MasterIndex({
               </TableHeader>
               <TableBody>
                 <SortableContext
-                  items={entryIds}
+                  items={dnd.entryIds}
                   strategy={verticalListSortingStrategy}
                 >
                   {entries.map((entry, index) => (
@@ -383,7 +286,7 @@ export function MasterIndex({
                       key={entry.id}
                       entry={entry}
                       index={index}
-                      displayNumber={getDisplayNumber(entry, index)}
+                      displayNumber={getDisplayNumber(entry, index, entries)}
                       isSelected={selectedEntryId === entry.id}
                       onSelectEntry={onSelectEntry}
                       onDeleteEntry={onDeleteEntry}
@@ -394,8 +297,7 @@ export function MasterIndex({
             </Table>
           </DndContext>
 
-          {/* Drop overlay when dragging over populated table */}
-          {isDragOver && (
+          {dnd.isDragOver && (
             <div className="absolute inset-0 flex items-center justify-center bg-primary/10 pointer-events-none">
               <div className="bg-background rounded-lg px-4 py-2 shadow-lg border border-primary">
                 <p className="text-sm font-medium text-primary">

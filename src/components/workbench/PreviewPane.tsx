@@ -6,17 +6,13 @@
  */
 
 import { FileText } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { IndexEntry } from "@/lib/pagination";
-import { isEditableEntry, isEvidenceEntry } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { A4_DIMENSIONS } from "@/types/canvas";
-import { A4Page, A4PageContainer } from "./A4Page";
-import { DraftingCanvas } from "./DraftingCanvas";
-import { EvidenceCanvas } from "./EvidenceCanvas";
-import { SectionBreakCanvas } from "./SectionBreakCanvas";
+import { EntryPreviewFactory } from "./EntryPreviewFactory";
 
 interface PreviewPaneProps {
   /** All entries in the master index */
@@ -53,12 +49,9 @@ export function PreviewPane({
 
     const updateDimensions = () => {
       const containerWidth = container.offsetWidth;
-      // Account for padding from A4PageContainer (px-3 = 12px on each side = 24px total)
-      // and the space-y-2 gap (8px between items)
       const availableWidth = containerWidth - 24;
       const scale = availableWidth / A4_DIMENSIONS.WIDTH_PX;
 
-      // Set CSS variables for components to use
       container.style.setProperty("--page-width", `${availableWidth}px`);
       container.style.setProperty(
         "--page-height",
@@ -67,10 +60,8 @@ export function PreviewPane({
       container.style.setProperty("--page-scale", `${scale}`);
     };
 
-    // Initial measurement
     updateDimensions();
 
-    // Observe resize
     const resizeObserver = new ResizeObserver(updateDimensions);
     resizeObserver.observe(container);
 
@@ -88,12 +79,12 @@ export function PreviewPane({
   }, [selectedEntryId]);
 
   // Handler for scrolling to an entry
-  const scrollToEntry = (entryId: string) => {
+  const scrollToEntry = useCallback((entryId: string) => {
     const element = entryRefs.current.get(entryId);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  };
+  }, []);
 
   if (entries.length === 0) {
     return (
@@ -127,9 +118,9 @@ export function PreviewPane({
             ref={(el) => {
               if (el) entryRefs.current.set(entry.id, el);
             }}
-            className={cn("transition-all")}
+            className="transition-all"
           >
-            <EntryPreview
+            <EntryPreviewFactory
               entry={entry}
               totalBundlePages={totalBundlePages}
               onContentChange={onContentChange}
@@ -139,81 +130,5 @@ export function PreviewPane({
         ))}
       </ScrollArea>
     </div>
-  );
-}
-
-interface EntryPreviewProps {
-  entry: IndexEntry;
-  totalBundlePages: number;
-  onContentChange?: (
-    entryId: string,
-    content: string,
-    pageCount: number,
-  ) => void;
-  onScrollToEntry: (entryId: string) => void;
-}
-
-function EntryPreview({
-  entry,
-  totalBundlePages,
-  onContentChange,
-  onScrollToEntry,
-}: EntryPreviewProps) {
-  const handleContentChange = (content: string, pageCount: number) => {
-    onContentChange?.(entry.id, content, pageCount);
-  };
-
-  // Section break - render as full page with sticky header
-  if (entry.rowType === "section-break") {
-    return (
-      <SectionBreakCanvas
-        sectionLabel={entry.sectionLabel || "Section Break"}
-        globalPageNumber={entry.pageStart}
-        totalBundlePages={totalBundlePages}
-        className="border rounded-lg bg-white"
-      />
-    );
-  }
-
-  // Document (PDF) - render embedded preview
-  // Note: No overflow-hidden here - it breaks sticky positioning on the header
-  if (isEvidenceEntry(entry) && entry.filePath) {
-    return (
-      <EvidenceCanvas
-        filePath={entry.filePath}
-        globalPageStart={entry.pageStart}
-        totalBundlePages={totalBundlePages}
-        className="border rounded-lg bg-white"
-        onScrollToTop={() => onScrollToEntry(entry.id)}
-      />
-    );
-  }
-
-  // Cover page or Divider - render TipTap editor
-  if (isEditableEntry(entry)) {
-    return (
-      <div className="border rounded-lg overflow-hidden bg-white">
-        <DraftingCanvas
-          content={entry.tiptapContent}
-          entryType={entry.rowType as "cover-page" | "divider"}
-          onContentChange={handleContentChange}
-        />
-      </div>
-    );
-  }
-
-  // Fallback for documents without file path
-  return (
-    <A4PageContainer>
-      <A4Page className="flex items-center justify-center">
-        <div className="text-center text-muted-foreground">
-          <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">{entry.description || "Document"}</p>
-          <p className="text-xs opacity-70">
-            Pages {entry.pageStart} - {entry.pageEnd}
-          </p>
-        </div>
-      </A4Page>
-    </A4PageContainer>
   );
 }

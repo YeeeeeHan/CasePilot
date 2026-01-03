@@ -8,26 +8,10 @@
  * Key design: Section breaks (tabs) count as 1 page each.
  */
 
-export type RowType = "document" | "section-break" | "cover-page" | "divider";
+// Re-export types from domain for backward compatibility
+export type { RowType, IndexEntry } from "@/types/domain";
 
-export interface IndexEntry {
-  id: string;
-  rowType: RowType;
-  // For section breaks:
-  sectionLabel?: string;
-  // For documents (imported PDFs):
-  fileId?: string;
-  filePath?: string;
-  // For cover-page and divider (TipTap-editable):
-  tiptapContent?: string;
-  generatedPageCount?: number;
-  // Common fields:
-  description: string;
-  date?: string;
-  pageStart: number;
-  pageEnd: number;
-  disputed: boolean;
-}
+import type { IndexEntry } from "@/types/domain";
 
 /**
  * Recalculates page ranges for all entries based on their current order.
@@ -38,17 +22,6 @@ export interface IndexEntry {
  *
  * @param entries - Array of index entries in desired order
  * @returns New array with updated pageStart and pageEnd values
- *
- * @example
- * const entries = [
- *   { id: "1", rowType: "section-break", sectionLabel: "TAB A", ... },
- *   { id: "2", rowType: "document", pageStart: 1, pageEnd: 5, ... },   // 5 pages
- *   { id: "3", rowType: "document", pageStart: 10, pageEnd: 12, ... }  // 3 pages (was wrong)
- * ];
- * const updated = recalculatePageRanges(entries);
- * // Section break: pageStart=1, pageEnd=1 (1 page)
- * // Document 2: pageStart=2, pageEnd=6 (5 pages)
- * // Document 3: pageStart=7, pageEnd=9 (corrected!)
  */
 export function recalculatePageRanges(entries: IndexEntry[]): IndexEntry[] {
   if (entries.length === 0) return [];
@@ -60,7 +33,7 @@ export function recalculatePageRanges(entries: IndexEntry[]): IndexEntry[] {
     if (entry.rowType === "section-break") {
       // Section breaks (tabs) occupy exactly 1 page
       const pageStart = lastDocumentPageEnd === 0 ? 1 : lastDocumentPageEnd + 1;
-      const pageEnd = pageStart; // Always 1 page
+      const pageEnd = pageStart;
 
       result.push({
         ...entry,
@@ -83,11 +56,8 @@ export function recalculatePageRanges(entries: IndexEntry[]): IndexEntry[] {
 
       lastDocumentPageEnd = pageEnd;
     } else {
-      // Document (imported PDF) - calculate page count from existing range
+      // Document (imported PDF)
       const pageCount = entry.pageEnd - entry.pageStart + 1;
-
-      // First document starts at page 1
-      // Otherwise, continue from the last document's pageEnd
       const pageStart = lastDocumentPageEnd === 0 ? 1 : lastDocumentPageEnd + 1;
       const pageEnd = pageStart + pageCount - 1;
 
@@ -107,16 +77,6 @@ export function recalculatePageRanges(entries: IndexEntry[]): IndexEntry[] {
 /**
  * Reorders an array by moving an item from one index to another.
  * This is a pure function that does not mutate the original array.
- *
- * @param array - Source array
- * @param fromIndex - Index of item to move
- * @param toIndex - Destination index
- * @returns New array with item moved
- *
- * @example
- * const items = ["A", "B", "C", "D"];
- * const reordered = reorderArray(items, 0, 2);
- * // Result: ["B", "C", "A", "D"]
  */
 export function reorderArray<T>(
   array: T[],
@@ -131,11 +91,6 @@ export function reorderArray<T>(
 
 /**
  * Creates a new document entry with default values.
- *
- * @param fileId - ID of the file in the repository
- * @param description - Document description for TOC
- * @param pageCount - Number of pages in the document
- * @returns New IndexEntry for a document
  */
 export function createDocumentEntry(
   fileId: string,
@@ -156,9 +111,6 @@ export function createDocumentEntry(
 
 /**
  * Creates a new section break entry.
- *
- * @param sectionLabel - Label for the section (e.g., "TAB A - Pleadings")
- * @returns New IndexEntry for a section break
  */
 export function createSectionBreak(sectionLabel: string): IndexEntry {
   return {
@@ -174,21 +126,14 @@ export function createSectionBreak(sectionLabel: string): IndexEntry {
 
 /**
  * Calculates the total page count from all entries with pages.
- *
- * @param entries - Array of index entries
- * @returns Total number of pages across all entries
  */
 export function getTotalPages(entries: IndexEntry[]): number {
-  // All entry types now have pages, so just get the last entry's pageEnd
   if (entries.length === 0) return 0;
   return entries[entries.length - 1].pageEnd;
 }
 
 /**
  * Counts the number of document entries (excluding section breaks).
- *
- * @param entries - Array of index entries
- * @returns Number of document entries
  */
 export function getDocumentCount(entries: IndexEntry[]): number {
   return entries.filter((e) => e.rowType === "document").length;
@@ -196,10 +141,6 @@ export function getDocumentCount(entries: IndexEntry[]): number {
 
 /**
  * Creates a new cover page entry with optional TipTap content.
- *
- * @param content - Optional serialized TipTap JSON content
- * @param description - Description for the TOC (default: "Cover Page")
- * @returns New IndexEntry for a cover page
  */
 export function createCoverPage(
   content?: string,
@@ -220,10 +161,6 @@ export function createCoverPage(
 
 /**
  * Creates a new divider page entry with optional TipTap content.
- *
- * @param title - Title for the divider (e.g., "PLAINTIFF'S DOCUMENTS")
- * @param content - Optional serialized TipTap JSON content
- * @returns New IndexEntry for a divider page
  */
 export function createDividerPage(title: string, content?: string): IndexEntry {
   return {
@@ -241,9 +178,6 @@ export function createDividerPage(title: string, content?: string): IndexEntry {
 
 /**
  * Determines if an entry is editable (TipTap canvas) vs immutable (PDF).
- *
- * @param entry - The index entry to check
- * @returns true if the entry uses TipTap for editing
  */
 export function isEditableEntry(entry: IndexEntry): boolean {
   return entry.rowType === "cover-page" || entry.rowType === "divider";
@@ -251,9 +185,6 @@ export function isEditableEntry(entry: IndexEntry): boolean {
 
 /**
  * Determines if an entry renders as a PDF (evidence).
- *
- * @param entry - The index entry to check
- * @returns true if the entry is an imported PDF document
  */
 export function isEvidenceEntry(entry: IndexEntry): boolean {
   return entry.rowType === "document";

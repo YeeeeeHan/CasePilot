@@ -6,7 +6,7 @@ import {
   FolderOpen,
   Plus,
 } from "lucide-react";
-import type { Case } from "../../App";
+import type { Case } from "../../hooks/features/useCaseManager";
 
 interface CaseSidebarProps {
   cases: Case[];
@@ -80,7 +80,7 @@ export function CaseSidebar({
             </div>
             {expandedCases.has(caseItem.id) && (
               <div className="ml-4">
-                {caseItem.documents.map((doc) => (
+                {caseItem.documents.map((doc: { id: string; name: string }) => (
                   <div
                     key={doc.id}
                     onClick={() => onSelectDocument(doc.id)}

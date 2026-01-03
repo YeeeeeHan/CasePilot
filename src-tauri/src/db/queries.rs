@@ -1,128 +1,8 @@
-//! Database layer for CasePilot v2.0
-//!
-//! Schema Overview:
-//! - `cases`: Top-level container (IS an Affidavit or Bundle)
-//! - `files`: Raw PDF assets (the repository)
-//! - `artifact_entries`: Polymorphic links (file | component)
+//! Database CRUD operations
 
 use sqlx::{Pool, Sqlite};
 
 use crate::{ArtifactEntry, Case, File};
-
-// ============================================================================
-// MIGRATIONS
-// ============================================================================
-
-pub async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), String> {
-    // Enable foreign keys
-    sqlx::query("PRAGMA foreign_keys = ON")
-        .execute(pool)
-        .await
-        .map_err(|e| format!("Failed to enable foreign keys: {}", e))?;
-
-    // Check if we need to migrate from old schema (cases table without case_type column)
-    let has_case_type: bool = sqlx::query_scalar::<_, i32>(
-        "SELECT COUNT(*) FROM pragma_table_info('cases') WHERE name = 'case_type'",
-    )
-    .fetch_one(pool)
-    .await
-    .map(|count| count > 0)
-    .unwrap_or(false);
-
-    // If old schema exists without case_type, drop everything and start fresh
-    if !has_case_type {
-        // Check if cases table exists at all
-        let cases_exists: bool = sqlx::query_scalar::<_, i32>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='cases'",
-        )
-        .fetch_one(pool)
-        .await
-        .map(|count| count > 0)
-        .unwrap_or(false);
-
-        if cases_exists {
-            // Old schema - drop all tables and recreate
-            sqlx::query("DROP TABLE IF EXISTS artifact_entries")
-                .execute(pool)
-                .await
-                .ok();
-            sqlx::query("DROP TABLE IF EXISTS files")
-                .execute(pool)
-                .await
-                .ok();
-            sqlx::query("DROP TABLE IF EXISTS artifacts")
-                .execute(pool)
-                .await
-                .ok();
-            sqlx::query("DROP TABLE IF EXISTS cases")
-                .execute(pool)
-                .await
-                .ok();
-        }
-    }
-
-    // Cases: Top-level container (IS an Affidavit or Bundle)
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS cases (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            case_type TEXT NOT NULL CHECK(case_type IN ('affidavit', 'bundle')),
-            content_json TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        "#,
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| format!("Failed to create cases table: {}", e))?;
-
-    // Files: Raw PDF assets
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS files (
-            id TEXT PRIMARY KEY,
-            case_id TEXT NOT NULL,
-            path TEXT NOT NULL,
-            original_name TEXT NOT NULL,
-            page_count INTEGER,
-            metadata_json TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| format!("Failed to create files table: {}", e))?;
-
-    // Artifact Entries: Polymorphic links to cases
-    // row_type determines which FK is used:
-    //   - 'file': uses file_id
-    //   - 'component': uses config_json (cover page, divider, TOC)
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS artifact_entries (
-            id TEXT PRIMARY KEY,
-            case_id TEXT NOT NULL,
-            sequence_order INTEGER NOT NULL,
-            row_type TEXT NOT NULL CHECK(row_type IN ('file', 'component')),
-            file_id TEXT,
-            config_json TEXT,
-            label_override TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
-            FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| format!("Failed to create artifact_entries table: {}", e))?;
-
-    Ok(())
-}
 
 // ============================================================================
 // CASE CRUD
@@ -273,7 +153,7 @@ pub async fn delete_file(pool: &Pool<Sqlite>, id: &str) -> Result<(), String> {
 }
 
 // ============================================================================
-// CASE ENTRY CRUD
+// ENTRY CRUD
 // ============================================================================
 
 pub async fn list_entries(
@@ -306,7 +186,6 @@ pub async fn create_entry(
         ));
     }
 
-    // Validate that the correct field is provided for the row_type
     match row_type {
         "file" if file_id.is_none() => {
             return Err("file_id is required when row_type is 'file'".to_string())
@@ -414,6 +293,7 @@ pub async fn reorder_entries(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::schema::run_migrations;
     use sqlx::sqlite::SqlitePoolOptions;
 
     async fn setup_test_db() -> Pool<Sqlite> {
@@ -429,13 +309,10 @@ mod tests {
         pool
     }
 
-    // Case tests
-
     #[tokio::test]
     async fn test_case_crud() {
         let pool = setup_test_db().await;
 
-        // Create
         let case = create_case(&pool, "Smith v Jones", "bundle", None)
             .await
             .unwrap();
@@ -443,17 +320,13 @@ mod tests {
         assert_eq!(case.case_type, "bundle");
         assert!(!case.id.is_empty());
 
-        // List
         let cases = list_cases(&pool).await.unwrap();
         assert_eq!(cases.len(), 1);
 
-        // Delete
         delete_case(&pool, &case.id).await.unwrap();
         let cases = list_cases(&pool).await.unwrap();
         assert!(cases.is_empty());
     }
-
-    // File tests
 
     #[tokio::test]
     async fn test_file_crud() {
@@ -462,7 +335,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Create
         let file = create_file(
             &pool,
             &case.id,
@@ -476,20 +348,16 @@ mod tests {
         assert_eq!(file.original_name, "invoice.pdf");
         assert_eq!(file.page_count, Some(5));
 
-        // List
         let files = list_files(&pool, &case.id).await.unwrap();
         assert_eq!(files.len(), 1);
 
-        // Get
         let fetched = get_file(&pool, &file.id).await.unwrap();
         assert_eq!(fetched.id, file.id);
 
-        // Update
         let updated = update_file(&pool, &file.id, Some(10), None).await.unwrap();
         assert_eq!(updated.page_count, Some(10));
         assert!(updated.metadata_json.is_none());
 
-        // Delete
         delete_file(&pool, &file.id).await.unwrap();
         let files = list_files(&pool, &case.id).await.unwrap();
         assert!(files.is_empty());
@@ -509,7 +377,5 @@ mod tests {
         let files = list_files(&pool, &case.id).await.unwrap();
         assert!(files.is_empty());
     }
-
-    // TODO: Artifact and Entry tests need to be rewritten for the new case-based model
-    // where cases ARE artifacts (affidavit or bundle), and entries reference case_id directly.
 }
+

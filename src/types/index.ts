@@ -5,6 +5,9 @@
  * Source of truth: src-tauri/src/lib.rs
  */
 
+// Re-export UI domain types
+export * from "./domain";
+
 // ============================================================================
 // CORE ENTITIES (match Rust structs exactly)
 // ============================================================================
