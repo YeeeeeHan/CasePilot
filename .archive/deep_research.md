@@ -3,7 +3,7 @@ This chat transcript is pure gold. It moves your project from "theoretical cool 
 Here are the crystallized insights, mapped to your CasePilot roadmap.
 
 1. The Pivot: "It’s not about Multimedia; it’s about Pagination."
-   Insight: Jun Hao (the lawyer) explicitly downplayed MP4s and audio. He highlighted that the real nightmare is Bundle Compliance—specifically, ensuring the PDF page number matches the Content Page number exactly.
+   Insight: explicitly downplayed MP4s and audio. He highlighted that the real nightmare is Bundle Compliance—specifically, ensuring the PDF page number matches the Content Page number exactly.
 
 The "Shag" Factor: Manually ensuring that if a document starts on physical page 15, the PDF page counter also says 15, and the Table of Contents says 15. If this is off by one page, the court might reject it (or the partner yells).
 
@@ -14,7 +14,7 @@ Deprioritize: Video/Audio transcription features.
 Prioritize: A "Pagination Compiler." The tool must guarantee that Index Page # == PDF Footer Page # == PDF Metadata Page #.
 
 2. The "Alpha" Source: The Supreme Court Practice Directions (ePD 2021)
-   Jun Hao gave you the exact "Rules Engine" your AI needs to follow. You don't need to guess the formatting; it is codified.
+   He gave you the exact "Rules Engine" your AI needs to follow. You don't need to guess the formatting; it is codified.
 
 The Source: Supreme Court Practice Directions 2021
 

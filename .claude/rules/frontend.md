@@ -38,16 +38,21 @@ import { cn } from "@/lib/utils";
 
 ### Editor Format: Hybrid (Prose + Slash/Cmd+K)
 
-**Decision**: Use traditional continuous prose editing (Word-like) with slash commands and Cmd+K for AI interactions.
+**Decision**: Use traditional continuous prose editing (Word-like) with slash commands and Cmd+K for evidence search.
 
-**Not using**: Notion-style block editor with drag handles. Legal documents are continuous prose, and Singapore courts expect traditional formatting.
+**Not using**:
+- Notion-style block editor with drag handles (legal documents are continuous prose)
+- AI text generation ("That one i doubt ai can help write lah" - Jun Hao, litigation associate)
 
 ### Interaction Patterns
 
 1. **Continuous typing**: Standard rich text editing, no block transformations
 2. **Slash commands**: Type `/` to open floating menu for insertions (`/exhibit`, `/heading`, `/citation`)
-3. **Cmd+K menu**: Highlight text + Cmd+K for AI actions (rewrite, expand, summarize)
+3. **Cmd+K menu**: Evidence search and insertion (NOT AI text generation)
+   - Example workflow: Highlight "the invoice dated 12 Feb" → Cmd+K → Search evidence repository → Select document → Insert ExhibitNode
+   - Focus: Smart evidence retrieval powered by RAG, not AI rewriting
 4. **Inline nodes**: Exhibits render as inline nodes within prose flow
+5. **Context Watcher** (Right Panel): Automatically shows relevant PDFs as lawyer types (passive AI assistance)
 
 ### Required Extensions
 
