@@ -95,7 +95,8 @@ const VirtualizedPage = memo(function VirtualizedPage({
     [inViewRef],
   );
 
-  // Read --page-width CSS variable (set by PreviewPane) for consistent scaling
+  // Read --page-width CSS variable or calculate from container width
+  // This ensures PDFs scale to fit the container regardless of their original size
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -107,8 +108,26 @@ const VirtualizedPage = memo(function VirtualizedPage({
         const width = parseFloat(cssWidth);
         if (!isNaN(width) && width > 0) {
           setPageWidth(width);
+          return;
         }
       }
+
+      // Fallback: calculate width from parent container with padding
+      const parent = container.closest(".overflow-auto");
+      if (parent) {
+        const parentWidth = parent.clientWidth;
+        // Use 90% of container width to leave some padding
+        const responsiveWidth = Math.min(
+          parentWidth * 0.9,
+          A4_DIMENSIONS.WIDTH_PX,
+        );
+        if (responsiveWidth > 100) {
+          setPageWidth(responsiveWidth);
+          return;
+        }
+      }
+
+      setPageWidth(A4_DIMENSIONS.WIDTH_PX);
     };
 
     updateWidth();
@@ -117,7 +136,13 @@ const VirtualizedPage = memo(function VirtualizedPage({
     const resizeObserver = new ResizeObserver(updateWidth);
     resizeObserver.observe(container);
 
-    return () => resizeObserver.disconnect();
+    // Also observe window resize for responsive behavior
+    window.addEventListener("resize", updateWidth);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateWidth);
+    };
   }, []);
 
   return (

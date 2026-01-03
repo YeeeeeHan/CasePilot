@@ -135,8 +135,11 @@ export const RepositoryItem = memo(function RepositoryItem({
         path: file.filePath,
         pageCount: file.pageCount,
       });
+
+      // Set both custom MIME type and text fallback for maximum compatibility
       e.dataTransfer.setData("application/x-casepilot-file", fileData);
-      e.dataTransfer.effectAllowed = "copy";
+      e.dataTransfer.setData("text/plain", file.name); // Fallback
+      e.dataTransfer.effectAllowed = "copyMove";
 
       // Use transparent 1x1 pixel to hide default drag ghost
       if (!dragImageRef.current) {

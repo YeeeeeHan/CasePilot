@@ -10,15 +10,16 @@
  * - Cursor-following preview
  */
 
-import { EditorToolbar } from '@/components/editor/EditorToolbar';
-import { ExhibitNode } from '@/components/editor/ExhibitNode';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import Placeholder from '@tiptap/extension-placeholder';
-import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import { Check, Pencil, X } from 'lucide-react';
+import { EditorToolbar } from "@/components/editor/EditorToolbar";
+import { ExhibitNode } from "@/components/editor/ExhibitNode";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { A4_DIMENSIONS } from "@/types/canvas";
+import Placeholder from "@tiptap/extension-placeholder";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { Check, FileDown, Pencil, X } from "lucide-react";
 import {
   forwardRef,
   useCallback,
@@ -26,8 +27,10 @@ import {
   useImperativeHandle,
   useRef,
   useState,
-} from 'react';
-import { toast } from 'sonner';
+} from "react";
+import { toast } from "sonner";
+import { A4Page, A4PageContainer } from "./A4Page";
+import { usePageBreakDetection } from "./hooks/usePageBreakDetection";
 
 export interface AvailableFile {
   id: string;
@@ -58,6 +61,8 @@ interface AffidavitEditorProps {
   onInitialsChange?: (artifactId: string, initials: string) => void;
   /** Called when cursor enters an ExhibitNode */
   onExhibitFocus?: (filePath: string | null) => void;
+  /** Called when user wants to export to .docx */
+  onExportDocx?: (artifactId: string) => void;
 }
 
 export const AffidavitEditor = forwardRef<
@@ -73,8 +78,9 @@ export const AffidavitEditor = forwardRef<
     onContentChange,
     onInitialsChange,
     onExhibitFocus,
+    onExportDocx,
   },
-  ref
+  ref,
 ) {
   const [isEditingInitials, setIsEditingInitials] = useState(false);
   const [editedInitials, setEditedInitials] = useState(initials);
@@ -88,7 +94,7 @@ export const AffidavitEditor = forwardRef<
 
   // Parse initial content (could be JSON or HTML)
   const getInitialContent = useCallback(() => {
-    if (!content) return '';
+    if (!content) return "";
     try {
       const parsed = JSON.parse(content);
       if (parsed.content) {
@@ -106,40 +112,61 @@ export const AffidavitEditor = forwardRef<
         heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({
-        placeholder: 'Start drafting your affidavit...',
+        placeholder: "Start drafting your affidavit...",
       }),
       ExhibitNode,
     ],
     content: getInitialContent(),
     editorProps: {
       attributes: {
-        class:
-          'prose prose-sm max-w-none focus:outline-none min-h-[400px] px-4 py-3',
+        class: cn(
+          "prose prose-sm max-w-none focus:outline-none",
+          // A4 page styling
+          "p-8",
+          // Minimum height to fill the A4 page
+          "min-h-full",
+        ),
+        style: `min-height: ${A4_DIMENSIONS.HEIGHT_PX - 96}px`,
       },
       // Handle external drops via handleDOMEvents (not handleDrop which is for ProseMirror-level drops)
       handleDOMEvents: {
-        dragover: (_view, event) => {
+        dragenter: (_view, event) => {
+          // Must prevent default to allow drops in Tauri webview
           if (
-            event.dataTransfer?.types.includes('application/x-casepilot-file')
+            event.dataTransfer?.types.includes("application/x-casepilot-file")
           ) {
             event.preventDefault();
-            event.dataTransfer.dropEffect = 'copy';
+            return true;
+          }
+          return false;
+        },
+        dragover: (_view, event) => {
+          if (
+            event.dataTransfer?.types.includes("application/x-casepilot-file")
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.dataTransfer.dropEffect = "copy";
             return true;
           }
           return false;
         },
         drop: (_view, event) => {
           const data = event.dataTransfer?.getData(
-            'application/x-casepilot-file'
+            "application/x-casepilot-file",
           );
           if (data) {
             event.preventDefault();
-            event.stopPropagation(); // Prevent React handler from also firing
+            event.stopPropagation(); // Prevent React handler and browser from also firing
             try {
               const file = JSON.parse(data) as AvailableFile;
-              insertExhibitRef.current(file);
+              // Use setTimeout to ensure the editor is ready for the insertion
+              setTimeout(() => {
+                insertExhibitRef.current(file);
+              }, 0);
               return true;
-            } catch {
+            } catch (e) {
+              console.error("Failed to parse dropped file data:", e);
               return false;
             }
           }
@@ -162,33 +189,33 @@ export const AffidavitEditor = forwardRef<
       }, 2000);
     },
     onSelectionUpdate: ({ editor: ed }) => {
-      const { from, to } = ed.state.selection;
-      let foundExhibit: string | null = null;
+      // STICKY BEHAVIOR: Only update preview when user explicitly clicks on an exhibit
+      // Don't change preview when cursor just moves near or past an exhibit
 
       // Check for NodeSelection (clicking directly on an exhibit)
       // NodeSelection has a 'node' property, TextSelection does not
       const selection = ed.state.selection as {
         node?: { type: { name: string }; attrs: Record<string, unknown> };
       };
+
       if (
-        selection.node?.type.name === 'exhibitNode' &&
+        selection.node?.type.name === "exhibitNode" &&
         selection.node.attrs.filePath
       ) {
-        foundExhibit = selection.node.attrs.filePath as string;
-      } else {
-        // Check nodes around cursor position (from-1 to to+1) to catch adjacent exhibits
-        const searchFrom = Math.max(0, from - 1);
-        const searchTo = Math.min(ed.state.doc.content.size, to + 1);
-        ed.state.doc.nodesBetween(searchFrom, searchTo, (n) => {
-          if (n.type.name === 'exhibitNode' && n.attrs.filePath) {
-            foundExhibit = n.attrs.filePath;
-            return false;
-          }
-        });
+        // User clicked directly on an exhibit - update preview
+        onExhibitFocus?.(selection.node.attrs.filePath as string);
       }
-
-      onExhibitFocus?.(foundExhibit);
+      // Otherwise, keep the current preview (sticky behavior)
+      // Don't call onExhibitFocus(null) - this preserves the last selected exhibit
     },
+  });
+
+  // Detect page breaks for pagination display
+  const { pageCount } = usePageBreakDetection({
+    editor,
+    onPageCountChange: useCallback((_newPageCount: number) => {
+      // Could notify parent of page count changes if needed
+    }, []),
   });
 
   // Update insertExhibitRef when editor is available
@@ -196,10 +223,10 @@ export const AffidavitEditor = forwardRef<
     if (!editor) return;
 
     insertExhibitRef.current = (file: AvailableFile) => {
-      // Check for duplicate
+      // Check for duplicate and count existing exhibits
       const existingIds: string[] = [];
       editor.state.doc.descendants((node) => {
-        if (node.type.name === 'exhibitNode' && node.attrs.fileId) {
+        if (node.type.name === "exhibitNode" && node.attrs.fileId) {
           existingIds.push(node.attrs.fileId);
         }
       });
@@ -209,6 +236,11 @@ export const AffidavitEditor = forwardRef<
         return;
       }
 
+      // Compute exhibit label: INITIALS-NUMBER (e.g., "TAK-1")
+      const exhibitNumber = existingIds.length + 1;
+      const currentInitials = initials || "EX";
+      const exhibitLabel = `${currentInitials}-${exhibitNumber}`;
+
       editor
         .chain()
         .focus()
@@ -216,13 +248,14 @@ export const AffidavitEditor = forwardRef<
           fileId: file.id,
           fileName: file.name,
           filePath: file.path,
+          exhibitLabel,
         })
-        .insertContent(' ')
+        .insertContent(" ")
         .run();
 
-      toast.success(`Inserted exhibit: ${file.name}`);
+      toast.success(`Inserted ${exhibitLabel}: ${file.name}`);
     };
-  }, [editor]);
+  }, [editor, initials]);
 
   // Expose insertExhibit to parent via ref
   useImperativeHandle(
@@ -230,7 +263,7 @@ export const AffidavitEditor = forwardRef<
     () => ({
       insertExhibit: (file: AvailableFile) => insertExhibitRef.current(file),
     }),
-    []
+    [],
   );
 
   // Sync content when artifactId changes
@@ -259,7 +292,7 @@ export const AffidavitEditor = forwardRef<
   // Handle drag events for visual feedback
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.types.includes('application/x-casepilot-file')) {
+    if (e.dataTransfer.types.includes("application/x-casepilot-file")) {
       setIsDragOver(true);
     }
   }, []);
@@ -273,8 +306,8 @@ export const AffidavitEditor = forwardRef<
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.types.includes('application/x-casepilot-file')) {
-      e.dataTransfer.dropEffect = 'copy';
+    if (e.dataTransfer.types.includes("application/x-casepilot-file")) {
+      e.dataTransfer.dropEffect = "copy";
     }
   }, []);
 
@@ -320,8 +353,8 @@ export const AffidavitEditor = forwardRef<
                 setEditedInitials(e.target.value.toUpperCase().slice(0, 5))
               }
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveInitials();
-                if (e.key === 'Escape') handleCancelInitials();
+                if (e.key === "Enter") handleSaveInitials();
+                if (e.key === "Escape") handleCancelInitials();
               }}
               className="h-6 w-16 text-xs uppercase px-1"
               maxLength={5}
@@ -348,11 +381,11 @@ export const AffidavitEditor = forwardRef<
           <button
             onClick={() => setIsEditingInitials(true)}
             className={cn(
-              'group flex items-center gap-1 px-2 py-0.5 rounded text-xs',
-              'bg-primary/10 text-primary hover:bg-primary/20 transition-colors'
+              "group flex items-center gap-1 px-2 py-0.5 rounded text-xs",
+              "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
             )}
           >
-            <span className="font-mono font-medium">{initials || '---'}</span>
+            <span className="font-mono font-medium">{initials || "---"}</span>
             <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
         )}
@@ -361,19 +394,23 @@ export const AffidavitEditor = forwardRef<
       {/* Toolbar */}
       <EditorToolbar editor={editor} />
 
-      {/* Editor content with drag-drop zone */}
+      {/* Editor content with drag-drop zone - A4 paginated view */}
       <div
         ref={editorContainerRef}
         className={cn(
-          'flex-1 overflow-auto relative',
-          isDragOver && 'ring-2 ring-primary ring-inset bg-primary/5'
+          "flex-1 overflow-auto relative",
+          isDragOver && "ring-2 ring-primary ring-inset bg-primary/5",
         )}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <EditorContent editor={editor} className="h-full" />
+        <A4PageContainer>
+          <A4Page className="a4-editor">
+            <EditorContent editor={editor} className="h-full" />
+          </A4Page>
+        </A4PageContainer>
 
         {/* Drop overlay */}
         {isDragOver && (
@@ -387,12 +424,26 @@ export const AffidavitEditor = forwardRef<
         )}
       </div>
 
-      {/* Status bar */}
-      <div className="px-4 py-1 border-t border-border text-xs text-muted-foreground bg-muted/30 flex items-center justify-between">
-        <span>{editor.storage.characterCount?.words?.() ?? 0} words</span>
-        <span className="text-muted-foreground/60">
-          Drag files from sidebar to insert exhibits
-        </span>
+      {/* Footer toolbar - similar to MasterIndex */}
+      <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-center justify-between">
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span>
+            {editor.storage.characterCount?.words?.() ?? 0} words | {pageCount}{" "}
+            page{pageCount !== 1 ? "s" : ""}
+          </span>
+          <span className="text-muted-foreground/60">
+            Drag files from sidebar to insert exhibits
+          </span>
+        </div>
+
+        <Button
+          size="sm"
+          onClick={() => onExportDocx?.(artifactId)}
+          className="gap-2"
+        >
+          <FileDown className="h-4 w-4" />
+          Export to .docx
+        </Button>
       </div>
     </div>
   );
