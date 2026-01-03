@@ -76,7 +76,7 @@ const handleChange = useCallback(
   (content) => {
     // ...
   },
-  [dependencies]
+  [dependencies],
 );
 
 // Memoize expensive computations

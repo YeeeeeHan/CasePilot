@@ -17,7 +17,11 @@ import { FileText } from "lucide-react";
 
 // The React component that renders the exhibit node
 function ExhibitNodeView({ node, selected }: NodeViewProps) {
-  const { fileName } = node.attrs as { fileName: string; fileId: string; filePath: string };
+  const { fileName } = node.attrs as {
+    fileName: string;
+    fileId: string;
+    filePath: string;
+  };
 
   return (
     <NodeViewWrapper as="span" className="inline">
@@ -82,7 +86,7 @@ export const ExhibitNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'span[data-exhibit-node]',
+        tag: "span[data-exhibit-node]",
       },
     ];
   },
@@ -127,7 +131,11 @@ export function extractExhibitFileIds(content: string): string[] {
     function traverse(node: unknown) {
       if (!node || typeof node !== "object") return;
 
-      const n = node as { type?: string; attrs?: { fileId?: string }; content?: unknown[] };
+      const n = node as {
+        type?: string;
+        attrs?: { fileId?: string };
+        content?: unknown[];
+      };
 
       if (n.type === "exhibitNode" && n.attrs?.fileId) {
         if (!fileIds.includes(n.attrs.fileId)) {

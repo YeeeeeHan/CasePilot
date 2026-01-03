@@ -56,7 +56,7 @@ export function AppLayout({
                   className={cn(
                     "h-8 gap-2",
                     sidebarView === "project-tree" &&
-                      "bg-accent text-accent-foreground"
+                      "bg-accent text-accent-foreground",
                   )}
                   onClick={() => onSidebarViewChange?.("project-tree")}
                 >
@@ -68,7 +68,8 @@ export function AppLayout({
                   size="sm"
                   className={cn(
                     "h-8 gap-2",
-                    sidebarView === "files" && "bg-accent text-accent-foreground"
+                    sidebarView === "files" &&
+                      "bg-accent text-accent-foreground",
                   )}
                   onClick={() => onSidebarViewChange?.("files")}
                 >

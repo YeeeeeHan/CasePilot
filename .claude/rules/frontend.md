@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 **Decision**: Use traditional continuous prose editing (Word-like) with slash commands and Cmd+K for evidence search.
 
 **Not using**:
+
 - Notion-style block editor with drag handles (legal documents are continuous prose)
 - AI text generation ("That one i doubt ai can help write lah" - Jun Hao, litigation associate)
 

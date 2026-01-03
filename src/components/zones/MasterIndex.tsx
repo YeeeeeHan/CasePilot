@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   DndContext,
   closestCenter,
@@ -60,6 +60,12 @@ interface MasterIndexProps {
   onInsertCoverPage?: () => void;
   onInsertDivider?: () => void;
   onInsertTableOfContents?: () => void;
+  onFileDropped?: (fileData: {
+    id: string;
+    name: string;
+    path: string;
+    pageCount?: number;
+  }) => void;
   isCompiling?: boolean;
 }
 
@@ -201,8 +207,12 @@ export function MasterIndex({
   onInsertCoverPage,
   onInsertDivider,
   onInsertTableOfContents,
+  onFileDropped,
   isCompiling = false,
 }: MasterIndexProps) {
+  // State for drag-drop visual feedback
+  const [isDragOver, setIsDragOver] = useState(false);
+
   // Sensors for drag and drop
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -252,6 +262,38 @@ export function MasterIndex({
     }
   }
 
+  // Handle file drop from Explorer
+  const handleFileDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.types.includes("application/x-casepilot-file")) {
+      e.dataTransfer.dropEffect = "copy";
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleFileDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleFileDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+
+      const data = e.dataTransfer.getData("application/x-casepilot-file");
+      if (data && onFileDropped) {
+        try {
+          const fileData = JSON.parse(data);
+          onFileDropped(fileData);
+        } catch (error) {
+          console.error("Failed to parse dropped file data:", error);
+        }
+      }
+    },
+    [onFileDropped],
+  );
+
   // Calculate total pages from last entry (all entry types now have pages)
   const getTotalPages = (): number => {
     if (entries.length === 0) return 0;
@@ -278,15 +320,42 @@ export function MasterIndex({
       </div>
 
       {entries.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
+        <div
+          className={cn(
+            "flex-1 flex items-center justify-center border-2 border-dashed rounded-lg transition-colors relative",
+            isDragOver
+              ? "border-primary bg-primary/5"
+              : "border-muted-foreground/25",
+          )}
+          onDragOver={handleFileDragOver}
+          onDragLeave={handleFileDragLeave}
+          onDrop={handleFileDrop}
+        >
           <p className="text-xs text-muted-foreground text-center px-4">
             Use the toolbar below to add documents
             <br />
             or drag files from the Repository
           </p>
+          {isDragOver && (
+            <div className="absolute inset-0 flex items-center justify-center bg-primary/10 pointer-events-none">
+              <div className="bg-background rounded-lg px-4 py-2 shadow-lg border border-primary">
+                <p className="text-sm font-medium text-primary">
+                  Drop to add document
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="flex-1 overflow-auto border rounded-lg">
+        <div
+          className={cn(
+            "flex-1 overflow-auto border rounded-lg transition-colors relative",
+            isDragOver && "ring-2 ring-primary ring-inset bg-primary/5",
+          )}
+          onDragOver={handleFileDragOver}
+          onDragLeave={handleFileDragLeave}
+          onDrop={handleFileDrop}
+        >
           <DndContext
             collisionDetection={closestCenter}
             modifiers={[restrictToVerticalAxis]}
@@ -324,6 +393,17 @@ export function MasterIndex({
               </TableBody>
             </Table>
           </DndContext>
+
+          {/* Drop overlay when dragging over populated table */}
+          {isDragOver && (
+            <div className="absolute inset-0 flex items-center justify-center bg-primary/10 pointer-events-none">
+              <div className="bg-background rounded-lg px-4 py-2 shadow-lg border border-primary">
+                <p className="text-sm font-medium text-primary">
+                  Drop to add document
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -308,20 +308,17 @@ export function useInvoke() {
   // v2.0 File API
   // ============================================================================
 
-  const listFiles = useCallback(
-    async (caseId: string): Promise<CaseFile[]> => {
-      try {
-        const files = await invoke<CaseFile[]>("list_files", { caseId });
-        return files;
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        console.error("[useInvoke] Failed to list files:", message);
-        setError(message);
-        return [];
-      }
-    },
-    [],
-  );
+  const listFiles = useCallback(async (caseId: string): Promise<CaseFile[]> => {
+    try {
+      const files = await invoke<CaseFile[]>("list_files", { caseId });
+      return files;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("[useInvoke] Failed to list files:", message);
+      setError(message);
+      return [];
+    }
+  }, []);
 
   const createFile = useCallback(
     async (
@@ -400,7 +397,9 @@ export function useInvoke() {
   const listArtifacts = useCallback(
     async (caseId: string): Promise<Artifact[]> => {
       try {
-        const artifacts = await invoke<Artifact[]>("list_artifacts", { caseId });
+        const artifacts = await invoke<Artifact[]>("list_artifacts", {
+          caseId,
+        });
         return artifacts;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
@@ -562,7 +561,10 @@ export function useInvoke() {
   }, []);
 
   const reorderEntries = useCallback(
-    async (artifactId: string, entryIds: string[]): Promise<ArtifactEntry[]> => {
+    async (
+      artifactId: string,
+      entryIds: string[],
+    ): Promise<ArtifactEntry[]> => {
       try {
         const entries = await invoke<ArtifactEntry[]>("reorder_entries", {
           request: {

@@ -6,13 +6,7 @@
  */
 
 import { useState } from "react";
-import {
-  ChevronDown,
-  FileText,
-  Package,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { ChevronDown, FileText, Package, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,7 +53,7 @@ interface ProjectTreeProps {
   onCreateArtifact?: (
     type: "affidavit" | "bundle",
     name: string,
-    initials?: string
+    initials?: string,
   ) => void;
   onDeleteArtifact?: (artifactId: string) => void;
 }
@@ -100,7 +94,7 @@ export function ProjectTree({
     onCreateArtifact?.(
       createDialog.type,
       newName.trim(),
-      createDialog.type === "affidavit" ? newInitials.trim() : undefined
+      createDialog.type === "affidavit" ? newInitials.trim() : undefined,
     );
     setCreateDialog({ open: false, type: "affidavit" });
     setNewName("");
@@ -121,7 +115,7 @@ export function ProjectTree({
                 "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors pr-7",
                 isActive
                   ? "bg-accent text-accent-foreground"
-                  : "hover:bg-muted"
+                  : "hover:bg-muted",
               )}
             >
               <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -198,7 +192,7 @@ export function ProjectTree({
             <ChevronDown
               className={cn(
                 "h-3.5 w-3.5 text-muted-foreground transition-transform",
-                affidavitsExpanded && "rotate-180"
+                affidavitsExpanded && "rotate-180",
               )}
             />
           </CollapsibleTrigger>
@@ -230,7 +224,7 @@ export function ProjectTree({
             <ChevronDown
               className={cn(
                 "h-3.5 w-3.5 text-muted-foreground transition-transform",
-                bundlesExpanded && "rotate-180"
+                bundlesExpanded && "rotate-180",
               )}
             />
           </CollapsibleTrigger>
@@ -251,9 +245,7 @@ export function ProjectTree({
       {/* Create artifact dialog */}
       <Dialog
         open={createDialog.open}
-        onOpenChange={(open) =>
-          setCreateDialog((prev) => ({ ...prev, open }))
-        }
+        onOpenChange={(open) => setCreateDialog((prev) => ({ ...prev, open }))}
       >
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -310,7 +302,9 @@ export function ProjectTree({
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setCreateDialog({ open: false, type: "affidavit" })}
+              onClick={() =>
+                setCreateDialog({ open: false, type: "affidavit" })
+              }
             >
               Cancel
             </Button>
