@@ -34,6 +34,7 @@ export interface ProjectCase {
   id: string;
   name: string;
   initials: string; // e.g., "JvS" for "Jones v Smith"
+  case_type: "bundle" | "affidavit";
 }
 
 interface ProjectSwitcherProps {
@@ -83,6 +84,9 @@ export function ProjectSwitcher({
           {cases.map((caseItem) => {
             const initials = caseItem.initials || getInitials(caseItem.name);
             const isActive = activeCaseId === caseItem.id;
+            const isAffidavit = caseItem.case_type === "affidavit";
+            const TypeIcon = isAffidavit ? FileText : FileStack;
+            const typeLabel = isAffidavit ? "Affidavit" : "Bundle";
 
             return (
               <ContextMenu key={caseItem.id}>
@@ -93,17 +97,38 @@ export function ProjectSwitcher({
                         <button
                           onClick={() => onSelectCase?.(caseItem.id)}
                           className={cn(
-                            "w-9 h-9 rounded-lg flex items-center justify-center text-xs font-semibold transition-colors",
+                            "w-9 h-9 rounded-lg flex flex-col items-center justify-center text-[10px] font-semibold transition-colors relative",
                             isActive
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground",
+                            // Add colored left border to indicate type (thicker for visibility)
+                            isAffidavit
+                              ? "border-l-[3px] border-l-blue-500"
+                              : "border-l-[3px] border-l-amber-500",
                           )}
                         >
-                          {initials.slice(0, 3)}
+                          <TypeIcon
+                            className={cn(
+                              "h-3.5 w-3.5 mb-0.5",
+                              // Color icons when not active for clearer differentiation
+                              !isActive &&
+                                (isAffidavit
+                                  ? "text-blue-500"
+                                  : "text-amber-500"),
+                            )}
+                          />
+                          <span className="leading-none">
+                            {initials.slice(0, 3)}
+                          </span>
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="right">
-                        <p>{caseItem.name}</p>
+                        <div className="flex flex-col gap-0.5">
+                          <p className="font-medium">{caseItem.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {typeLabel}
+                          </p>
+                        </div>
                       </TooltipContent>
                     </Tooltip>
                   </div>

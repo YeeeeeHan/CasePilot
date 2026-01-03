@@ -73,8 +73,9 @@ export function useCaseManager() {
   }, []);
 
   const handleCreateCase = useCallback(
-    async (caseType: "bundle" | "affidavit") => {
-      const newCase = await createCase("New Case", caseType);
+    async (caseType: "bundle" | "affidavit", name?: string) => {
+      const caseName = name || "New Case";
+      const newCase = await createCase(caseName, caseType);
       if (newCase) {
         const newCaseObj: Case = {
           id: newCase.id,
@@ -85,8 +86,10 @@ export function useCaseManager() {
         };
         setCases((prev) => [...prev, newCaseObj]);
         setActiveCaseId(newCase.id);
+        toast.success(`Created "${caseName}"`);
         return newCaseObj;
       }
+      toast.error("Failed to create case");
       return null;
     },
     [createCase],

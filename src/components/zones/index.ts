@@ -6,3 +6,4 @@ export {
   type InspectorFile,
   type SelectionSource,
 } from "./Inspector";
+export { CreateCaseDialog } from "./CreateCaseDialog";

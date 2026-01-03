@@ -7,6 +7,8 @@ import {
   Upload,
   Pencil,
   Trash2,
+  FileStack,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,7 @@ import type {
   RepositoryFolder,
   FileFolderAssignment,
 } from "@/hooks/features/useFileRepository";
+import type { WorkbenchMode } from "@/components/workbench";
 
 export type { RepositoryFile };
 
@@ -43,7 +46,10 @@ interface RepositoryPanelProps {
   fileFolderAssignments: FileFolderAssignment;
   expanded: boolean;
   onToggle: (expanded: boolean) => void;
-  onFileSelect?: (fileId: string) => void;
+  onFileSelect?: (
+    fileId: string,
+    modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean },
+  ) => void;
   onFileDelete?: (fileId: string) => void;
   onFileDrop?: (filePaths: string[]) => void;
   onFileDoubleClick?: (fileId: string) => void;
@@ -51,7 +57,15 @@ interface RepositoryPanelProps {
   onCreateFolder?: (parentId: string | null) => void;
   onDeleteFolder?: (folderId: string) => void;
   onRenameFolder?: (folderId: string, newName: string) => void;
-  selectedFileId?: string | null;
+  // Multi-select support
+  selectedFileIds?: Set<string>;
+  onKeyboardNavigation?: (
+    direction: "up" | "down",
+    modifiers?: { shiftKey?: boolean },
+  ) => void;
+  onAddMultipleToBundle?: (fileIds: string[]) => void;
+  onDeleteMultiple?: (fileIds: string[]) => void;
+  workbenchMode?: WorkbenchMode;
 }
 
 // Module-level flag to prevent duplicate drop processing
@@ -69,12 +83,19 @@ export function RepositoryPanel({
   onCreateFolder,
   onDeleteFolder,
   onRenameFolder,
-  selectedFileId,
+  selectedFileIds = new Set(),
+  onKeyboardNavigation,
+  onAddMultipleToBundle,
+  onDeleteMultiple,
+  workbenchMode = "bundle",
 }: RepositoryPanelProps) {
   // Track expanded folders
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
+
+  // Ref for keyboard focus
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Use ref to avoid re-running effect when callback changes
   const onFileDropRef = useRef(onFileDrop);
@@ -122,6 +143,19 @@ export function RepositoryPanel({
       if (unlisten) unlisten();
     };
   }, []);
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        onKeyboardNavigation?.(e.key === "ArrowUp" ? "up" : "down", {
+          shiftKey: e.shiftKey,
+        });
+      }
+    },
+    [onKeyboardNavigation],
+  );
 
   // Build tree structure from folders and file assignments
   const treeData = useMemo((): TreeNode[] => {
@@ -233,20 +267,44 @@ export function RepositoryPanel({
       <RepositoryItem
         key={node.file.id}
         file={node.file}
-        isSelected={selectedFileId === node.file.id}
+        isSelected={selectedFileIds.has(node.file.id)}
         depth={depth}
         onSelect={onFileSelect}
         onDoubleClick={onFileDoubleClick}
         onDelete={onFileDelete}
         onRename={onFileRename}
         onCreateFolder={onCreateFolder}
+        // Multi-select support
+        selectedCount={selectedFileIds.size}
+        onAddMultipleToBundle={() =>
+          onAddMultipleToBundle?.(Array.from(selectedFileIds))
+        }
+        onDeleteMultiple={() => onDeleteMultiple?.(Array.from(selectedFileIds))}
+        addActionLabel={
+          workbenchMode === "affidavit" ? "Add to Affidavit" : "Add to Bundle"
+        }
       />
     );
   };
 
+  // Get the add action label based on workbench mode
+  const addActionLabel =
+    workbenchMode === "affidavit" ? "Add to Affidavit" : "Add to Bundle";
+  const addActionIcon =
+    workbenchMode === "affidavit" ? (
+      <FileText className="mr-2 h-4 w-4" />
+    ) : (
+      <FileStack className="mr-2 h-4 w-4" />
+    );
+
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full">
+      <div
+        ref={containerRef}
+        className="flex flex-col h-full outline-none"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+      >
         {/* Static Header */}
         <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/50">
           <div className="flex items-center gap-1.5">
@@ -254,6 +312,11 @@ export function RepositoryPanel({
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Repository
             </span>
+            {selectedFileIds.size > 1 && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded">
+                {selectedFileIds.size} selected
+              </span>
+            )}
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -273,21 +336,58 @@ export function RepositoryPanel({
           </Tooltip>
         </div>
 
-        {/* File Tree */}
-        {files.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 px-2 border-2 border-dashed border-muted-foreground/25 rounded-lg mx-2 my-2">
-            <Upload className="h-6 w-6 text-muted-foreground/50 mb-2" />
-            <p className="text-xs text-muted-foreground text-center">
-              Drop files here
-            </p>
-          </div>
-        ) : (
-          <ScrollArea className="flex-1">
-            <div className="py-0.5">
-              {treeData.map((node) => renderNode(node, 0))}
+        {/* File Tree with background context menu */}
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="flex-1 min-h-0">
+              {files.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 px-2 border-2 border-dashed border-muted-foreground/25 rounded-lg mx-2 my-2">
+                  <Upload className="h-6 w-6 text-muted-foreground/50 mb-2" />
+                  <p className="text-xs text-muted-foreground text-center">
+                    Drop files here
+                  </p>
+                </div>
+              ) : (
+                <ScrollArea className="h-full">
+                  <div className="py-0.5">
+                    {treeData.map((node) => renderNode(node, 0))}
+                  </div>
+                </ScrollArea>
+              )}
             </div>
-          </ScrollArea>
-        )}
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            {/* Always show New Folder option */}
+            <ContextMenuItem onClick={() => onCreateFolder?.(null)}>
+              <FolderPlus className="mr-2 h-4 w-4" />
+              New Folder
+            </ContextMenuItem>
+            {/* Multi-select options when multiple files selected */}
+            {selectedFileIds.size > 1 && (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onClick={() =>
+                    onAddMultipleToBundle?.(Array.from(selectedFileIds))
+                  }
+                >
+                  {addActionIcon}
+                  {addActionLabel} ({selectedFileIds.size} files)
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  variant="destructive"
+                  onClick={() =>
+                    onDeleteMultiple?.(Array.from(selectedFileIds))
+                  }
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete {selectedFileIds.size} files
+                </ContextMenuItem>
+              </>
+            )}
+          </ContextMenuContent>
+        </ContextMenu>
       </div>
     </TooltipProvider>
   );

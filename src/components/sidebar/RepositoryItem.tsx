@@ -13,6 +13,7 @@ import {
   FileCode,
   File,
   FileSpreadsheet,
+  FileStack,
   Trash2,
   Pencil,
   FolderPlus,
@@ -43,11 +44,19 @@ interface RepositoryItemProps {
   file: RepositoryFile;
   isSelected: boolean;
   depth?: number;
-  onSelect?: (fileId: string) => void;
+  onSelect?: (
+    fileId: string,
+    modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean },
+  ) => void;
   onDoubleClick?: (fileId: string) => void;
   onDelete?: (fileId: string) => void;
   onRename?: (fileId: string, newName: string) => void;
   onCreateFolder?: (parentId: string | null) => void;
+  // Multi-select support
+  selectedCount?: number;
+  onAddMultipleToBundle?: () => void;
+  onDeleteMultiple?: () => void;
+  addActionLabel?: string;
 }
 
 // Get file extension from filename
@@ -110,6 +119,10 @@ export const RepositoryItem = memo(function RepositoryItem({
   onDelete,
   onRename,
   onCreateFolder,
+  selectedCount = 0,
+  onAddMultipleToBundle,
+  onDeleteMultiple,
+  addActionLabel = "Add to Bundle",
 }: RepositoryItemProps) {
   const dragImageRef = useRef<HTMLImageElement | null>(null);
 
@@ -157,7 +170,13 @@ export const RepositoryItem = memo(function RepositoryItem({
           <ContextMenuTrigger asChild>
             <button
               draggable
-              onClick={() => onSelect?.(file.id)}
+              onClick={(e) =>
+                onSelect?.(file.id, {
+                  shiftKey: e.shiftKey,
+                  metaKey: e.metaKey,
+                  ctrlKey: e.ctrlKey,
+                })
+              }
               onDoubleClick={() => {
                 if (!file.isLinked) {
                   onDoubleClick?.(file.id);
@@ -167,7 +186,7 @@ export const RepositoryItem = memo(function RepositoryItem({
               className={cn(
                 "w-full flex items-center gap-1.5 py-0.5 pr-2 text-left text-xs transition-colors cursor-grab active:cursor-grabbing",
                 isSelected
-                  ? "bg-accent text-accent-foreground"
+                  ? "bg-neutral-200 dark:bg-neutral-700 text-foreground"
                   : "hover:bg-muted/80",
                 file.isLinked && "opacity-50",
               )}
@@ -197,19 +216,36 @@ export const RepositoryItem = memo(function RepositoryItem({
       </Tooltip>
 
       <ContextMenuContent>
-        <ContextMenuItem onClick={handleRename}>
-          <Pencil className="mr-2" />
-          Rename
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleCreateFolder}>
-          <FolderPlus className="mr-2" />
-          New Folder
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={handleDelete} variant="destructive">
-          <Trash2 className="mr-2" />
-          Delete
-        </ContextMenuItem>
+        {/* Show bulk options when multiple files are selected and this file is part of the selection */}
+        {selectedCount > 1 && isSelected ? (
+          <>
+            <ContextMenuItem onClick={onAddMultipleToBundle}>
+              <FileStack className="mr-2 h-4 w-4" />
+              {addActionLabel} ({selectedCount} files)
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={onDeleteMultiple} variant="destructive">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete {selectedCount} files
+            </ContextMenuItem>
+          </>
+        ) : (
+          <>
+            <ContextMenuItem onClick={handleRename}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Rename
+            </ContextMenuItem>
+            <ContextMenuItem onClick={handleCreateFolder}>
+              <FolderPlus className="mr-2 h-4 w-4" />
+              New Folder
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={handleDelete} variant="destructive">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   );
