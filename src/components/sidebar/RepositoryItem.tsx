@@ -5,7 +5,7 @@
  * VS Code-style: compact, context menu actions, dynamic icons.
  */
 
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import {
   Check,
   FileText,
@@ -18,6 +18,8 @@ import {
   Pencil,
   FolderPlus,
 } from "lucide-react";
+import { useDragContext } from "@/contexts/DragContext";
+import { InputDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -144,20 +146,29 @@ export const RepositoryItem = memo(function RepositoryItem({
 }: RepositoryItemProps) {
   const dragPreviewRef = useRef<HTMLElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const { startDrag, endDrag } = useDragContext();
+
+  // Rename dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
-      // Set custom MIME type with file data
-      const fileData = JSON.stringify({
+      // Store file data in context for cross-component access
+      // This bypasses HTML5 dataTransfer limitations with dnd-kit
+      const fileData = {
         id: file.id,
         name: file.name,
         path: file.filePath,
         pageCount: file.pageCount,
-      });
+      };
+      startDrag(fileData);
 
-      // Set both custom MIME type and text fallback for maximum compatibility
-      e.dataTransfer.setData("application/x-casepilot-file", fileData);
-      e.dataTransfer.setData("text/plain", file.name); // Fallback
+      // Also set dataTransfer for compatibility
+      e.dataTransfer.setData(
+        "application/x-casepilot-file",
+        JSON.stringify(fileData),
+      );
+      e.dataTransfer.setData("text/plain", file.name);
       e.dataTransfer.effectAllowed = "copyMove";
 
       // Create exact clone of the element as drag preview
@@ -178,20 +189,29 @@ export const RepositoryItem = memo(function RepositoryItem({
         }
       });
     },
-    [file],
+    [file, startDrag],
   );
+
+  const handleDragEnd = useCallback(() => {
+    endDrag();
+  }, [endDrag]);
 
   const handleDelete = useCallback(() => {
     onDelete?.(file.id);
   }, [file.id, onDelete]);
 
-  const handleRename = useCallback(() => {
-    // TODO: Implement inline rename or dialog
-    const newName = prompt("Rename file:", file.name);
-    if (newName && newName !== file.name) {
-      onRename?.(file.id, newName);
-    }
-  }, [file.id, file.name, onRename]);
+  const handleRenameClick = useCallback(() => {
+    setRenameDialogOpen(true);
+  }, []);
+
+  const handleRenameConfirm = useCallback(
+    (newName: string) => {
+      if (newName && newName !== file.name) {
+        onRename?.(file.id, newName);
+      }
+    },
+    [file.id, file.name, onRename],
+  );
 
   const handleCreateFolder = useCallback(() => {
     onCreateFolder?.(null);
@@ -218,12 +238,13 @@ export const RepositoryItem = memo(function RepositoryItem({
                 }
               }}
               onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
               className={cn(
                 "w-full flex items-center gap-1.5 py-0.5 pr-2 text-left text-xs transition-colors cursor-grab active:cursor-grabbing",
                 isSelected
-                  ? "bg-accent text-accent-foreground"
+                  ? "bg-primary/15 text-foreground ring-1 ring-inset ring-primary/30"
                   : "hover:bg-accent/50",
-                file.isLinked && "opacity-50",
+                file.isLinked && "opacity-60 bg-muted/50",
               )}
               style={{ paddingLeft: `${depth * 12 + 8}px` }}
             >
@@ -266,7 +287,7 @@ export const RepositoryItem = memo(function RepositoryItem({
           </>
         ) : (
           <>
-            <ContextMenuItem onClick={handleRename}>
+            <ContextMenuItem onClick={handleRenameClick}>
               <Pencil className="mr-2 h-4 w-4" />
               Rename
             </ContextMenuItem>
@@ -282,6 +303,17 @@ export const RepositoryItem = memo(function RepositoryItem({
           </>
         )}
       </ContextMenuContent>
+
+      {/* Rename Dialog */}
+      <InputDialog
+        open={renameDialogOpen}
+        onOpenChange={setRenameDialogOpen}
+        title="Rename File"
+        label="File Name"
+        defaultValue={file.name}
+        confirmLabel="Rename"
+        onConfirm={handleRenameConfirm}
+      />
     </ContextMenu>
   );
 });

@@ -6,7 +6,6 @@
  * Extracted from App.tsx to reduce component complexity.
  */
 
-import { confirm } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useInvoke, type CaseFile } from "../useInvoke";
@@ -32,6 +31,12 @@ function getAssignmentStorageKey(caseId: string): string {
   return `casepilot_folder_assignments_${caseId}`;
 }
 
+export interface PendingDuplicates {
+  caseId: string;
+  filePaths: string[];
+  duplicateNames: string[];
+}
+
 export function useFileRepository() {
   const { listFiles, createFile, updateFile, deleteFile, extractPdfMetadata } =
     useInvoke();
@@ -42,6 +47,10 @@ export function useFileRepository() {
   const [fileFolderAssignments, setFileFolderAssignments] =
     useState<FileFolderAssignment>({});
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
+
+  // State for pending duplicate file confirmation
+  const [pendingDuplicates, setPendingDuplicates] =
+    useState<PendingDuplicates | null>(null);
 
   const loadFiles = useCallback(
     async (caseId: string): Promise<CaseFile[]> => {
@@ -216,22 +225,31 @@ export function useFileRepository() {
         }
       }
 
-      // If there are duplicates, ask for confirmation using Tauri's native dialog
+      // If there are duplicates, store pending state for React dialog confirmation
       if (duplicates.length > 0) {
-        const duplicateList =
-          duplicates.length <= 3
-            ? duplicates.join(", ")
-            : `${duplicates.slice(0, 3).join(", ")} and ${
-                duplicates.length - 3
-              } more`;
-        const confirmed = await confirm(
-          `The following file(s) already exist:\n${duplicateList}\n\nDo you want to add them with numbered suffixes?`,
-          { title: "Duplicate Files", kind: "warning" },
-        );
-        if (!confirmed) {
-          return;
-        }
+        setPendingDuplicates({
+          caseId: activeCaseId,
+          filePaths,
+          duplicateNames: duplicates,
+        });
+        return;
       }
+
+      // No duplicates - proceed with adding files
+      await addFilesToRepository(activeCaseId, filePaths);
+    },
+    [repositoryFiles],
+  );
+
+  // Internal function to add files (called directly or after duplicate confirmation)
+  const addFilesToRepository = useCallback(
+    async (caseId: string, filePaths: string[]) => {
+      // Build set of existing file names
+      const existingNames = new Set(
+        repositoryFiles.map(
+          (f) => f.original_name || f.path.split(/[\\/]/).pop() || "",
+        ),
+      );
 
       // Track names being added to avoid collisions within the same batch
       const namesInBatch = new Set<string>(existingNames);
@@ -241,7 +259,7 @@ export function useFileRepository() {
           const originalName = path.split(/[\\/]/).pop() || path;
           const uniqueName = generateUniqueName(originalName, namesInBatch);
           namesInBatch.add(uniqueName);
-          return await createFile(activeCaseId, path, uniqueName);
+          return await createFile(caseId, path, uniqueName);
         }),
       );
 
@@ -293,6 +311,22 @@ export function useFileRepository() {
     ],
   );
 
+  // Confirm adding duplicate files (called from App.tsx after user confirms)
+  const confirmDuplicateFiles = useCallback(async () => {
+    if (!pendingDuplicates) return;
+
+    await addFilesToRepository(
+      pendingDuplicates.caseId,
+      pendingDuplicates.filePaths,
+    );
+    setPendingDuplicates(null);
+  }, [pendingDuplicates, addFilesToRepository]);
+
+  // Cancel adding duplicate files
+  const cancelDuplicateFiles = useCallback(() => {
+    setPendingDuplicates(null);
+  }, []);
+
   const handleDeleteRepositoryFile = useCallback(
     async (fileId: string): Promise<boolean> => {
       const success = await deleteFile(fileId);
@@ -332,5 +366,9 @@ export function useFileRepository() {
     renameFolder,
     moveFileToFolder,
     getFileFolderId,
+    // Duplicate file handling
+    pendingDuplicates,
+    confirmDuplicateFiles,
+    cancelDuplicateFiles,
   };
 }

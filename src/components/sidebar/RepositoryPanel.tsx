@@ -29,11 +29,11 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RepositoryItem, type RepositoryFile } from "./RepositoryItem";
@@ -104,17 +104,22 @@ export function RepositoryPanel({
     new Set(),
   );
 
-  // Folder creation dialog state
-  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [folderDialogParentId, setFolderDialogParentId] = useState<
+  // Inline folder creation state (VSCode-style)
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [creatingFolderParentId, setCreatingFolderParentId] = useState<
     string | null
   >(null);
   const [newFolderName, setNewFolderName] = useState("");
+  const newFolderInputRef = useRef<HTMLInputElement>(null);
 
   // Folder rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameFolderId, setRenameFolderId] = useState<string | null>(null);
   const [renameFolderName, setRenameFolderName] = useState("");
+
+  // Folder delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
 
   // Ref for keyboard focus
   const containerRef = useRef<HTMLDivElement>(null);
@@ -209,22 +214,41 @@ export function RepositoryPanel({
     return buildFolderSubtree(null);
   }, [files, folders, fileFolderAssignments]);
 
-  // Open folder creation dialog
-  const openFolderDialog = useCallback((parentId: string | null) => {
-    setFolderDialogParentId(parentId);
+  // Start inline folder creation (VSCode-style)
+  const startFolderCreation = useCallback((parentId: string | null) => {
+    setCreatingFolderParentId(parentId);
     setNewFolderName("");
-    setFolderDialogOpen(true);
+    setCreatingFolder(true);
+    // If creating in a folder, expand it
+    if (parentId) {
+      setExpandedFolders((prev) => new Set([...prev, parentId]));
+    }
   }, []);
 
-  // Handle folder creation from dialog
-  const handleFolderDialogConfirm = useCallback(() => {
+  // Focus the input when it appears
+  useEffect(() => {
+    if (creatingFolder && newFolderInputRef.current) {
+      newFolderInputRef.current.focus();
+    }
+  }, [creatingFolder]);
+
+  // Handle folder creation confirmation
+  const handleFolderCreate = useCallback(() => {
     const trimmedName = newFolderName.trim();
     if (trimmedName) {
-      onCreateFolder?.(trimmedName, folderDialogParentId);
+      onCreateFolder?.(trimmedName, creatingFolderParentId);
     }
-    setFolderDialogOpen(false);
+    setCreatingFolder(false);
     setNewFolderName("");
-  }, [newFolderName, folderDialogParentId, onCreateFolder]);
+    setCreatingFolderParentId(null);
+  }, [newFolderName, creatingFolderParentId, onCreateFolder]);
+
+  // Cancel folder creation
+  const cancelFolderCreation = useCallback(() => {
+    setCreatingFolder(false);
+    setNewFolderName("");
+    setCreatingFolderParentId(null);
+  }, []);
 
   // Handler for folder rename - open dialog
   const handleFolderRename = useCallback(
@@ -249,16 +273,19 @@ export function RepositoryPanel({
     setRenameFolderName("");
   }, [renameFolderName, renameFolderId, onRenameFolder]);
 
-  // Handler for folder delete
-  const handleFolderDelete = useCallback(
-    (folderId: string) => {
-      // Using native confirm is fine for destructive actions - Tauri's webview supports it
-      if (confirm("Delete this folder? Files will be moved to root.")) {
-        onDeleteFolder?.(folderId);
-      }
-    },
-    [onDeleteFolder],
-  );
+  // Handler for folder delete - opens confirmation dialog
+  const handleFolderDeleteClick = useCallback((folderId: string) => {
+    setDeleteFolderId(folderId);
+    setDeleteConfirmOpen(true);
+  }, []);
+
+  // Confirm folder deletion
+  const handleFolderDeleteConfirm = useCallback(() => {
+    if (deleteFolderId) {
+      onDeleteFolder?.(deleteFolderId);
+    }
+    setDeleteFolderId(null);
+  }, [deleteFolderId, onDeleteFolder]);
 
   // Render a single tree node (file or folder)
   const renderNode = (node: TreeNode, depth: number = 0): React.ReactNode => {
@@ -291,13 +318,13 @@ export function RepositoryPanel({
                 <Pencil className="mr-2" />
                 Rename
               </ContextMenuItem>
-              <ContextMenuItem onClick={() => openFolderDialog(folder.id)}>
+              <ContextMenuItem onClick={() => startFolderCreation(folder.id)}>
                 <FolderPlus className="mr-2" />
                 New Subfolder
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
-                onClick={() => handleFolderDelete(folder.id)}
+                onClick={() => handleFolderDeleteClick(folder.id)}
                 variant="destructive"
               >
                 <Trash2 className="mr-2" />
@@ -306,7 +333,34 @@ export function RepositoryPanel({
             </ContextMenuContent>
           </ContextMenu>
           {isExpanded && (
-            <div>{children.map((child) => renderNode(child, depth + 1))}</div>
+            <div>
+              {/* Inline folder creation input inside this folder */}
+              {creatingFolder && creatingFolderParentId === folder.id && (
+                <div
+                  className="flex items-center gap-1 py-0.5"
+                  style={{ paddingLeft: `${(depth + 1) * 12 + 4}px` }}
+                >
+                  <FolderOpen className="h-3.5 w-3.5 text-yellow-600 shrink-0" />
+                  <input
+                    ref={newFolderInputRef}
+                    type="text"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleFolderCreate();
+                      } else if (e.key === "Escape") {
+                        cancelFolderCreation();
+                      }
+                    }}
+                    onBlur={cancelFolderCreation}
+                    placeholder="New folder name..."
+                    className="flex-1 bg-transparent border-b border-primary text-xs outline-none py-0.5 mr-2"
+                  />
+                </div>
+              )}
+              {children.map((child) => renderNode(child, depth + 1))}
+            </div>
           )}
         </div>
       );
@@ -323,7 +377,7 @@ export function RepositoryPanel({
         onDoubleClick={onFileDoubleClick}
         onDelete={onFileDelete}
         onRename={onFileRename}
-        onCreateFolder={() => openFolderDialog(null)}
+        onCreateFolder={() => startFolderCreation(null)}
         // Multi-select support
         selectedCount={selectedFileIds.size}
         onAddMultipleToBundle={() =>
@@ -373,7 +427,7 @@ export function RepositoryPanel({
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5"
-                onClick={() => openFolderDialog(null)}
+                onClick={() => startFolderCreation(null)}
               >
                 <FolderPlus className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="sr-only">New Folder</span>
@@ -399,6 +453,28 @@ export function RepositoryPanel({
               ) : (
                 <ScrollArea className="h-full">
                   <div className="py-0.5">
+                    {/* Inline folder creation input at root level */}
+                    {creatingFolder && creatingFolderParentId === null && (
+                      <div className="flex items-center gap-1 py-0.5 px-2">
+                        <FolderOpen className="h-3.5 w-3.5 text-yellow-600 shrink-0" />
+                        <input
+                          ref={newFolderInputRef}
+                          type="text"
+                          value={newFolderName}
+                          onChange={(e) => setNewFolderName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleFolderCreate();
+                            } else if (e.key === "Escape") {
+                              cancelFolderCreation();
+                            }
+                          }}
+                          onBlur={cancelFolderCreation}
+                          placeholder="New folder name..."
+                          className="flex-1 bg-transparent border-b border-primary text-xs outline-none py-0.5"
+                        />
+                      </div>
+                    )}
                     {treeData.map((node) => renderNode(node, 0))}
                   </div>
                 </ScrollArea>
@@ -407,7 +483,7 @@ export function RepositoryPanel({
           </ContextMenuTrigger>
           <ContextMenuContent>
             {/* Always show New Folder option */}
-            <ContextMenuItem onClick={() => openFolderDialog(null)}>
+            <ContextMenuItem onClick={() => startFolderCreation(null)}>
               <FolderPlus className="mr-2 h-4 w-4" />
               New Folder
             </ContextMenuItem>
@@ -437,54 +513,6 @@ export function RepositoryPanel({
             )}
           </ContextMenuContent>
         </ContextMenu>
-
-        {/* Folder Creation Dialog */}
-        <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
-          <DialogContent className="sm:max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FolderPlus className="h-5 w-5" />
-                Create New Folder
-              </DialogTitle>
-              <DialogDescription>
-                Enter a name for the new folder.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="folder-name">Folder Name</Label>
-                <Input
-                  id="folder-name"
-                  placeholder="New Folder"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleFolderDialogConfirm();
-                    } else if (e.key === "Escape") {
-                      setFolderDialogOpen(false);
-                    }
-                  }}
-                  autoFocus
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setFolderDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleFolderDialogConfirm}
-                disabled={!newFolderName.trim()}
-              >
-                Create Folder
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Folder Rename Dialog */}
         <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
@@ -529,6 +557,17 @@ export function RepositoryPanel({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Folder Delete Confirmation */}
+        <ConfirmDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          title="Delete Folder"
+          description="Delete this folder? Files inside will be moved to root."
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={handleFolderDeleteConfirm}
+        />
       </div>
     </TooltipProvider>
   );

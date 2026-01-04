@@ -50,6 +50,7 @@ CasePilot is a desktop application that automates the tedious, error-prone proce
 - [x] Inspector - Should closed by default
 - [x] preview should maintain the file's dimensions and center the div within the inspecto
 - [ ] inspector height should be adjustable
+- [ ] handle situation when you highlight multiple files in repository
 
 # Repository
 
@@ -62,11 +63,16 @@ CasePilot is a desktop application that automates the tedious, error-prone proce
 - [x] right click on file explorer background should also be possible, not only on the files
 - [x] keyboard movements should render the previous highlighted one unavailable unless holding onto shift
 - [x] When i drag files, i want a translucent duplicate to be moving around with my cursor.
-- [ ] greyed backgorund of highlighted file is too light against the white background
-- [ ] If you import a new file that is the same name - double confirm with a using react instead of system UI "are you sure?" If user proceed to add it, add a de-duplication numner (1) (2)... so on so forth. Consider the case of multiple file adds too
-- [ ] create folders UX should mimic vscode. create a placeholder folder at the top of the directory with a blinking cursor. If user clicks away the placeholder folder disappears and nothing happens. If the user types something then create the folder as per normal
-- [ ] add or delete files from repository double confirm should be shown using react instead of system UI
-- [ ] Drag and drog to add to bundle index/ exhibit still is not working. TOP PRIORITY!!! HAVE BEEN TRYING MANY TIMES BUT YOU ARE NOT DOING IT!! STILL DOESN'T WORK!!! IT'S FAILING SILENTLY?!??!
+- [x] greyed backgorund of highlighted file is too light against the white background
+  - **Fix**: Changed selected state from `bg-accent` to `bg-primary/15` with a subtle ring, and linked files use `opacity-60 bg-muted/50`
+- [x] If you import a new file that is the same name - double confirm with a using react instead of system UI "are you sure?" If user proceed to add it, add a de-duplication numner (1) (2)... so on so forth. Consider the case of multiple file adds too
+  - **Fix**: Replaced Tauri `confirm()` with React `ConfirmDialog` component. De-duplication with numbered suffixes was already implemented.
+- [x] create folders UX should mimic vscode. create a placeholder folder at the top of the directory with a blinking cursor. If user clicks away the placeholder folder disappears and nothing happens. If the user types something then create the folder as per normal
+  - **Fix**: Replaced Dialog-based folder creation with inline input that appears at the creation location, auto-focuses, and cancels on blur/Escape.
+- [x] add or delete files from repository double confirm should be shown using react instead of system UI
+  - **Fix**: Replaced browser `confirm()` and `prompt()` with React `ConfirmDialog` and `InputDialog` components for folder delete, file rename, and multi-file delete.
+- [x] Drag and drog to add to bundle index/ exhibit still is not working. TOP PRIORITY!!! HAVE BEEN TRYING MANY TIMES BUT YOU ARE NOT DOING IT!! STILL DOESN'T WORK!!! IT'S FAILING SILENTLY?!??!
+  - **Root cause**: HTML5 dataTransfer MIME type data was not accessible when dnd-kit was active. **Solution**: Created `DragContext` to share dragged file state between components via React context, bypassing dataTransfer limitations.
 
 # Case roganisation
 
@@ -79,7 +85,7 @@ CasePilot is a desktop application that automates the tedious, error-prone proce
 - [x] Right click menu and on hover formatting shout be roughly similar
 - [x] Toast description is grey - should be more readable
 
-Affidavit mode
+# Affidavit mode
 
 - [x] affidavit cursor somehow is overlapping with exhibitNode
 - [x] Improve exhibit node UI - how it is seen should be same as how it is printed

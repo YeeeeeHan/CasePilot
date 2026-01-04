@@ -1,4 +1,4 @@
-import { confirm, save } from "@tauri-apps/plugin-dialog";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { extractExhibitFileIds } from "./components/editor/ExhibitNode";
@@ -8,6 +8,7 @@ import {
   type RepositoryFile,
 } from "./components/sidebar/RepositoryPanel";
 import { Toaster } from "./components/ui/sonner";
+import { ConfirmDialog } from "./components/ui/confirm-dialog";
 import { Onboarding } from "./components/views/Onboarding";
 import {
   Workbench,
@@ -52,6 +53,11 @@ function App() {
   const [selectionSource, setSelectionSource] =
     useState<SelectionSource | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+
+  // Delete confirmation dialog state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const [deleteConfirmMessage, setDeleteConfirmMessage] = useState("");
 
   // Primary selected file (last selected, used for inspector)
   const selectedFileId =
@@ -553,9 +559,9 @@ function App() {
     ],
   );
 
-  // Handle deleting multiple files (multi-select)
+  // Handle deleting multiple files (multi-select) - opens confirmation dialog
   const handleDeleteMultipleFiles = useCallback(
-    async (fileIds: string[]) => {
+    (fileIds: string[]) => {
       if (fileIds.length === 0) return;
 
       // Check for protected files (referenced in affidavit)
@@ -600,29 +606,27 @@ function App() {
         confirmMessage += `\n\n${filesInIndex.length} file(s) will also be removed from the Master Index.`;
       }
 
-      // Show confirmation dialog
-      const confirmed = await confirm(confirmMessage, {
-        title: "Confirm Delete",
-        kind: "warning",
-      });
-
-      if (!confirmed) return;
-
-      // Delete each file (this also removes from master index)
-      for (const fileId of deletableIds) {
-        await handleDeleteRepositoryFile(fileId);
-      }
-
-      setSelectedFileIds(new Set());
-      toast.success(`Deleted ${deletableIds.length} file(s)`);
+      // Store pending deletion and show dialog
+      setPendingDeleteIds(deletableIds);
+      setDeleteConfirmMessage(confirmMessage);
+      setDeleteConfirmOpen(true);
     },
     [
       isFileReferencedInAffidavit,
       fileRepository.repositoryFiles,
-      handleDeleteRepositoryFile,
       masterIndex.indexEntries,
     ],
   );
+
+  // Confirm deletion of multiple files
+  const handleDeleteConfirm = useCallback(async () => {
+    for (const fileId of pendingDeleteIds) {
+      await handleDeleteRepositoryFile(fileId);
+    }
+    setSelectedFileIds(new Set());
+    toast.success(`Deleted ${pendingDeleteIds.length} file(s)`);
+    setPendingDeleteIds([]);
+  }, [pendingDeleteIds, handleDeleteRepositoryFile]);
 
   // Handle reorder with case ID
   const handleReorderEntries = useCallback(
@@ -978,6 +982,40 @@ function App() {
         onOpenChange={setCreateCaseDialogOpen}
         onConfirm={handleCreateCaseConfirm}
       />
+
+      {/* Delete Multiple Files Confirmation */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete Files"
+        description={deleteConfirmMessage}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Duplicate Files Confirmation */}
+      <ConfirmDialog
+        open={!!fileRepository.pendingDuplicates}
+        onOpenChange={(open) => {
+          if (!open) fileRepository.cancelDuplicateFiles();
+        }}
+        title="Duplicate Files"
+        description={
+          fileRepository.pendingDuplicates
+            ? `The following file(s) already exist:\n${
+                fileRepository.pendingDuplicates.duplicateNames.length <= 3
+                  ? fileRepository.pendingDuplicates.duplicateNames.join(", ")
+                  : `${fileRepository.pendingDuplicates.duplicateNames.slice(0, 3).join(", ")} and ${fileRepository.pendingDuplicates.duplicateNames.length - 3} more`
+              }\n\nDo you want to add them with numbered suffixes?`
+            : ""
+        }
+        confirmLabel="Add with Suffix"
+        variant="default"
+        onConfirm={fileRepository.confirmDuplicateFiles}
+        onCancel={fileRepository.cancelDuplicateFiles}
+      />
+
       <Toaster />
     </>
   );

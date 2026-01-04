@@ -16,6 +16,7 @@ import {
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import type { IndexEntry } from "@/lib/pagination";
+import { useDragContext } from "@/contexts/DragContext";
 
 interface UseMasterIndexDnDOptions {
   entries: IndexEntry[];
@@ -30,6 +31,9 @@ interface UseMasterIndexDnDOptions {
 
 export function useMasterIndexDnD(options: UseMasterIndexDnDOptions) {
   const { entries, onReorder, onFileDropped } = options;
+
+  // Get dragged file from context (set by RepositoryItem)
+  const { draggedFile, endDrag } = useDragContext();
 
   // State for drag-drop visual feedback
   const [isDragOver, setIsDragOver] = useState(false);
@@ -71,21 +75,25 @@ export function useMasterIndexDnD(options: UseMasterIndexDnDOptions) {
   );
 
   // Handle file drop from Repository (external drag)
-  const handleFileDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleFileDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    // Check for our custom MIME type or any file being dragged
-    const hasCustomType = e.dataTransfer.types.includes(
-      "application/x-casepilot-file",
-    );
-    const hasFiles = e.dataTransfer.types.includes("Files");
+      // Check for our context-based drag, custom MIME type, or any file being dragged
+      const hasContextDrag = !!draggedFile;
+      const hasCustomType = e.dataTransfer.types.includes(
+        "application/x-casepilot-file",
+      );
+      const hasFiles = e.dataTransfer.types.includes("Files");
 
-    if (hasCustomType || hasFiles) {
-      e.dataTransfer.dropEffect = "copy";
-      setIsDragOver(true);
-    }
-  }, []);
+      if (hasContextDrag || hasCustomType || hasFiles) {
+        e.dataTransfer.dropEffect = "copy";
+        setIsDragOver(true);
+      }
+    },
+    [draggedFile],
+  );
 
   const handleFileDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -106,52 +114,39 @@ export function useMasterIndexDnD(options: UseMasterIndexDnDOptions) {
       e.stopPropagation();
       setIsDragOver(false);
 
-      // Debug: log all available data types
-      console.log(
-        "[MasterIndex Drop] Available types:",
-        Array.from(e.dataTransfer.types),
-      );
-
-      // Try to get our custom data
-      const data = e.dataTransfer.getData("application/x-casepilot-file");
-      console.log("[MasterIndex Drop] Raw data:", data);
-
-      if (!data) {
-        console.warn(
-          "[MasterIndex Drop] No data found for application/x-casepilot-file",
-        );
+      if (!onFileDropped) {
         return;
       }
 
-      if (!onFileDropped) {
-        console.warn("[MasterIndex Drop] No onFileDropped handler provided");
+      // First, try to get file data from React context (most reliable)
+      if (draggedFile) {
+        onFileDropped({
+          id: draggedFile.id,
+          name: draggedFile.name,
+          path: draggedFile.path,
+          pageCount: draggedFile.pageCount,
+        });
+        endDrag();
+        return;
+      }
+
+      // Fallback: Try to get data from dataTransfer
+      const data = e.dataTransfer.getData("application/x-casepilot-file");
+
+      if (!data) {
         return;
       }
 
       try {
         const fileData = JSON.parse(data);
-        console.log("[MasterIndex Drop] Parsed data:", fileData);
-
         if (fileData.id && fileData.name && fileData.path) {
-          console.log(
-            "[MasterIndex Drop] Calling onFileDropped with:",
-            fileData,
-          );
           onFileDropped(fileData);
-        } else {
-          console.error(
-            "[MasterIndex Drop] Invalid file data structure:",
-            fileData,
-          );
         }
-      } catch (error) {
-        console.error(
-          "[MasterIndex Drop] Failed to parse dropped file data:",
-          error,
-        );
+      } catch {
+        // Silently fail - file drop didn't contain valid data
       }
     },
-    [onFileDropped],
+    [onFileDropped, draggedFile, endDrag],
   );
 
   return {
