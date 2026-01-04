@@ -155,13 +155,10 @@ export const RepositoryItem = memo(function RepositoryItem({
         pageCount: file.pageCount,
       });
 
-      console.log("[Repository DragStart] Setting data:", fileData);
+      // Set both custom MIME type and text fallback for maximum compatibility
       e.dataTransfer.setData("application/x-casepilot-file", fileData);
-      e.dataTransfer.effectAllowed = "copy";
-      console.log(
-        "[Repository DragStart] Data types after set:",
-        Array.from(e.dataTransfer.types),
-      );
+      e.dataTransfer.setData("text/plain", file.name); // Fallback
+      e.dataTransfer.effectAllowed = "copyMove";
 
       // Create exact clone of the element as drag preview
       if (dragPreviewRef.current && dragPreviewRef.current.parentNode) {

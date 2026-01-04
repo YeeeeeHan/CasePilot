@@ -22,3 +22,4 @@ export {
   type AffidavitEditorHandle,
   type AvailableFile,
 } from "./AffidavitEditor";
+export { ExhibitBuilder, type ExhibitEntry } from "./ExhibitBuilder";

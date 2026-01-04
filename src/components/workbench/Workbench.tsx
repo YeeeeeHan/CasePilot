@@ -3,13 +3,13 @@
  *
  * The center zone of the application containing:
  * - Bundle Mode: Master Index + Preview Pane
- * - Affidavit Mode: TipTap Editor + PDF Preview
+ * - Affidavit Mode: TipTap Editor + PDF Preview + Exhibit Builder
  *
  * Uses resizable panels for flexible layout.
  */
 
 import type { RefObject } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -23,6 +23,8 @@ import {
   type AvailableFile,
 } from "./AffidavitEditor";
 import { EvidenceCanvas } from "./EvidenceCanvas";
+import { ExhibitBuilder, type ExhibitEntry } from "./ExhibitBuilder";
+import { extractExhibits } from "@/components/editor/ExhibitNode";
 import { FileText } from "lucide-react";
 
 export type WorkbenchMode = "bundle" | "affidavit";
@@ -62,6 +64,8 @@ interface WorkbenchProps {
   onAffidavitContentChange?: (caseId: string, content: string) => void;
   /** Callback when affidavit initials change */
   onAffidavitInitialsChange?: (caseId: string, initials: string) => void;
+  /** Callback when user wants to export affidavit to .docx */
+  onExportDocx?: (artifactId: string) => void;
 }
 
 export function Workbench({
@@ -76,29 +80,66 @@ export function Workbench({
   onContentChange,
   onAffidavitContentChange,
   onAffidavitInitialsChange,
+  onExportDocx,
 }: WorkbenchProps) {
   // Track focused exhibit for cursor-following preview
   const [focusedExhibitPath, setFocusedExhibitPath] = useState<string | null>(
     null,
   );
 
+  // Extract exhibits from affidavit content for ExhibitBuilder
+  const exhibitEntries: ExhibitEntry[] = useMemo(() => {
+    if (!activeCase?.content) return [];
+
+    const extracted = extractExhibits(activeCase.content);
+    const initials = activeCase.initials || "EX";
+
+    return extracted.map((ex, index) => ({
+      label: ex.exhibitLabel || `${initials}-${index + 1}`,
+      fileId: ex.fileId,
+      description: ex.fileName,
+      filePath: ex.filePath,
+      // Try to get page count from availableFiles
+      pageCount: availableFiles.find((f) => f.id === ex.fileId)?.pageCount,
+    }));
+  }, [activeCase?.content, activeCase?.initials, availableFiles]);
+
   // Affidavit Mode
   if (mode === "affidavit" && activeCase) {
     return (
       <ResizablePanelGroup orientation="horizontal" className="h-full">
-        {/* Left: Affidavit Editor */}
+        {/* Left: Affidavit Editor + Exhibit Builder (vertical split) */}
         <ResizablePanel defaultSize={50} minSize={30}>
-          <AffidavitEditor
-            ref={editorRef}
-            artifactId={activeCase.id}
-            name={activeCase.name}
-            initials={activeCase.initials || ""}
-            content={activeCase.content || ""}
-            availableFiles={availableFiles}
-            onContentChange={onAffidavitContentChange}
-            onInitialsChange={onAffidavitInitialsChange}
-            onExhibitFocus={setFocusedExhibitPath}
-          />
+          <ResizablePanelGroup orientation="vertical" className="h-full">
+            {/* Top: Editor */}
+            <ResizablePanel defaultSize={70} minSize={40}>
+              <AffidavitEditor
+                ref={editorRef}
+                artifactId={activeCase.id}
+                name={activeCase.name}
+                initials={activeCase.initials || ""}
+                content={activeCase.content || ""}
+                availableFiles={availableFiles}
+                onContentChange={onAffidavitContentChange}
+                onInitialsChange={onAffidavitInitialsChange}
+                onExhibitFocus={setFocusedExhibitPath}
+                onExportDocx={onExportDocx}
+              />
+            </ResizablePanel>
+
+            <ResizableHandle />
+
+            {/* Bottom: Exhibit Builder */}
+            <ResizablePanel defaultSize={30} minSize={15}>
+              <ExhibitBuilder
+                exhibits={exhibitEntries}
+                focusedExhibitPath={focusedExhibitPath}
+                onExhibitClick={setFocusedExhibitPath}
+                initials={activeCase.initials || "EX"}
+                className="h-full border-t border-border"
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </ResizablePanel>
 
         <ResizableHandle />
