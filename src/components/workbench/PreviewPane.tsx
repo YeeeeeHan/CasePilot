@@ -127,6 +127,9 @@ export function PreviewPane({
 
     const updateDimensions = () => {
       const containerWidth = container.offsetWidth;
+      // Skip if container hasn't been laid out yet (prevents startup zoom bug)
+      if (containerWidth <= 0) return;
+
       // Base scale from container width, multiplied by zoom level
       const baseScale = containerWidth / A4_DIMENSIONS.WIDTH_PX;
       const scale = baseScale * zoomLevel;
@@ -146,7 +149,8 @@ export function PreviewPane({
       );
     };
 
-    updateDimensions();
+    // Use requestAnimationFrame to ensure layout is computed before first calculation
+    requestAnimationFrame(updateDimensions);
 
     const resizeObserver = new ResizeObserver(updateDimensions);
     resizeObserver.observe(container);

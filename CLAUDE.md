@@ -11,166 +11,83 @@ CasePilot is a desktop application that automates the tedious, error-prone proce
 
 > "It's not about Multimedia; it's about Pagination." — User Research, Dec 2024
 
-### 1. The "Bucket load of PDFs" Problem
+## Past changes and task list
 
-Bundles are chaotic and chronological. Affidavits are narrative and structured. CasePilot's challenge is the **synchronization** between these two use cases.
+# Bundle mode
 
-### 2. Workflow Logic: The Dual Engine
+## Bundle previews
 
-| Feature                 | **Affidavit Flow** (The Narrative)                                                        | **Bundle Flow** (The Repository)                                                     |
-| :---------------------- | :---------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------- |
-| **User Goal**           | To prove a specific story.                                                                | To organize discovery for the court.                                                 |
-| **Logic Engine**        | **"The Automator"**: Scans text for mentions like "Exhibit A" and finds the file.         | **"The Sorter"**: Bulk edits metadata (Date, Author) to create a chronological list. |
-| **Source of Truth**     | **The Editor**: The text dictates the order of the exhibits.                              | **The Index**: The dates/types dictate the order of the files.                       |
-| **Primary Interaction** | **Type & Predict**: As you type, the PDF pops up in the right panel for "fact-checking."  | **Drag & Tag**: Multi-selecting files to tag them as "Correspondence" or "Invoices." |
-| **The "Export"**        | **Word Doc + Exhibit PDF**: A `.docx` file and a compiled PDF of just the cited evidence. | **The Master Bundle**: One massive 2,000-page PDF with an Index and Page Stamps.     |
+- [x] blank page still have "Content continues on this page...". That page containing this string should not exist until user types content overflowing the first blank page document!!!
+- [x] Sticky tab header should remain through the whole duration until it hits the next tab, not only within the tab page
+- [x] Sticky headers - should show 2 stick tabs at once (1) Tab sticky header (2) Item sticky header (pdf/cover page/ Table of contents etc)
+- [x] Remove tab icons in tab page in the middle of the page
+- [x] "Evidence (Read-only)" should be changed to "Description (Read-only)"
+- [x] blank page sticky header and pdf sticky header formatting should be as similar as possible, both should show the number of pages on the left in grey, i.e. "Evidence (Read-only)- 1 page" and "Document - 1 page" or "Cover Page - 2 page" or "Table of Contents - 2 page"
+- [x] The sticky headers front size should be smaller
+- [x] blank documents should respect the A4 relative formatting - i.e. the default font typography should not be too big
+- [x] On app start up, when i zoom in from 100% to 110%, it seems like the page becomes smaller instead. Afterwards the zooms work as normal. I think there's an issue with the bundle preview width on start up
+- [ ] bundle previews of PDFs or documents. The headers should indicate index number too
 
-## UI Architecture: v2.0 Layout
+## Master index
 
-**Core Philosophy**: "Explorer for Navigation, Workbench for Creation, Preview for Verification."
+- [x] If there is a blank page at the bottom of the index, prevent adding a blank page subtly
+- [x] Inspector - compact the fonts to squeeze more info - it should mimic the vscode file explorer font size
+- [x] Inspector - should have a picture preview of the first page of the PDF.
+- [x] Inspector - ability to edit metadata - be sensible about what metadata should be displayed - for bundle, it's the description, date, etc. For affiadvit, it's the Exhibit tag?
+- [x] add and remove from bundle/exhibit button should be made more accesible (maybe at the top?)
+- [x] Master index tabs rows should be sticky as you scroll down (i.e. Tab A sticks to the top as you scroll, replaced by tab once you hit it)
+  - **Fix**: Added floating sticky section header that tracks scroll position and shows current section label
+- [x] when dragging rows, row lines SHOULD NOT disappear
+  - **Fix**: Changed drag styling to use `outline` instead of border, added explicit `border-b` class
+- [x] use @tanstack/react-table for table for future (see Migration Plan below)
+  - **Completed**: Migrated MasterIndex to @tanstack/react-table with flexRender columns and @tanstack/react-virtual for row virtualization (100+ entries)
+- [x] TABs should be sticky to the top as users scroll. TOP PRIORITY!!! HAVE BEEN TRYING MANY TIMES BUT YOU ARE NOT DOING IT!! STILL DOESN'T WORK!!! IT'S FAILING SILENTLY?!??!
+  - **Root cause**: `<tr>` elements inside `<table>` don't support sticky reliably. **Solution**: Floating sticky header outside table structure
+- [ ] Help me devise a way to resolve multiple blank pages in the master index (it should be handled by a continuous auto paginated tiptap editor)
 
-### Zone Definitions
+# Inspector
 
-| Zone             | Purpose                                                                              |
-| :--------------- | :----------------------------------------------------------------------------------- |
-| **Activity Bar** | Switch between Project Tree, File Repo, and Search.                                  |
-| **Explorer**     | `react-arborist` tree. Draggable source for files.                                   |
-| **Workbench**    | **Mode A (Affidavit)**: TipTap editor. **Mode B (Bundle)**: Master Index Grid.       |
-| **Preview**      | **Affidavit**: Single PDF. **Bundle**: Hybrid continuous scroll (Components + PDFs). |
+- [x] Inspector - Should closed by default
+- [x] preview should maintain the file's dimensions and center the div within the inspecto
+- [ ] inspector height should be adjustable
 
-## Database Schema (v2.0)
+# Repository
 
-1.  **`files`**: The raw assets. (`id`, `path`, `metadata_json`)
-2.  **`artifacts`**: The containers. (`id`, `type` ['affidavit'|'bundle'], `content_json`)
-3.  **`artifact_entries`**: The links.
-    - `row_type`: `'file'` | `'component'` (Cover/Divider) | `'artifact'` (Nested)
-    - `config_json`: Stores data for components (e.g., Title text).
+- [x] file referenced in repository in affidavit mode should be greyed out
+- [x] should allow multiple cursor selection - "add 5 files to bundles" - "add 5 files to exhibit"
+- [x] Naturally, right click operations should apply for all selected files.
+- [x] Should allow keyboard movement up and down for the "highlight" of the files. it would behave the same as clicking on the file (i.e. inspector updates)
+- [x] When i double click a file in affidavit mode, it adds to bundle instead
+- [x] bulk right operations are still buggy - delete operation, adding to affidavit/bundle
+- [x] right click on file explorer background should also be possible, not only on the files
+- [x] keyboard movements should render the previous highlighted one unavailable unless holding onto shift
+- [x] When i drag files, i want a translucent duplicate to be moving around with my cursor.
+- [ ] greyed backgorund of highlighted file is too light against the white background
+- [ ] If you import a new file that is the same name - double confirm with a using react instead of system UI "are you sure?" If user proceed to add it, add a de-duplication numner (1) (2)... so on so forth. Consider the case of multiple file adds too
+- [ ] create folders UX should mimic vscode. create a placeholder folder at the top of the directory with a blinking cursor. If user clicks away the placeholder folder disappears and nothing happens. If the user types something then create the folder as per normal
+- [ ] add or delete files from repository double confirm should be shown using react instead of system UI
+- [ ] Drag and drog to add to bundle index/ exhibit still is not working. TOP PRIORITY!!! HAVE BEEN TRYING MANY TIMES BUT YOU ARE NOT DOING IT!! STILL DOESN'T WORK!!! IT'S FAILING SILENTLY?!??!
 
-## Active Implementation Plan (v2.0)
+# Case roganisation
 
-Here is the consolidated **CasePilot v2.0 Roadmap**.
+- [x] UX - think of how to name cases - now it's all named "new case"
+- [x] One-look way to differentiate between cases (whether it's affidavit or bundle)
 
-I have merged Roadmap B’s superior **"Artifact" architecture** (which allows for multiple affidavits and bundles) with Roadmap A’s specific **UI tooling** (`react-arborist`, `dnd-kit`).
+# General UI
 
-I have also explicitly answered your embedded technical questions within the relevant phases.
+- [x] Repositoy, Master index, preview, inspector should all have the same formatting
+- [x] Right click menu and on hover formatting shout be roughly similar
+- [x] Toast description is grey - should be more readable
 
----
+Affidavit mode
 
-# CasePilot v2.0: The Unified Implementation Roadmap
-
-### Phase 1: The Data Foundation (Rust & SQL)
-
-**Goal:** Decouple "Raw Files" from "Contextual Usage".
-**Why:** A file is just a blob. An exhibit is a file _used_ in a specific context (Affidavit A vs. Bundle B).
-
-1.  **Refactor DB Schema (`src-tauri/src/db.rs`):**
-    *   Drop `exhibits` table.
-    *   **Create `files` table:** The Source of Truth.
-        *   `id` (UUID), `path`, `original_name`, `metadata_json` (Date, Desc), `created_at`.
-    *   **Create `artifacts` table:** The Containers.
-        *   `id` (UUID), `case_id`, `type` (`'affidavit'` | `'bundle'`), `name` (e.g., "Affidavit of Tan Ah Kow").
-        *   `content_json`: Stores the TipTap JSON for Affidavits.
-    *   **Create `artifact_entries` table:** The Links.
-        *   `id`, `artifact_id`, `file_id`, `sequence_order`, `label_override` (e.g., "TAK-1").
-
-> **Answer to your questions:**
->     > *   **How to handle TipTap documents?** They are stored in the `artifacts` table under a `content_json` column. An Affidavit *is* an Artifact.
->     > *   **How to handle Content Pages?** You do _not_ store Content Pages in the DB. They are **Generated Assets**. They are created on-the-fly by the Rust backend during the `export_bundle` command based on the data in `artifact_entries`.
->     > \*   **`affidavit_entries`?** No. Use the generic `artifact_entries` table. The `artifact_id` tells you if it belongs to an Affidavit or a Bundle.
-
-2.  **Ingestion Command (`ingest_files`):**
-    *   **Libraries to use:**
-        *   `walkdir`: For recursive folder scanning.
-        *   `lopdf`: For fast extraction of page counts (lighter than pdfium).
-        *   `chrono`: For parsing metadata dates.
-        \*   `serde_json`: For storing metadata.
-
-### Phase 2: The State Engine (Frontend)
-
-**Goal:** A "Brain" that manages the Project Tree.
-
-1.  **Install Zustand:** `npm install zustand`.
-2.  **Create Store (`src/store/useProjectStore.ts`):**
-    *   `files`: Map of all raw files (The Repo).
-    *   `artifacts`: Tree structure of Affidavits and Bundles.
-    *   `activeArtifactId`: Determines what renders in the Workbench.
-    *   `selection`: Currently selected ID (for the Preview panel).
-3.  **Create Sync Hooks:** Listen for DB changes -> Update Store.
-
-### Phase 3: The Explorer (Left Panel)
-
-**Goal:** VS Code fidelity with Project switching.
-
-1.  **Libraries:** `npm install react-arborist @dnd-kit/core lucide-react`.
-2.  **Implement `ActivityBar`:** Vertical strip to switch between "Project Tree" and "File Repo".
-3.  **Implement `FileExplorer.tsx`:**
-    *   Use `react-arborist` for the file tree.
-    *   **Drag Source:** Configure nodes to be draggable (payload: `file_id`).
-4.  **Implement `MetadataPane.tsx`:** Fixed footer showing Date/Description of selected file.
-
-### Phase 4: The Affidavit Workbench (Center Panel A)
-
-**Goal:** The Narrative Writer.
-
-1.  **TipTap Integration:**
-    *   Load content from `activeArtifact.content_json`.
-    *   Auto-save logic (debounced) to DB.
-2.  **Smart `ExhibitNode`:**
-    *   **Logic:** It does NOT store "Exhibit A". It stores `file_id`.
-    *   **Render:** It queries `artifact_entries` for the current affidavit.
-    \*   *Calculation:* `index = entries.findIndex(e => e.file_id === this.file_id)`.
-    \*   *Label:* `Initials + (index + 1)` (e.g., TAK-1).
-3.  **Drop Handler:** Dropping a file from Explorer -> Inserts Node -> Creates `artifact_entry`.
-
-### Phase 5: The Bundle Workbench (Center Panel B)
-
-**Goal:** The Logistics Manager.
-
-1.  **Library:** `npm install @tanstack/react-table date-fns`.
-2.  **Implement `MasterIndex`:**
-    *   Data Grid view of `artifact_entries`.
-    *   **Sort Logic:** "Sort by Date" button (Crucial for Agreed Bundles).
-    *   **Renumbering Logic:**
-        *   *Input:* List of entries + File Page Counts.
-        \*   *Output:* Computed columns for `Page Start` and `Page End`.
-        \*   *Note:* This happens in memory/UI, not DB, for instant feedback.
-
-### Phase 6: The Intelligent Preview (Right Panel)
-
-**Goal:** Context-aware verification.
-
-1.  **Library:** `npm install react-virtuoso react-pdf`.
-2.  **Context: Affidavit Mode:**
-    *   Render `SinglePDFViewer`.
-    *   Listens to cursor position in TipTap.
-3.  **Context: Bundle Mode (The "Fake Merge"):**
-    *   Render `ContinuousPDFViewer` using `react-virtuoso`.
-    *   **Logic:** Calculate cumulative height of all PDFs.
-    *   **Virtualization:** Only render the PDF currently in the viewport.
-    *   **Overlay:** CSS Badge "Page X" calculated from the offset.
-
-### Phase 7: The "Cross-Compile" Logic (The Glue)
-
-**Goal:** Moving data between modes.
-
-1.  **"Import from Affidavits" Command:**
-    *   UI: Button in Bundle Workbench.
-    *   Logic: Query `artifact_entries` where `type = 'affidavit'`.
-    *   Action: Insert unique files into current Bundle Artifact.
-2.  **"Back-Propagate" (Future/Phase 7.5):**
-    *   Allow Affidavit to reference the Bundle's computed page numbers ("See Page 50 AB").
-
-### Phase 8: Final Export
-
-**Goal:** Money-making output.
-
-1.  **Implement `export_affidavit` (Rust):**
-    *   Process: Generate HTML Dividing Sheets (Handlebars) -> Convert to PDF -> Merge with Exhibits -> Stamp Page Numbers.
-2.  **Implement `export_bundle` (Rust):**
-    *   Process: Sort by Date -> Merge PDFs (No dividers) -> Continuous Pagination -> Inject Bookmarks.
-
----
-
-```
-
-```
+- [x] affidavit cursor somehow is overlapping with exhibitNode
+- [x] Improve exhibit node UI - how it is seen should be same as how it is printed
+- [x] the preview of the affidavit exhibit should not change when cursor is clicked away - how would lawyers continue to type and reference like that?
+- [x] add button to export affidavit to .docx (at the bottom? make it similar to bundle master index panel UI)
+- [x] Add an auto exhibit builder/ section that is contiguous to the affidavit editor, aligning with the format of https://epd2021-supremecourt.judiciary.gov.sg/
+- [ ] imported exhibits are not persisting on reload
+- [ ] affidavit editor should be pagination
+- [ ] PDF is cut off in preview - it should always show the full width
+- [ ] PDF view is unstable, shows `Failed to load PDF file.` at times
+- [ ] export to .docx not working

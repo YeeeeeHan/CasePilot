@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
@@ -7,6 +7,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type Row,
+} from "@tanstack/react-table";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   GripVertical,
   X,
@@ -26,14 +34,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type { IndexEntry, RowType } from "@/lib/pagination";
 import { useMasterIndexDnD, getDisplayNumber } from "./hooks/useMasterIndexDnD";
 
@@ -60,7 +60,7 @@ interface MasterIndexProps {
   isCompiling?: boolean;
 }
 
-// Visual drag handle indicator (non-functional, just visual)
+// Visual drag handle indicator
 function DragHandleIcon() {
   return (
     <div className="p-1 text-muted-foreground">
@@ -69,23 +69,25 @@ function DragHandleIcon() {
   );
 }
 
-// Draggable row component
-interface DraggableRowProps {
-  entry: IndexEntry;
-  index: number;
-  displayNumber: string;
+// Sortable row component that wraps table row for dnd-kit
+interface SortableRowProps {
+  row: Row<IndexEntry>;
   isSelected: boolean;
+  displayNumber: string;
   onSelectEntry?: (entryId: string) => void;
   onDeleteEntry?: (entryId: string) => void;
+  rowRef?: (el: HTMLTableRowElement | null) => void;
 }
 
-function DraggableRow({
-  entry,
-  displayNumber,
+function SortableRow({
+  row,
   isSelected,
+  displayNumber,
   onSelectEntry,
   onDeleteEntry,
-}: DraggableRowProps) {
+  rowRef,
+}: SortableRowProps) {
+  const entry = row.original;
   const {
     transform,
     transition,
@@ -97,14 +99,18 @@ function DraggableRow({
     id: entry.id,
   });
 
+  // Combine setNodeRef with rowRef for tracking section positions
+  const combinedRef = useCallback(
+    (el: HTMLTableRowElement | null) => {
+      setNodeRef(el);
+      rowRef?.(el);
+    },
+    [setNodeRef, rowRef],
+  );
+
   const isSectionBreak = entry.rowType === "section-break";
 
-  const formatPageRange = (start: number, end: number) => {
-    if (start === end) return `${start}`;
-    return `${start} - ${end}`;
-  };
-
-  // Only apply transform when actually dragging - transform breaks sticky positioning
+  // Only apply transform when actually dragging
   const style: React.CSSProperties = isDragging
     ? {
         transform: CSS.Transform.toString(transform),
@@ -112,57 +118,16 @@ function DraggableRow({
       }
     : {};
 
-  return (
-    <TableRow
-      ref={setNodeRef}
-      data-state={isSelected ? "selected" : undefined}
-      data-dragging={isDragging}
-      className={cn(
-        "cursor-grab active:cursor-grabbing group relative",
-        isSelected && "bg-accent",
-        // Section breaks: sticky below header, solid background, high z-index
-        isSectionBreak &&
-          "bg-muted font-semibold sticky top-[41px] z-20 shadow-sm border-y border-border",
-        // Dragging state
-        isDragging &&
-          "z-50 opacity-90 bg-background shadow-lg cursor-grabbing border border-border rounded-sm",
-      )}
-      style={style}
-      onClick={() => onSelectEntry?.(entry.id)}
-      {...attributes}
-      {...listeners}
-    >
-      <TableCell className="px-1 w-[40px]">
-        <DragHandleIcon />
-      </TableCell>
-
-      <TableCell
-        className={cn("font-medium w-[50px]", isSectionBreak && "font-bold")}
-      >
-        {displayNumber}
-      </TableCell>
-
-      <TableCell className="w-[100px] text-xs">
-        {isSectionBreak ? (
-          <span className="text-muted-foreground">-</span>
-        ) : (
-          <span className="text-muted-foreground">{entry.date || "-"}</span>
-        )}
-      </TableCell>
-
-      <TableCell className={cn("text-xs", isSectionBreak && "font-bold")}>
-        <span className="truncate block">
-          {isSectionBreak
-            ? entry.sectionLabel || "Section Break"
-            : entry.description || "Untitled"}
-        </span>
-      </TableCell>
-
-      <TableCell className="text-right text-muted-foreground w-[80px]">
-        {formatPageRange(entry.pageStart, entry.pageEnd)}
-      </TableCell>
-
-      <TableCell className="px-1 w-[40px]">
+  // Custom render function for special cells
+  const renderCellContent = (
+    columnId: string,
+    cell: ReturnType<typeof row.getVisibleCells>[0],
+  ) => {
+    if (columnId === "displayNumber") {
+      return displayNumber;
+    }
+    if (columnId === "actions") {
+      return (
         <Button
           variant="ghost"
           size="icon"
@@ -175,8 +140,95 @@ function DraggableRow({
           <X className="h-3 w-3" />
           <span className="sr-only">Delete entry</span>
         </Button>
-      </TableCell>
-    </TableRow>
+      );
+    }
+    return flexRender(cell.column.columnDef.cell, cell.getContext());
+  };
+
+  return (
+    <tr
+      ref={combinedRef}
+      data-state={isSelected ? "selected" : undefined}
+      data-dragging={isDragging}
+      className={cn(
+        "cursor-grab active:cursor-grabbing group relative border-b",
+        isSelected && "bg-accent",
+        isSectionBreak && "bg-muted font-semibold",
+        isDragging &&
+          "z-50 bg-background shadow-md cursor-grabbing outline outline-2 outline-primary/50 opacity-95",
+      )}
+      style={style}
+      onClick={() => onSelectEntry?.(entry.id)}
+      {...attributes}
+      {...listeners}
+    >
+      {row.getVisibleCells().map((cell) => (
+        <td
+          key={cell.id}
+          className={cn(
+            "p-2 align-middle [&:has([role=checkbox])]:pr-0",
+            cell.column.id === "drag" && "px-1 w-[40px]",
+            cell.column.id === "displayNumber" &&
+              cn("font-medium w-[50px]", isSectionBreak && "font-bold"),
+            cell.column.id === "date" && "w-[100px] text-xs",
+            cell.column.id === "description" &&
+              cn("text-xs", isSectionBreak && "font-bold"),
+            cell.column.id === "page" &&
+              "text-right text-muted-foreground w-[80px]",
+            cell.column.id === "actions" && "px-1 w-[40px]",
+          )}
+        >
+          {renderCellContent(cell.column.id, cell)}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+// Virtualized row component
+interface VirtualizedRowProps {
+  row: Row<IndexEntry>;
+  isSelected: boolean;
+  displayNumber: string;
+  onSelectEntry?: (entryId: string) => void;
+  onDeleteEntry?: (entryId: string) => void;
+  rowRef?: (el: HTMLTableRowElement | null) => void;
+  virtualRow: { index: number; start: number; size: number };
+}
+
+function VirtualizedSortableRow({
+  row,
+  isSelected,
+  displayNumber,
+  onSelectEntry,
+  onDeleteEntry,
+  rowRef,
+  virtualRow,
+}: VirtualizedRowProps) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: `${virtualRow.size}px`,
+        transform: `translateY(${virtualRow.start}px)`,
+      }}
+    >
+      <table className="w-full table-fixed">
+        <tbody>
+          <SortableRow
+            row={row}
+            isSelected={isSelected}
+            displayNumber={displayNumber}
+            onSelectEntry={onSelectEntry}
+            onDeleteEntry={onDeleteEntry}
+            rowRef={rowRef}
+          />
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -194,12 +246,156 @@ export function MasterIndex({
   onFileDropped,
   isCompiling = false,
 }: MasterIndexProps) {
+  // Define columns with @tanstack/react-table
+  const columns = useMemo<ColumnDef<IndexEntry>[]>(
+    () => [
+      {
+        id: "drag",
+        header: "",
+        cell: () => <DragHandleIcon />,
+        size: 40,
+      },
+      {
+        id: "displayNumber",
+        header: "No.",
+        // Cell content rendered manually in SortableRow to include displayNumber
+        cell: () => null,
+        size: 50,
+      },
+      {
+        id: "date",
+        accessorKey: "date",
+        header: "Date",
+        cell: ({ row }) => {
+          const entry = row.original;
+          const isSectionBreak = entry.rowType === "section-break";
+          return isSectionBreak ? (
+            <span className="text-muted-foreground">-</span>
+          ) : (
+            <span className="text-muted-foreground">{entry.date || "-"}</span>
+          );
+        },
+        size: 100,
+      },
+      {
+        id: "description",
+        accessorKey: "description",
+        header: "Description",
+        cell: ({ row }) => {
+          const entry = row.original;
+          const isSectionBreak = entry.rowType === "section-break";
+          return (
+            <span className="truncate block">
+              {isSectionBreak
+                ? entry.sectionLabel || "Section Break"
+                : entry.description || "Untitled"}
+            </span>
+          );
+        },
+      },
+      {
+        id: "page",
+        header: "Page",
+        accessorFn: (row) => {
+          if (row.pageStart === row.pageEnd) return `${row.pageStart}`;
+          return `${row.pageStart} - ${row.pageEnd}`;
+        },
+        size: 80,
+      },
+      {
+        id: "actions",
+        header: "",
+        // Cell content rendered manually in SortableRow to include onDeleteEntry
+        cell: () => null,
+        size: 40,
+      },
+    ],
+    [],
+  );
+
+  // Create table instance
+  const table = useReactTable({
+    data: entries,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
+  });
+
   // Use the extracted DnD hook
   const dnd = useMasterIndexDnD({
     entries,
     onReorder,
     onFileDropped,
   });
+
+  // Refs for scroll container and row elements
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
+
+  // Track the current sticky section label
+  const [currentStickySection, setCurrentStickySection] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
+
+  // Virtualization setup
+  const rowVirtualizer = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 40, // Estimated row height
+    overscan: 5, // Render 5 extra rows above/below viewport
+  });
+
+  // Only use virtualization for large datasets (100+ entries)
+  const useVirtualization = entries.length > 100;
+
+  // Get all section breaks for tracking
+  const sectionBreaks = useMemo(
+    () => entries.filter((e) => e.rowType === "section-break"),
+    [entries],
+  );
+
+  // Track which section should be sticky based on scroll position
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || sectionBreaks.length === 0) {
+      setCurrentStickySection(null);
+      return;
+    }
+
+    const handleScroll = () => {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      // Account for the table header height (approximately 41px)
+      const headerOffset = 41;
+
+      let activeSection: { id: string; label: string } | null = null;
+
+      // Find the section whose row has scrolled past the header
+      for (const section of sectionBreaks) {
+        const rowEl = rowRefs.current.get(section.id);
+        if (!rowEl) continue;
+
+        const rowRect = rowEl.getBoundingClientRect();
+        // If the row's top is above or at the container's top + header offset, this section is active
+        if (rowRect.top <= containerRect.top + headerOffset) {
+          activeSection = {
+            id: section.id,
+            label: section.sectionLabel || "Section Break",
+          };
+        }
+      }
+
+      setCurrentStickySection(activeSection);
+    };
+
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+    // Initial check
+    handleScroll();
+
+    return () => {
+      scrollContainer.removeEventListener("scroll", handleScroll);
+    };
+  }, [sectionBreaks]);
 
   // Calculate total pages from last entry
   const getTotalPages = (): number => {
@@ -259,6 +455,7 @@ export function MasterIndex({
         </div>
       ) : (
         <div
+          ref={scrollContainerRef}
           className={cn(
             "flex-1 overflow-auto border rounded-lg transition-colors relative",
             dnd.isDragOver && "ring-2 ring-primary ring-inset bg-primary/5",
@@ -267,42 +464,178 @@ export function MasterIndex({
           onDragLeave={dnd.handleFileDragLeave}
           onDrop={dnd.handleFileDrop}
         >
+          {/* Floating Sticky Section Header - appears when a section is scrolled past */}
+          {currentStickySection && (
+            <div
+              className="sticky top-[41px] z-20 flex items-center gap-2 px-3 h-8 bg-primary/90 text-primary-foreground backdrop-blur-sm border-b cursor-pointer hover:bg-primary transition-colors"
+              onClick={() => {
+                const rowEl = rowRefs.current.get(currentStickySection.id);
+                if (rowEl) {
+                  rowEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  const rowEl = rowRefs.current.get(currentStickySection.id);
+                  if (rowEl) {
+                    rowEl.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }
+                }
+              }}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span className="font-medium text-xs">
+                {currentStickySection.label}
+              </span>
+            </div>
+          )}
+
           <DndContext
             collisionDetection={closestCenter}
             modifiers={[restrictToVerticalAxis]}
             onDragEnd={dnd.handleDragEnd}
             sensors={dnd.sensors}
           >
-            <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[40px]"></TableHead>
-                  <TableHead className="w-[50px]">No.</TableHead>
-                  <TableHead className="w-[100px]">Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="w-[80px] text-right">Page</TableHead>
-                  <TableHead className="w-[40px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <SortableContext
-                  items={dnd.entryIds}
-                  strategy={verticalListSortingStrategy}
+            <SortableContext
+              items={dnd.entryIds}
+              strategy={verticalListSortingStrategy}
+            >
+              {useVirtualization ? (
+                // Virtualized rendering for large datasets
+                <div
+                  style={{
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    width: "100%",
+                    position: "relative",
+                  }}
                 >
-                  {entries.map((entry, index) => (
-                    <DraggableRow
-                      key={entry.id}
-                      entry={entry}
-                      index={index}
-                      displayNumber={getDisplayNumber(entry, index, entries)}
-                      isSelected={selectedEntryId === entry.id}
-                      onSelectEntry={onSelectEntry}
-                      onDeleteEntry={onDeleteEntry}
-                    />
-                  ))}
-                </SortableContext>
-              </TableBody>
-            </Table>
+                  {/* Sticky header for virtualized table */}
+                  <table className="w-full table-fixed">
+                    <thead className="sticky top-0 bg-background z-30">
+                      {table.getHeaderGroups().map((headerGroup) => (
+                        <tr
+                          key={headerGroup.id}
+                          className="hover:bg-transparent"
+                        >
+                          {headerGroup.headers.map((header) => (
+                            <th
+                              key={header.id}
+                              className={cn(
+                                "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+                                header.id === "drag" && "w-[40px]",
+                                header.id === "displayNumber" && "w-[50px]",
+                                header.id === "date" && "w-[100px]",
+                                header.id === "page" && "w-[80px] text-right",
+                                header.id === "actions" && "w-[40px]",
+                              )}
+                            >
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext(),
+                                  )}
+                            </th>
+                          ))}
+                        </tr>
+                      ))}
+                    </thead>
+                  </table>
+
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const row = table.getRowModel().rows[virtualRow.index];
+                    if (!row) return null;
+                    const entry = row.original;
+                    return (
+                      <VirtualizedSortableRow
+                        key={row.id}
+                        row={row}
+                        virtualRow={virtualRow}
+                        isSelected={selectedEntryId === entry.id}
+                        displayNumber={getDisplayNumber(
+                          entry,
+                          virtualRow.index,
+                          entries,
+                        )}
+                        onSelectEntry={onSelectEntry}
+                        onDeleteEntry={onDeleteEntry}
+                        rowRef={(el) => {
+                          if (el) {
+                            rowRefs.current.set(entry.id, el);
+                          } else {
+                            rowRefs.current.delete(entry.id);
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                // Standard rendering for small datasets
+                <table className="w-full caption-bottom text-sm table-fixed">
+                  <thead className="sticky top-0 bg-background z-30 [&_tr]:border-b">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <tr
+                        key={headerGroup.id}
+                        className="border-b transition-colors hover:bg-transparent"
+                      >
+                        {headerGroup.headers.map((header) => (
+                          <th
+                            key={header.id}
+                            className={cn(
+                              "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+                              header.id === "drag" && "w-[40px]",
+                              header.id === "displayNumber" && "w-[50px]",
+                              header.id === "date" && "w-[100px]",
+                              header.id === "page" && "w-[80px] text-right",
+                              header.id === "actions" && "w-[40px]",
+                            )}
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext(),
+                                )}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody className="[&_tr:last-child]:border-0">
+                    {table.getRowModel().rows.map((row, index) => {
+                      const entry = row.original;
+                      return (
+                        <SortableRow
+                          key={row.id}
+                          row={row}
+                          isSelected={selectedEntryId === entry.id}
+                          displayNumber={getDisplayNumber(
+                            entry,
+                            index,
+                            entries,
+                          )}
+                          onSelectEntry={onSelectEntry}
+                          onDeleteEntry={onDeleteEntry}
+                          rowRef={(el) => {
+                            if (el) {
+                              rowRefs.current.set(entry.id, el);
+                            } else {
+                              rowRefs.current.delete(entry.id);
+                            }
+                          }}
+                        />
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </SortableContext>
           </DndContext>
 
           {dnd.isDragOver && (
